@@ -8,6 +8,7 @@
    
 dump command :h3
 "dump image"_dump_image.html command :h3
+"dump movie"_dump_image.html command :h3
 "dump molfile"_dump_molfile.html command :h3
 
 [Syntax:]
@@ -85,8 +86,8 @@ dump myDump all atom 100 dump.atom
 dump 2 subgroup atom 50 dump.run.bin
 dump 4a all custom 100 dump.myforce.* id type x y vx fx
 dump 4b flow custom 100 dump.%.myforce id type c_myF\[3\] v_ke
-dump 2 inner cfg 10 dump.snap.*.cfg id type xs ys zs vx vy vz
-dump snap all cfg 100 dump.config.*.cfg id type xs ys zs id type c_Stress[2]
+dump 2 inner cfg 10 dump.snap.*.cfg mass type xs ys zs vx vy vz
+dump snap all cfg 100 dump.config.*.cfg mass type xs ys zs id type c_Stress[2]
 dump 1 all xtc 1000 file.xtc
 dump e_data all custom 100 dump.eff id type x y z spin eradius fx fy fz eforce :pre
 
@@ -97,8 +98,8 @@ timesteps in one of several styles.  The {image} style is the
 exception; it creates a JPG or PPM image file of the atom
 configuration every N timesteps, as discussed on the "dump
 image"_dump_image.html doc page.  The timesteps on which dump output
-is written can also be controlled by a variable. See the "dump_modify
-every"_dump_modify.html command.
+is written can also be controlled by a variable; see the "dump_modify
+every"_dump_modify.html command for details.
 
 Only information for atoms in the specified group is dumped.  The
 "dump_modify thresh and region"_dump_modify.html commands can also
@@ -107,7 +108,7 @@ options; see details below.
 
 As described below, the filename determines the kind of output (text
 or binary or gzipped, one big file or one per timestep, one big file
-or one per processor).
+or multiple smaller files).
 
 IMPORTANT NOTE: Because periodic boundary conditions are enforced only
 on timesteps when neighbor lists are rebuilt, the coordinates of an
@@ -122,7 +123,7 @@ if the "atom_modify sort"_atom_modify.html option is on, which it is
 by default.  In this case atoms are re-ordered periodically during a
 simulation, due to spatial sorting.  It is also true when running in
 parallel, because data for a single snapshot is collected from
-multiple processors.
+multiple processors, each of which owns a subset of the atoms.
 
 For the {atom}, {custom}, {cfg}, and {local} styles, sorting is off by
 default.  For the {dcd}, {xtc}, {xyz}, and {molfile} styles, sorting by
@@ -225,23 +226,22 @@ extended CFG format files, as used by the
 package.  Since the extended CFG format uses a single snapshot of the
 system per file, a wildcard "*" must be included in the filename, as
 discussed below.  The list of atom attributes for style {cfg} must
-begin with either "id type xs ys zs" or "id type xsu ysu zsu" or 
-since these quantities are needed to
-write the CFG files in the appropriate format (though the "id" and
-"type" fields do not appear explicitly in the file).  Any remaining
-attributes will be stored as "auxiliary properties" in the CFG files.
-Note that you will typically want to use the "dump_modify
-element"_dump_modify.html command with CFG-formatted files, to
-associate element names with atom types, so that AtomEye can render
-atoms appropriately. When unwrapped coordinates {xsu}, {ysu}, and {zsu}
-are requested, the nominal AtomEye periodic cell dimensions are expanded 
-by a large factor UNWRAPEXPAND = 10.0, which ensures atoms that are 
-displayed correctly for up to UNWRAPEXPAND/2 periodic boundary crossings 
-in any direction. 
-Beyond this, AtomEye will rewrap the unwrapped coordinates. 
-The expansion causes the atoms to be drawn farther
-away from the viewer, but it is easy to zoom the atoms closer, and
-the interatomic distances are unaffected.   
+begin with either "mass type xs ys zs" or "mass type xsu ysu zsu"
+since these quantities are needed to write the CFG files in the
+appropriate format (though the "mass" and "type" fields do not appear
+explicitly in the file).  Any remaining attributes will be stored as
+"auxiliary properties" in the CFG files.  Note that you will typically
+want to use the "dump_modify element"_dump_modify.html command with
+CFG-formatted files, to associate element names with atom types, so
+that AtomEye can render atoms appropriately. When unwrapped
+coordinates {xsu}, {ysu}, and {zsu} are requested, the nominal AtomEye
+periodic cell dimensions are expanded by a large factor UNWRAPEXPAND =
+10.0, which ensures atoms that are displayed correctly for up to
+UNWRAPEXPAND/2 periodic boundary crossings in any direction.  Beyond
+this, AtomEye will rewrap the unwrapped coordinates.  The expansion
+causes the atoms to be drawn farther away from the viewer, but it is
+easy to zoom the atoms closer, and the interatomic distances are
+unaffected.
 
 The {dcd} style writes DCD files, a standard atomic trajectory format
 used by the CHARMM, NAMD, and XPlor molecular dynamics packages.  DCD
@@ -282,11 +282,12 @@ from using the (numerical) atom type to an element name (or some
 other label). This will help many visualization programs to guess
 bonds and colors.
 
-Note that {atom}, {custom}, {dcd}, {xtc}, and {xyz} style dump files can
-be read directly by "VMD"_http://www.ks.uiuc.edu/Research/vmd (a popular
-molecular viewing program).  See "Section tools"_Section_tools.html#vmd
-of the manual and the tools/lmp2vmd/README.txt file for more information
-about support in VMD for reading and visualizing LAMMPS dump files.
+Note that {atom}, {custom}, {dcd}, {xtc}, and {xyz} style dump files
+can be read directly by "VMD"_http://www.ks.uiuc.edu/Research/vmd, a
+popular molecular viewing program.  See "Section
+tools"_Section_tools.html#vmd of the manual and the
+tools/lmp2vmd/README.txt file for more information about support in
+VMD for reading and visualizing LAMMPS dump files.
 
 :line
 
@@ -319,7 +320,7 @@ tmp.dump.20000, etc.  This option is not available for the {dcd} and
 {xtc} styles.  Note that the "dump_modify pad"_dump_modify.html
 command can be used to insure all timestep numbers are the same length
 (e.g. 00010), which can make it easier to read a series of dump files
-in order by some post-processing tools.
+in order with some post-processing tools.
 
 If a "%" character appears in the filename, then each of P processors
 writes a portion of the dump file, and the "%" character is replaced

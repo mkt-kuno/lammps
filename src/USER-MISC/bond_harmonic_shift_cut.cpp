@@ -117,6 +117,7 @@ void BondHarmonicShiftCut::allocate()
   memory->create(r0,    n+1,"bond:r0");
   memory->create(r1,    n+1,"bond:r1");
   memory->create(setflag,n+1,"bond:setflag");
+
   for (int i = 1; i <= n; i++) setflag[i] = 0;
 }
 
@@ -135,6 +136,8 @@ void BondHarmonicShiftCut::coeff(int narg, char **arg)
   double Umin = force->numeric(FLERR,arg[1]);   // energy at minimum
   double r0_one = force->numeric(FLERR,arg[2]); // position of minimum
   double r1_one = force->numeric(FLERR,arg[3]);  // position where energy = 0 = cutoff
+  if (r0_one == r1_one)
+    error->all(FLERR,"Bond harmonic/shift/cut r0 and r1 must be different");
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {
@@ -186,6 +189,18 @@ void BondHarmonicShiftCut::read_restart(FILE *fp)
   MPI_Bcast(&r1[1],atom->nbondtypes,MPI_DOUBLE,0,world);
 
   for (int i = 1; i <= atom->nbondtypes; i++) setflag[i] = 1;
+}
+
+/* ----------------------------------------------------------------------
+   proc 0 writes to data file
+------------------------------------------------------------------------- */
+
+void BondHarmonicShiftCut::write_data(FILE *fp)
+{
+  for (int i = 1; i <= atom->nbondtypes; i++) {
+    double d2 = (r0[i]-r1[i])*(r0[i]-r1[i]);
+    fprintf(fp,"%d %g %g %g\n",i,k[i]*d2,r0[i],r1[i]);
+  }
 }
 
 /* ---------------------------------------------------------------------- */

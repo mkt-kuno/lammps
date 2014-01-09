@@ -31,14 +31,17 @@ class DumpCFG : public DumpCustom {
 
  private:
   char **auxname;            // name strings of auxiliary properties
-  int nchosen;               // # of lines to be written on a writing proc
-  int nlines;                // # of lines transferred from buf to rbuf
-  double **rbuf;             // buf of data lines for data lines rearrangement
   int unwrapflag;            // 1 if unwrapped coordinates are requested
 
   void init_style();
   void write_header(bigint);
+  int convert_string(int, double *);
   void write_data(int, double *);
+
+  typedef void (DumpCFG::*FnPtrWrite)(int, double *);
+  FnPtrWrite write_choice;             // ptr to write data functions
+  void write_string(int, double *);
+  void write_lines(int, double *);
 };
 
 }

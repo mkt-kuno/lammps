@@ -233,6 +233,7 @@ void Neighbor::init()
   //   needs to be non-zero for migration distance check
   //   even if pair = NULL and no neighbor lists are used
   // cutneigh = force cutoff + skin if cutforce > 0, else cutneigh = 0
+  // cutneighghost = pair cutghost if it requests it, else same as cutneigh
 
   triggersq = 0.25*skin*skin;
   boxcheck = 0;
@@ -270,7 +271,7 @@ void Neighbor::init()
       if (force->pair && force->pair->ghostneigh) {
         cut = force->pair->cutghost[i][j] + skin;
         cutneighghostsq[i][j] = cut*cut;
-      }
+      } else cutneighghostsq[i][j] = cut*cut;
     }
   }
   cutneighmaxsq = cutneighmax * cutneighmax;
@@ -435,6 +436,10 @@ void Neighbor::init()
   // no need to re-create if:
   //   neigh style, triclinic, pgsize, oneatom have not changed
   //   current requests = old requests
+  // first archive request params for current requests 
+  //   before Neighbor possibly changes them below
+
+  for (i = 0; i < nrequest; i++) requests[i]->archive();
 
   int same = 1;
   if (style != old_style) same = 0;
@@ -467,12 +472,11 @@ void Neighbor::init()
     stencil_create = new StencilPtr[nlist];
 
     // create individual lists, one per request
-    // copy dnum setting from request to list
     // pass list ptr back to requestor (except for Command class)
+    // wait to allocate initial pages until copy lists are detected
 
     for (i = 0; i < nlist; i++) {
       lists[i] = new NeighList(lmp);
-      lists[i]->setup_pages(pgsize,oneatom,requests[i]->dnum);
       lists[i]->index = i;
 
       if (requests[i]->pair) {
@@ -594,6 +598,12 @@ void Neighbor::init()
         }
       }
     }
+
+    // allocate initial pages for each list, except if listcopy set
+
+    for (i = 0; i < nlist; i++)
+      if (!lists[i]->listcopy)
+        lists[i]->setup_pages(pgsize,oneatom,requests[i]->dnum);
 
     // set ptrs to pair_build and stencil_create functions for each list
     // ptrs set to NULL if not set explicitly
@@ -790,6 +800,17 @@ void Neighbor::init()
         if (atom->improper_type[i][m] <= 0) improper_off = 1;
     }
   }
+
+  // sync on/off settings across all procs
+
+  int on_or_off = bond_off;
+  MPI_Allreduce(&on_or_off,&bond_off,1,MPI_INT,MPI_MAX,world);
+  on_or_off = angle_off;
+  MPI_Allreduce(&on_or_off,&angle_off,1,MPI_INT,MPI_MAX,world);
+  on_or_off = dihedral_off;
+  MPI_Allreduce(&on_or_off,&dihedral_off,1,MPI_INT,MPI_MAX,world);
+  on_or_off = improper_off;
+  MPI_Allreduce(&on_or_off,&improper_off,1,MPI_INT,MPI_MAX,world);
 
   // set ptrs to topology build functions
 

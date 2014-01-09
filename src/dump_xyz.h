@@ -29,15 +29,21 @@ class DumpXYZ : public Dump {
   DumpXYZ(class LAMMPS *, int, char**);
   ~DumpXYZ();
 
- private:
+ protected:
+  int ntypes;
+  char **typenames;
+
   void init_style();
   void write_header(bigint);
   void pack(int *);
+  int convert_string(int, double *);
   void write_data(int, double *);
   int modify_param(int, char **);
 
-  int ntypes;
-  char **typenames;
+  typedef void (DumpXYZ::*FnPtrWrite)(int, double *);
+  FnPtrWrite write_choice;              // ptr to write data functions
+  void write_string(int, double *);
+  void write_lines(int, double *);
 };
 
 }

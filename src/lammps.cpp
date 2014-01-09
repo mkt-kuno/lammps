@@ -13,6 +13,7 @@
 
 #include "mpi.h"
 #include "string.h"
+#include "ctype.h"
 #include "lammps.h"
 #include "style_angle.h"
 #include "style_atom.h"
@@ -74,11 +75,15 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
   int partscreenflag = 0;
   int partlogflag = 0;
   int cudaflag = -1;
+  int restartflag = 0;
   int citeflag = 1;
   int helpflag = 0;
 
   suffix = NULL;
   suffix_enable = 0;
+  char *rfile = NULL;
+  char *dfile = NULL;
+  int wdfirst,wdlast;
 
   int iarg = 1;
   while (iarg < narg) {
@@ -152,13 +157,25 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
       suffix_enable = 1;
       iarg += 2;
     } else if (strcmp(arg[iarg],"-reorder") == 0 ||
-               strcmp(arg[iarg],"-r") == 0) {
+               strcmp(arg[iarg],"-ro") == 0) {
       if (iarg+3 > narg)
         error->universe_all(FLERR,"Invalid command-line argument");
       if (universe->existflag)
         error->universe_all(FLERR,"Cannot use -reorder after -partition");
       universe->reorder(arg[iarg+1],arg[iarg+2]);
       iarg += 3;
+    } else if (strcmp(arg[iarg],"-restart") == 0 ||
+               strcmp(arg[iarg],"-r") == 0) {
+      if (iarg+3 > narg)
+        error->universe_all(FLERR,"Invalid command-line argument");
+      restartflag = 1;
+      rfile = arg[iarg+1];
+      dfile = arg[iarg+2];
+      iarg += 3;
+      // delimit any extra args for the write_data command
+      wdfirst = iarg;
+      while (iarg < narg && arg[iarg][0] != '-') iarg++;
+      wdlast = iarg;
     } else if (strcmp(arg[iarg],"-nocite") == 0 ||
                strcmp(arg[iarg],"-nc") == 0) {
       citeflag = 0;
@@ -209,9 +226,11 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
         error->universe_one(FLERR,"Cannot open universe screen file");
     }
     if (logflag == 0) {
-      universe->ulogfile = fopen("log.lammps","w");
-      if (universe->ulogfile == NULL)
-        error->universe_warn(FLERR,"Cannot open log.lammps for writing");
+      if (helpflag == 0) {
+        universe->ulogfile = fopen("log.lammps","w");
+        if (universe->ulogfile == NULL)
+          error->universe_warn(FLERR,"Cannot open log.lammps for writing");
+      }
     } else if (strcmp(arg[logflag],"none") == 0)
       universe->ulogfile = NULL;
     else {
@@ -417,7 +436,22 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
   // if helpflag set, print help and quit
 
   if (helpflag) {
-    if (universe->me == 0) print_styles();
+    if (universe->me == 0 && screen) help();
+    error->done();
+  }
+
+  // if restartflag set, process 2 command and quit
+  // add args between wdfirst and wdlast to write_data
+
+  if (restartflag) {
+    char cmd[128];
+    sprintf(cmd,"read_restart %s\n",rfile);
+    input->one(cmd);
+    sprintf(cmd,"write_data %s",dfile);
+    for (iarg = wdfirst; iarg < wdlast; iarg++)
+      sprintf(&cmd[strlen(cmd)]," %s",arg[iarg]);
+    strcat(cmd,"\n");
+    input->one(cmd);
     error->done();
   }
 }
@@ -557,108 +591,171 @@ void LAMMPS::destroy()
 }
 
 /* ----------------------------------------------------------------------
-   for each style, print name of all child classes build into executable
+   help message for command line options and styles present in executable
 ------------------------------------------------------------------------- */
 
-void LAMMPS::print_styles()
+void LAMMPS::help()
 {
-  printf("\nList of style options included in this executable:\n\n");
+  fprintf(screen,
+          "\nCommand line options:\n\n"
+          "-cuda on/off                : turn CUDA mode on or off (-c)\n"
+          "-echo none/screen/log/both  : echoing of input script (-e)\n"
+          "-in filename                : read input from file, not stdin (-i)\n"
+          "-help                       : print this help message (-h)\n"
+          "-log none/filename          : where to send log output (-l)\n"
+          "-nocite                     : disable writing log.cite file (-nc)\n"
+          "-partition size1 size2 ...  : assign partition sizes (-p)\n"
+          "-plog basename              : basename for partition logs (-pl)\n"
+          "-pscreen basename           : basename for partition screens (-ps)\n"
+          "-reorder topology-specs     : processor reordering (-r)\n"
+          "-screen none/filename       : where to send screen output (-sc)\n"
+          "-suffix cuda/gpu/opt/omp    : style suffix to apply (-sf)\n"
+          "-var varname value          : set index style variable (-v)\n\n");
+  
+  fprintf(screen,"Style options compiled with this executable\n\n");
 
-  printf("Atom styles:");
+  int pos = 80;
+  fprintf(screen,"* Atom styles:\n");
 #define ATOM_CLASS
-#define AtomStyle(key,Class) printf(" %s",#key);
+#define AtomStyle(key,Class) print_style(#key,pos);
 #include "style_atom.h"
 #undef ATOM_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Integrate styles:");
+  pos = 80;
+  fprintf(screen,"* Integrate styles:\n");
 #define INTEGRATE_CLASS
-#define IntegrateStyle(key,Class) printf(" %s",#key);
+#define IntegrateStyle(key,Class) print_style(#key,pos);
 #include "style_integrate.h"
 #undef INTEGRATE_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Minimize styles:");
+  pos = 80;
+  fprintf(screen,"* Minimize styles:\n");
 #define MINIMIZE_CLASS
-#define MinimizeStyle(key,Class) printf(" %s",#key);
+#define MinimizeStyle(key,Class) print_style(#key,pos);
 #include "style_minimize.h"
 #undef MINIMIZE_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Pair styles:");
+  pos = 80;
+  fprintf(screen,"* Pair styles:\n");
 #define PAIR_CLASS
-#define PairStyle(key,Class) printf(" %s",#key);
+#define PairStyle(key,Class) print_style(#key,pos);
 #include "style_pair.h"
 #undef PAIR_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Bond styles:");
+  pos = 80;
+  fprintf(screen,"* Bond styles:\n");
 #define BOND_CLASS
-#define BondStyle(key,Class) printf(" %s",#key);
+#define BondStyle(key,Class) print_style(#key,pos);
 #include "style_bond.h"
 #undef BOND_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Angle styles:");
+  pos = 80;
+  fprintf(screen,"* Angle styles:\n");
 #define ANGLE_CLASS
-#define AngleStyle(key,Class) printf(" %s",#key);
+#define AngleStyle(key,Class) print_style(#key,pos);
 #include "style_angle.h"
 #undef ANGLE_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Dihedral styles:");
+  pos = 80;
+  fprintf(screen,"* Dihedral styles:\n");
 #define DIHEDRAL_CLASS
-#define DihedralStyle(key,Class) printf(" %s",#key);
+#define DihedralStyle(key,Class) print_style(#key,pos);
 #include "style_dihedral.h"
 #undef DIHEDRAL_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Improper styles:");
+  pos = 80;
+  fprintf(screen,"* Improper styles:\n");
 #define IMPROPER_CLASS
-#define ImproperStyle(key,Class) printf(" %s",#key);
+#define ImproperStyle(key,Class) print_style(#key,pos);
 #include "style_improper.h"
 #undef IMPROPER_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("KSpace styles:");
+  pos = 80;
+  fprintf(screen,"* KSpace styles:\n");
 #define KSPACE_CLASS
-#define KSpaceStyle(key,Class) printf(" %s",#key);
+#define KSpaceStyle(key,Class) print_style(#key,pos);
 #include "style_kspace.h"
 #undef KSPACE_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Fix styles (upper case are only for internal use):");
+  pos = 80;
+  fprintf(screen,"* Fix styles\n");
 #define FIX_CLASS
-#define FixStyle(key,Class) printf(" %s",#key);
+#define FixStyle(key,Class) print_style(#key,pos);
 #include "style_fix.h"
 #undef FIX_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Compute styles:");
+  pos = 80;
+  fprintf(screen,"* Compute styles:\n");
 #define COMPUTE_CLASS
-#define ComputeStyle(key,Class) printf(" %s",#key);
+#define ComputeStyle(key,Class) print_style(#key,pos);
 #include "style_compute.h"
 #undef COMPUTE_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Region styles:");
+  pos = 80;
+  fprintf(screen,"* Region styles:\n");
 #define REGION_CLASS
-#define RegionStyle(key,Class) printf(" %s",#key);
+#define RegionStyle(key,Class) print_style(#key,pos);
 #include "style_region.h"
 #undef REGION_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Dump styles:");
+  pos = 80;
+  fprintf(screen,"* Dump styles:\n");
 #define DUMP_CLASS
-#define DumpStyle(key,Class) printf(" %s",#key);
+#define DumpStyle(key,Class) print_style(#key,pos);
 #include "style_dump.h"
 #undef DUMP_CLASS
-  printf("\n\n");
+  fprintf(screen,"\n\n");
 
-  printf("Command styles (add-on input script commands):");
+  pos = 80;
+  fprintf(screen,"* Command styles\n");
 #define COMMAND_CLASS
-#define CommandStyle(key,Class) printf(" %s",#key);
+#define CommandStyle(key,Class) print_style(#key,pos);
 #include "style_command.h"
 #undef COMMAND_CLASS
-  printf("\n");
+  fprintf(screen,"\n");
+}
+
+/* ----------------------------------------------------------------------
+   print style names in columns
+   skip any style that starts with upper-case letter, since internal
+------------------------------------------------------------------------- */
+
+void LAMMPS::print_style(const char *str, int &pos)
+{
+  if (isupper(str[0])) return;
+
+  int len = strlen(str);
+  if (pos+len > 80) { 
+    fprintf(screen,"\n");
+    pos = 0;
+  }
+
+  if (len < 16) {
+    fprintf(screen,"%-16s",str);
+    pos += 16;
+  } else if (len < 32) {
+    fprintf(screen,"%-32s",str);
+    pos += 32;
+  } else if (len < 48) {
+    fprintf(screen,"%-48s",str);
+    pos += 48;
+  } else if (len < 64) {
+    fprintf(screen,"%-64s",str);
+    pos += 64;
+  } else {
+    fprintf(screen,"%-80s",str);
+    pos += 80;
+  }
 }

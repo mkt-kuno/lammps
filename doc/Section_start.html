@@ -189,6 +189,7 @@ within the LAMMPS code.  The options that are currently recogized are:
 <UL><LI>-DLAMMPS_GZIP
 <LI>-DLAMMPS_JPEG
 <LI>-DLAMMPS_PNG
+<LI>-DLAMMPS_FFMPEG
 <LI>-DLAMMPS_MEMALIGN
 <LI>-DLAMMPS_XDR
 <LI>-DLAMMPS_SMALLBIG
@@ -200,17 +201,24 @@ within the LAMMPS code.  The options that are currently recogized are:
 <LI>-DPACK_MEMCPY 
 </UL>
 <P>The read_data and dump commands will read/write gzipped files if you
-compile with -DLAMMPS_GZIP.  It requires that your Unix support the
-"popen" command.
+compile with -DLAMMPS_GZIP.  It requires that your machine supports
+the "popen" function in the standard runtime library and that a gzip
+executable can be found by LAMMPS during a run.
 </P>
-<P>If you use -DLAMMPS_JPEG, the <A HREF = "dump.html">dump image</A> command will be
-able to write out JPEG image files. For JPEG files, you must also link
-LAMMPS with a JPEG library, as described below. If you use
+<P>If you use -DLAMMPS_JPEG, the <A HREF = "dump_image.html">dump image</A> command
+will be able to write out JPEG image files. For JPEG files, you must
+also link LAMMPS with a JPEG library, as described below. If you use
 -DLAMMPS_PNG, the <A HREF = "dump.html">dump image</A> command will be able to write
 out PNG image files.  For PNG files, you must also link LAMMPS with a
 PNG library, as described below.  If neither of those two defines are
-used, LAMMPS will only be able to write out text-based PPM image
+used, LAMMPS will only be able to write out uncompressed PPM image
 files.
+</P>
+<P>If you use -DLAMMPS_FFMPEG, the <A HREF = "dump_image.html">dump movie</A> command
+will be available to support on-the-fly generation of rendered movies
+the need to store intermediate image files. It requires that your
+machines supports the "popen" function in the standard runtime library
+and that an FFmpeg executable can be found by LAMMPS during the run.
 </P>
 <P>Using -DLAMMPS_MEMALIGN=<bytes> enables the use of the
 posix_memalign() call instead of malloc() when large chunks or memory
@@ -1010,7 +1018,8 @@ letter abbreviation can be used:
 <LI>-p or -partition
 <LI>-pl or -plog
 <LI>-ps or -pscreen
-<LI>-r or -reorder
+<LI>-r or -restart
+<LI>-ro or -reorder
 <LI>-sc or -screen
 <LI>-sf or -suffix
 <LI>-v or -var 
@@ -1129,6 +1138,25 @@ screen files to be suppressed (-pscreen none) or placed in a
 sub-directory (-pscreen replica_files/screen).  If this option is not
 used the screen file for partition N is screen.N or whatever is
 specified by the -screen command-line option.
+</P>
+<PRE>-restart restartfile datafile keyword value ... 
+</PRE>
+<P>Convert the restart file into a data file and immediately exit.  This
+is the same operation as if the following 2-line input script were
+run:
+</P>
+<PRE>read_restart restartfile
+write_data datafile keyword value ... 
+</PRE>
+<P>Note that the specified restartfile and datafile can have wild-card
+characters ("*",%") as described by the
+<A HREF = "read_restart.html">read_restart</A> and <A HREF = "write_data.html">write_data</A>
+commands.  But a filename such as file.* will need to be enclosed in
+quotes to avoid shell expansion of the "*" character.
+</P>
+<P>Also note that following datafile, the same optional keyword/value
+pairs can be listed as used by the <A HREF = "write_data.html">write_data</A>
+command.
 </P>
 <PRE>-reorder nth N
 -reorder custom filename 

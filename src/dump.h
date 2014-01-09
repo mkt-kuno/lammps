@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -78,6 +78,8 @@ class Dump : protected Pointers {
   int flush_flag;            // 0 if no flush, 1 if flush every dump
   int sort_flag;             // 1 if sorted output
   int append_flag;           // 1 if open file in append mode, 0 if not
+  int buffer_allow;          // 1 if style allows for buffer_flag, 0 if not
+  int buffer_flag;           // 1 if buffer output as one big string, 0 if not
   int padflag;               // timestep padding in filename
   int singlefile_opened;     // 1 = one big file, already opened, else 0
   int sortcol;               // 0 to sort on ID, 1-N on columns
@@ -91,6 +93,7 @@ class Dump : protected Pointers {
   FILE *fp;                  // file to write dump to
   int size_one;              // # of quantities for one atom
   int nme;                   // # of atoms in this dump from me
+  int nsme;                  // # of chars in string output from me
 
   double boxxlo,boxxhi;      // local copies of domain values
   double boxylo,boxyhi;      // lo/hi are bounding box for triclinic
@@ -105,6 +108,9 @@ class Dump : protected Pointers {
 
   int maxbuf;                // size of buf
   double *buf;               // memory for atom quantities
+
+  int maxsbuf;               // size of sbuf
+  char *sbuf;                // memory for atom quantities in string format
 
   int maxids;                // size of ids
   int maxsort;               // size of bufsort, idsort, index
@@ -121,6 +127,7 @@ class Dump : protected Pointers {
   virtual void write_header(bigint) = 0;
   virtual int count();
   virtual void pack(int *) = 0;
+  virtual int convert_string(int, double *) {return 0;}
   virtual void write_data(int, double *) = 0;
 
   //~ The following virtual functions were added [KH - 30 May 2012]
@@ -163,13 +170,14 @@ integer for dump.
 
 E: Cannot open gzipped file
 
-LAMMPS is attempting to open a gzipped version of the specified file
-but was unsuccessful.  Check that the path and name are correct.
+LAMMPS was compiled without support for reading and writing gzipped
+files through a pipeline to the gzip program with -DLAMMPS_GZIP.
 
 E: Cannot open dump file
 
-The output file for the dump command cannot be opened.  Check that the
-path and name are correct.
+The specified file cannot be opened.  Check that the path and name are
+correct. If the file is a compressed file, also check that the gzip
+executable can be found and run.
 
 E: Illegal ... command
 

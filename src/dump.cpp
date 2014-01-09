@@ -71,6 +71,8 @@ Dump::Dump(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   clearstep = 0;
   sort_flag = 0;
   append_flag = 0;
+  buffer_allow = 0;
+  buffer_flag = 0;
   padflag = 0;
   vtkflag = 0; //~ Initialise vtkflag at 0 [KH - 30 May 2012]
 
@@ -78,6 +80,9 @@ Dump::Dump(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   buf = bufsort = NULL;
   ids = idsort = index = proclist = NULL;
   irregular = NULL;
+
+  maxsbuf = 0;
+  sbuf = NULL;
 
   // parse filename for special syntax
   // if contains '%', write one file per proc and replace % with proc-ID
@@ -141,6 +146,8 @@ Dump::~Dump()
   memory->destroy(index);
   memory->destroy(proclist);
   delete irregular;
+
+  memory->destroy(sbuf);
 
   if (multiproc) MPI_Comm_free(&clustercomm);
 
@@ -302,11 +309,9 @@ void Dump::write()
 
   if (filewriter) write_header(nheader);
 
-  // insure filewriter proc can receive everyone's info
-  // limit nmax*size_one to int since used as arg in MPI_Rsend() below
-  // pack my data into buf
-  // if sorting on IDs also request ID list from pack()
-  // sort buf as needed
+  // insure buf is sized for packing and communicating
+  // use nmax to insure filewriter proc can receive info from others
+  // limit nmax*size_one to int since used as arg in MPI calls
 
   if (nmax > maxbuf) {
     if ((bigint) nmax * size_one > MAXSMALLINT)
@@ -315,17 +320,41 @@ void Dump::write()
     memory->destroy(buf);
     memory->create(buf,maxbuf*size_one,"dump:buf");
   }
+
+  // insure ids buffer is sized for sorting
+
   if (sort_flag && sortcol == 0 && nmax > maxids) {
     maxids = nmax;
     memory->destroy(ids);
     memory->create(ids,maxids,"dump:ids");
   }
 
+  // pack my data into buf
+  // if sorting on IDs also request ID list from pack()
+  // sort buf as needed
+
   if (sort_flag && sortcol == 0) pack(ids);
   else pack(NULL);
   if (sort_flag) sort();
+ 
+  // if buffering, convert doubles into strings
+  // insure sbuf is sized for communicating
 
-  int tmp,nlines;
+  if (buffer_flag) {
+    nsme = convert_string(nme,buf);
+    int nsmin,nsmax;
+    MPI_Allreduce(&nsme,&nsmin,1,MPI_INT,MPI_MIN,world);
+    if (nsmin < 0) error->all(FLERR,"Too much buffered per-proc info for dump");
+    if (multiproc != nprocs) 
+      MPI_Allreduce(&nsme,&nsmax,1,MPI_INT,MPI_MAX,world);
+    else nsmax = nsme;
+    if (nsmax > maxsbuf) {
+      maxsbuf = nsmax;
+      memory->grow(sbuf,maxsbuf,"dump:sbuf");
+    }
+  }
+
+  int tmp,nlines,nchars;
   MPI_Status status;
   MPI_Request request;
 
@@ -414,27 +443,50 @@ void Dump::write()
 
     //~ Free the memory allocated to secondbuf [KH - 31 May 2012]
     memory->destroy(secondbuf);
-  } else if (filewriter) {
-    // filewriter = 1 = this proc writes to file
-    //   ping each proc in my cluster, receive its data, write data to file
-    // else wait for ping from fileproc, send my data to fileproc
+  } else if (buffer_flag == 0) {
+    if (filewriter) {
+      // filewriter = 1 = this proc writes to file
+      // ping each proc in my cluster, receive its data, write data to file
+      // else wait for ping from fileproc, send my data to fileproc
 
-    for (int iproc = 0; iproc < nclusterprocs; iproc++) {
-      if (iproc) {
-	MPI_Irecv(buf,maxbuf*size_one,MPI_DOUBLE,me+iproc,0,world,&request);
-	MPI_Send(&tmp,0,MPI_INT,me+iproc,0,world);
-	MPI_Wait(&request,&status);
-	MPI_Get_count(&status,MPI_DOUBLE,&nlines);
-	nlines /= size_one;
-      } else nlines = nme;
-      
-      write_data(nlines,buf);
-    }
-    if (flush_flag) fflush(fp);
+      for (int iproc = 0; iproc < nclusterprocs; iproc++) {
+	if (iproc) {
+	  MPI_Irecv(buf,maxbuf*size_one,MPI_DOUBLE,me+iproc,0,world,&request);
+	  MPI_Send(&tmp,0,MPI_INT,me+iproc,0,world);
+	  MPI_Wait(&request,&status);
+	  MPI_Get_count(&status,MPI_DOUBLE,&nlines);
+	  nlines /= size_one;
+	} else nlines = nme;
+	
+	write_data(nlines,buf);
+      }
+      if (flush_flag) fflush(fp);
     
+    } else {
+      MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
+      MPI_Rsend(buf,nme*size_one,MPI_DOUBLE,fileproc,0,world);
+    }
+
+  // comm and output sbuf = one big string of formatted values per proc
+
   } else {
-    MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
-    MPI_Rsend(buf,nme*size_one,MPI_DOUBLE,fileproc,0,world);
+    if (filewriter) {
+      for (int iproc = 0; iproc < nclusterprocs; iproc++) {
+        if (iproc) {
+          MPI_Irecv(sbuf,maxsbuf,MPI_CHAR,me+iproc,0,world,&request);
+          MPI_Send(&tmp,0,MPI_INT,me+iproc,0,world);
+          MPI_Wait(&request,&status);
+          MPI_Get_count(&status,MPI_CHAR,&nchars);
+        } else nchars = nsme;
+        
+        write_data(nchars,(double *) sbuf);
+      }
+      if (flush_flag) fflush(fp);
+      
+    } else {
+      MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
+      MPI_Rsend(sbuf,nsme,MPI_CHAR,fileproc,0,world);
+    }
   }
 
   // if file per timestep, close file if I am filewriter
@@ -489,7 +541,11 @@ void Dump::openfile()
 #ifdef LAMMPS_GZIP
       char gzip[128];
       sprintf(gzip,"gzip -6 > %s",filecurrent);
+#ifdef _WIN32
+      fp = _popen(gzip,"wb");
+#else
       fp = popen(gzip,"w");
+#endif
 #else
       error->one(FLERR,"Cannot open gzipped file");
 #endif
@@ -740,6 +796,16 @@ void Dump::modify_params(int narg, char **arg)
       else if (strcmp(arg[iarg+1],"no") == 0) append_flag = 0;
       else error->all(FLERR,"Illegal dump_modify command");
       iarg += 2;
+
+    } else if (strcmp(arg[iarg],"buffer") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal dump_modify command");
+      if (strcmp(arg[iarg+1],"yes") == 0) buffer_flag = 1;
+      else if (strcmp(arg[iarg+1],"no") == 0) buffer_flag = 0;
+      else error->all(FLERR,"Illegal dump_modify command");
+      if (buffer_flag && buffer_allow == 0)
+        error->all(FLERR,"Dump_modify buffer yes not allowed for this style");
+      iarg += 2;
+
     } else if (strcmp(arg[iarg],"every") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal dump_modify command");
       int idump;
@@ -758,6 +824,7 @@ void Dump::modify_params(int narg, char **arg)
       }
       output->every_dump[idump] = n;
       iarg += 2;
+
     } else if (strcmp(arg[iarg],"first") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal dump_modify command");
       if (strcmp(arg[iarg+1],"yes") == 0) first_flag = 1;
@@ -793,13 +860,13 @@ void Dump::modify_params(int narg, char **arg)
       *ptr = '%';
       iarg += 2;
 
-
     } else if (strcmp(arg[iarg],"flush") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal dump_modify command");
       if (strcmp(arg[iarg+1],"yes") == 0) flush_flag = 1;
       else if (strcmp(arg[iarg+1],"no") == 0) flush_flag = 0;
       else error->all(FLERR,"Illegal dump_modify command");
       iarg += 2;
+
     } else if (strcmp(arg[iarg],"format") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal dump_modify command");
       delete [] format_user;
@@ -849,6 +916,7 @@ void Dump::modify_params(int narg, char **arg)
       padflag = force->inumeric(FLERR,arg[iarg+1]);
       if (padflag < 0) error->all(FLERR,"Illegal dump_modify command");
       iarg += 2;
+
     } else if (strcmp(arg[iarg],"sort") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal dump_modify command");
       if (strcmp(arg[iarg+1],"off") == 0) sort_flag = 0;
@@ -868,6 +936,7 @@ void Dump::modify_params(int narg, char **arg)
         sortcolm1 = sortcol - 1;
       }
       iarg += 2;
+
     } else {
       int n = modify_param(narg-iarg,&arg[iarg]);
       if (n == 0) error->all(FLERR,"Illegal dump_modify command");
@@ -883,6 +952,7 @@ void Dump::modify_params(int narg, char **arg)
 bigint Dump::memory_usage()
 {
   bigint bytes = memory->usage(buf,size_one*maxbuf);
+  bytes += memory->usage(sbuf,maxsbuf);
   if (sort_flag) {
     if (sortcol == 0) bytes += memory->usage(ids,maxids);
     bytes += memory->usage(bufsort,size_one*maxsort);
