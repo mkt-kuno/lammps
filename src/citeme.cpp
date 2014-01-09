@@ -40,13 +40,16 @@ CiteMe::CiteMe(LAMMPS *lmp) : Pointers(lmp)
 
 CiteMe::~CiteMe()
 {
-  if (universe->me) return;
-  if (cs->size() == 0) return;
+  if (universe->me || cs->size() == 0) {
+    delete cs;
+    return;
+  }
+
+  delete cs;
 
   if (screen) fprintf(screen,cite_nagline);
   if (logfile) fprintf(logfile,cite_nagline);
 
-  delete cs;
   if (fp) fclose(fp);
 }
 
@@ -63,10 +66,10 @@ void CiteMe::add(const char *ref)
   if (!fp) {
     fp = fopen("log.cite","w");
     if (!fp) error->universe_one(FLERR,"Could not open log.cite file");
-    fprintf(fp,cite_header);
+    fputs(cite_header,fp);
     fflush(fp);
   }
 
-  fprintf(fp,ref);
+  fputs(ref,fp);
   fflush(fp);
 }

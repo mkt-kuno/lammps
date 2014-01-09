@@ -74,10 +74,15 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     Poiseq = force->numeric(FLERR,arg[4]);
     xmu = force->numeric(FLERR,arg[5]);
 
-    if (Geq < 0.0 || Poiseq < 0.0 || xmu < 0.0 || Poiseq > 0.5) error->all(FLERR,"Illegal shm pair parameter values in fix wall gran");
+    if (Geq < 0.0 || Poiseq < 0.0 || Poiseq > 0.5)
+      error->all(FLERR,"Illegal shm pair parameter values in fix wall gran");
 
     kn = 4.0*Geq / (3.0*(1.0-Poiseq));
     kt = 4.0*Geq / (2.0-Poiseq);
+
+    //~ Set dummy values for the remaining variables [KH - 9 January 2014]
+    gamman = gammat = 0.0;
+    dampflag = 0;
   } else {
     kn = force->numeric(FLERR,arg[3]);
     if (strcmp(arg[4],"NULL") == 0) kt = kn * 2.0/7.0;
@@ -91,6 +96,10 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     dampflag = force->inumeric(FLERR,arg[8]);
     if (dampflag == 0) gammat = 0.0;
   }
+
+  if (kn < 0.0 || kt < 0.0 || gamman < 0.0 || gammat < 0.0 ||
+      xmu < 0.0 || xmu > 10000.0 || dampflag < 0 || dampflag > 1)
+    error->all(FLERR,"Illegal fix wall/gran command");
 
   // convert Kn and Kt from pressure units to force/distance^2 if Hertzian
 

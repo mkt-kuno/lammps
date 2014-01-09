@@ -1,4 +1,4 @@
-"Previous Section"_Section_start.html - "LAMMPS WWW Site"_lws - "LAMMPS Documentation"_ld - "LAMMPS Commands"_lc - "Next Section"_Section_packages.html :c
+<"Previous Section"_Section_start.html - "LAMMPS WWW Site"_lws - "LAMMPS Documentation"_ld - "LAMMPS Commands"_lc - "Next Section"_Section_packages.html :c
 
 :link(lws,http://lammps.sandia.gov)
 :link(ld,Manual.html)
@@ -502,7 +502,7 @@ of each style or click on the style itself for a full description:
 "pour"_fix_pour.html,
 "press/berendsen"_fix_press_berendsen.html,
 "print"_fix_print.html,
-"property/atom"_fix_property/atom.html,
+"property/atom"_fix_property_atom.html,
 "qeq/comb"_fix_qeq_comb.html,
 "reax/bonds"_fix_reax_bonds.html,
 "recenter"_fix_recenter.html,
@@ -532,6 +532,7 @@ of each style or click on the style itself for a full description:
 "wall/colloid"_fix_wall.html,
 "wall/gran"_fix_wall_gran.html,
 "wall/harmonic"_fix_wall.html,
+"wall/lj1043"_fix_wall.html,
 "wall/lj126"_fix_wall.html,
 "wall/lj93"_fix_wall.html,
 "wall/piston"_fix_wall_piston.html,
@@ -624,6 +625,7 @@ each style or click on the style itself for a full description:
 "dihedral/local"_compute_dihedral_local.html,
 "displace/atom"_compute_displace_atom.html,
 "erotate/asphere"_compute_erotate_asphere.html,
+"erotate/rigid"_compute_erotate_rigid.html,
 "erotate/sphere"_compute_erotate_sphere.html,
 "erotate/sphere/atom"_compute_erotate_sphere_atom.html,
 "event/displace"_compute_event_displace.html,
@@ -635,6 +637,7 @@ each style or click on the style itself for a full description:
 "inertia/molecule"_compute_inertia_molecule.html,
 "ke"_compute_ke.html,
 "ke/atom"_compute_ke_atom.html,
+"ke/rigid"_compute_ke_rigid.html,
 "msd"_compute_msd.html,
 "msd/molecule"_compute_msd_molecule.html,
 "msd/nongauss"_compute_msd_nongauss.html,
@@ -772,6 +775,9 @@ potentials.  Click on the style itself for a full description:
 "meam"_pair_meam.html,
 "mie/cut"_pair_mie.html,
 "morse"_pair_morse.html,
+"nm/cut"_pair_nm.html,
+"nm/cut/coul/cut"_pair_nm.html,
+"nm/cut/coul/long"_pair_nm.html,
 "peri/lps"_pair_peri.html,
 "peri/pmb"_pair_peri.html,
 "peri/ves"_pair_peri.html,
@@ -788,7 +794,8 @@ potentials.  Click on the style itself for a full description:
 "tip4p/long"_pair_coul.html,
 "tri/lj"_pair_tri_lj.html,
 "yukawa"_pair_yukawa.html,
-"yukawa/colloid"_pair_yukawa_colloid.html :tb(c=4,ea=c)
+"yukawa/colloid"_pair_yukawa_colloid.html,
+"zbl"_pair_zbl.html :tb(c=4,ea=c)
 
 These are pair styles contributed by users, which can be used if
 "LAMMPS is built with the appropriate
@@ -824,6 +831,7 @@ package"_Section_accelerate.html.
 
 "adp/omp"_pair_adp.html,
 "airebo/omp"_pair_airebo.html,
+"beck/gpu"_pair_beck.html,
 "beck/omp"_pair_beck.html,
 "born/coul/long/cuda"_pair_born.html,
 "born/coul/long/gpu"_pair_born.html,
@@ -852,6 +860,7 @@ package"_Section_accelerate.html.
 "coul/cut/omp"_pair_coul.html,
 "coul/debye/omp"_pair_coul.html,
 "coul/dsf/gpu"_pair_coul.html,
+"coul/dsf/omp"_pair_coul.html,
 "coul/long/gpu"_pair_coul.html,
 "coul/long/omp"_pair_coul.html,
 "coul/msm/omp"_pair_coul.html,
@@ -909,10 +918,12 @@ package"_Section_accelerate.html.
 "lj/cut/coul/debye/gpu"_pair_lj.html,
 "lj/cut/coul/debye/omp"_pair_lj.html,
 "lj/cut/coul/dsf/gpu"_pair_lj.html,
+"lj/cut/coul/dsf/omp"_pair_lj.html,
 "lj/cut/coul/long/cuda"_pair_lj.html,
 "lj/cut/coul/long/gpu"_pair_lj.html,
 "lj/cut/coul/long/omp"_pair_lj.html,
 "lj/cut/coul/long/opt"_pair_lj.html,
+"lj/cut/coul/msm/gpu"_pair_lj.html,
 "lj/cut/coul/msm/opt"_pair_lj.html,
 "lj/cut/cuda"_pair_lj.html,
 "lj/cut/dipole/cut/gpu"_pair_dipole.html,
@@ -949,23 +960,30 @@ package"_Section_accelerate.html.
 "lubricate/omp"_pair_lubricate.html,
 "lubricate/poly/omp"_pair_lubricate.html,
 "meam/spline/omp"_pair_meam_spline.html,
+"mie/cut/gpu"_pair_mie.html,
 "morse/cuda"_pair_morse.html,
 "morse/gpu"_pair_morse.html,
 "morse/omp"_pair_morse.html,
 "morse/opt"_pair_morse.html,
 "nb3b/harmonic/omp"_pair_nb3b_harmonic.html,
+"nm/cut/omp"_pair_nm.html,
+"nm/cut/coul/cut/omp"_pair_nm.html,
+"nm/cut/coul/long/omp"_pair_nm.html,
 "peri/lps/omp"_pair_peri.html,
 "peri/pmb/omp"_pair_peri.html,
 "rebo/omp"_pair_airebo.html,
 "resquared/gpu"_pair_resquared.html,
 "resquared/omp"_pair_resquared.html,
+"soft/gpu"_pair_soft.html,
 "soft/omp"_pair_soft.html,
 "sw/cuda"_pair_sw.html,
+"sw/gpu"_pair_sw.html,
 "sw/omp"_pair_sw.html,
 "table/gpu"_pair_table.html,
 "table/omp"_pair_table.html,
 "tersoff/cuda"_pair_tersoff.html,
 "tersoff/omp"_pair_tersoff.html,
+"tersoff/mod/omp"_pair_tersoff_mod.html,
 "tersoff/table/omp"_pair_tersoff.html,
 "tersoff/zbl/omp"_pair_tersoff_zbl.html,
 "tip4p/cut/omp"_pair_coul.html,
@@ -974,7 +992,8 @@ package"_Section_accelerate.html.
 "yukawa/gpu"_pair_yukawa.html,
 "yukawa/omp"_pair_yukawa.html,
 "yukawa/colloid/gpu"_pair_yukawa_colloid.html,
-"yukawa/colloid/omp"_pair_yukawa_colloid.html :tb(c=4,ea=c)
+"yukawa/colloid/omp"_pair_yukawa_colloid.html,
+"zbl/omp"_pair_zbl.html :tb(c=4,ea=c)
 
 :line
 

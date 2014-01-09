@@ -25,6 +25,7 @@ class Fix : protected Pointers {
 
   int restart_global;            // 1 if Fix saves global state, 0 if not
   int restart_peratom;           // 1 if Fix saves peratom state, 0 if not
+  int restart_file;              // 1 if Fix writes own restart file, 0 if not
   int force_reneighbor;          // 1 if Fix forces reneighboring, 0 if not
 
   int box_change_size;           // 1 if Fix changes box size, 0 if not
@@ -43,6 +44,8 @@ class Fix : protected Pointers {
                                  //      setting when a new atom is created
   int restart_pbc;               // 1 if fix moves atoms (except integrate)
                                  //      so write_restart must remap to PBC
+  int wd_header;                 // # of header values fix writes to data file
+  int wd_section;                // # of sections fix writes to data file
   int cudable_comm;              // 1 if fix has CUDA-enabled communication
 
   int scalar_flag;               // 0/1 if compute_scalar() function exists
@@ -106,6 +109,7 @@ class Fix : protected Pointers {
   virtual void end_of_step() {}
   virtual void post_run() {}
   virtual void write_restart(FILE *) {}
+  virtual void write_restart_file(char *) {}
   virtual void restart(char *) {}
 
   virtual void grow_arrays(int) {}
@@ -164,6 +168,15 @@ class Fix : protected Pointers {
   virtual void read_data_header(char *) {}
   virtual void read_data_section(char *, int, char *) {}
   virtual bigint read_data_skip_lines(char *) {return 0;}
+
+  virtual void write_data_header(FILE *, int) {}
+  virtual void write_data_section_size(int, int &, int &) {}
+  virtual void write_data_section_pack(int, double **) {}
+  virtual void write_data_section_keyword(int, FILE *) {}
+  virtual void write_data_section(int, FILE *, int, double **, int) {}
+
+  virtual void zero_momentum() {}
+  virtual void zero_rotation() {}
 
   virtual int modify_param(int, char **) {return 0;}
   virtual void *extract(const char *, int &) {return NULL;}

@@ -607,7 +607,7 @@ void Variable::compute_atom(int ivar, int igroup,
     } else {
       int m = 0;
       for (int i = 0; i < nlocal; i++) {
-        if (mask[i] && groupbit) result[m] += eval_tree(tree,i);
+        if (mask[i] & groupbit) result[m] += eval_tree(tree,i);
         m += stride;
       }
     }
@@ -624,7 +624,7 @@ void Variable::compute_atom(int ivar, int igroup,
     } else {
       int m = 0;
       for (int i = 0; i < nlocal; i++) {
-        if (mask[i] && groupbit) result[m] += vstore[i];
+        if (mask[i] & groupbit) result[m] += vstore[i];
         m += stride;
       }
     }
@@ -2990,6 +2990,11 @@ int Variable::region_function(char *id)
   int iregion = domain->find_region(id);
   if (iregion == -1)
     error->all(FLERR,"Region ID in variable formula does not exist");
+
+  // init region in case sub-regions have been deleted
+
+  domain->regions[iregion]->init();
+
   return iregion;
 }
 
@@ -3228,7 +3233,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
     int iregion = region_function(arg2);
 
     Tree *newtree = new Tree();
-    newtree->type = RMASK;
+    newtree->type = GRMASK;
     newtree->ivalue1 = group->bitmask[igroup];
     newtree->ivalue2 = iregion;
     newtree->left = newtree->middle = newtree->right = NULL;

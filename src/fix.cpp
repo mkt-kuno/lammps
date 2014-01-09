@@ -46,8 +46,7 @@ Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   style = new char[n];
   strcpy(style,arg[2]);
 
-  restart_global = 0;
-  restart_peratom = 0;
+  restart_global = restart_peratom = restart_file = 0;
   force_reneighbor = 0;
   box_change_size = box_change_shape = box_change_domain = 0;
   thermo_energy = 0;
@@ -58,6 +57,7 @@ Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   time_depend = 0;
   create_attribute = 0;
   restart_pbc = 0;
+  wd_header = wd_section = 0;
   cudable_comm = 0;
 
   scalar_flag = vector_flag = array_flag = 0;
@@ -65,6 +65,12 @@ Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 
   comm_forward = comm_reverse = comm_border = 0;
   restart_reset = 0;
+
+  // reasonable defaults
+  // however, each fix that uses these values should explicitly set them
+
+  nevery = 1;
+  
 
   maxvatom = 0;
   vatom = NULL;

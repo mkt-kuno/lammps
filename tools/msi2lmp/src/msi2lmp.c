@@ -1,6 +1,20 @@
 /*
 *
-*  msi2lmp.exe  V3.8
+*  msi2lmp.exe
+*
+*   v3.9.1 AK- Bugfix for Class2. Free allocated memory. Print version number.
+*
+*   v3.9 AK  - Rudimentary support for OPLS-AA
+*
+*   v3.8 AK  - Some refactoring and cleanup of global variables
+*            - Bugfixes for argument parsing and improper definitions
+*            - improved handling of box dimensions and image flags
+*            - port to compiling on windows using MinGW
+*            - more consistent print level handling
+*            - more consistent handling of missing parameters
+*            - Added a regression test script with examples.
+*
+*   V3.7 STM - Added support for triclinic cells
 *
 *   v3.6 KLA - Changes to output to either lammps 2001 (F90 version) or to
 *              lammps 2005 (C++ version)
@@ -62,23 +76,23 @@
 *
 *     If the name includes a hard wired directory (i.e., if the name
 *     starts with . or /), then the name is used alone. Otherwise,
-*     the program looks for the forcefield file in $BIOSYM_LIBRARY.
-*     If $BIOSYM_LIBRARY is not set, then the current directory is
+*     the program looks for the forcefield file in $MSI2LMP_LIBRARY.
+*     If $MSI2LMP_LIBRARY is not set, then the current directory is
 *     used.
 *
 *     If the file name does not include a dot after the first
 *     character, then .frc is appended to the name.
 *
-*     For example,  -frc cvff (assumes cvff.frc is in $BIOSYM_LIBRARY
+*     For example,  -frc cvff (assumes cvff.frc is in $MSI2LMP_LIBRARY
 *                              or .)
 *
 *                   -frc cff/cff91 (assumes cff91.frc is in
-*                                   $BIOSYM_LIBRARY/cff or ./cff)
+*                                   $MSI2LMP_LIBRARY/cff or ./cff)
 *
-*                   -frc /usr/local/biosym/forcefields/cff95 (absolute
+*                   -frc /usr/local/forcefields/cff95 (absolute
 *                                                             location)
 *
-*     By default, the program uses $BIOSYM_LIBRARY/cvff.frc
+*     By default, the program uses $MSI2LMP_LIBRARY/cvff.frc
 *
 *  -- output is written to a file called ROOTNAME.data
 *
@@ -120,6 +134,8 @@
 #include <string.h>
 #include <ctype.h>
 
+static const char version[] = "v3.9.1 / 08-Oct-2013";
+
 /* global variables */
 
 char  *rootname;
@@ -136,38 +152,38 @@ int    iflag;
 int   *no_atoms;
 int    no_molecules;
 int    replicate[3];
-int    total_no_atoms;
-int    total_no_bonds;
-int    total_no_angles;
-int    total_no_dihedrals;
-int    total_no_angle_angles;
-int    total_no_oops;
-int    no_atom_types;
-int    no_bond_types;
-int    no_angle_types;
-int    no_dihedral_types;
-int    no_oop_types;
-int    no_angleangle_types;
-char   *FrcFileName;
-FILE   *CarF;
-FILE   *FrcF;
-FILE   *PrmF;
-FILE   *MdfF;
-FILE   *RptF;
+int    total_no_atoms = 0;
+int    total_no_bonds = 0;
+int    total_no_angles = 0;
+int    total_no_dihedrals = 0;
+int    total_no_angle_angles = 0;
+int    total_no_oops = 0;
+int    no_atom_types = 0;
+int    no_bond_types = 0;
+int    no_angle_types = 0;
+int    no_dihedral_types = 0;
+int    no_oop_types = 0;
+int    no_angleangle_types = 0;
+char   *FrcFileName = NULL;
+FILE   *CarF = NULL;
+FILE   *FrcF = NULL;
+FILE   *PrmF = NULL;
+FILE   *MdfF = NULL;
+FILE   *RptF = NULL;
 
-struct Atom *atoms;
-struct MoleculeList *molecule;
-struct BondList *bonds;
-struct AngleList *angles;
-struct DihedralList *dihedrals;
-struct OOPList *oops;
-struct AngleAngleList *angleangles;
-struct AtomTypeList *atomtypes;
-struct BondTypeList *bondtypes;
-struct AngleTypeList *angletypes;
-struct DihedralTypeList *dihedraltypes;
-struct OOPTypeList *ooptypes;
-struct AngleAngleTypeList *angleangletypes;
+struct Atom *atoms = NULL;
+struct MoleculeList *molecule = NULL;
+struct BondList *bonds = NULL;
+struct AngleList *angles = NULL;
+struct DihedralList *dihedrals = NULL;
+struct OOPList *oops = NULL;
+struct AngleAngleList *angleangles = NULL;
+struct AtomTypeList *atomtypes = NULL;
+struct BondTypeList *bondtypes = NULL;
+struct AngleTypeList *angletypes = NULL;
+struct DihedralTypeList *dihedraltypes = NULL;
+struct OOPTypeList *ooptypes = NULL;
+struct AngleAngleTypeList *angleangletypes = NULL;
 
 void condexit(int val)
 {
@@ -198,7 +214,7 @@ int main (int argc, char *argv[])
   forcefield = FF_TYPE_CLASS1 | FF_TYPE_COMMON;
   shift[0] = shift[1] = shift[2] = 0.0;
 
-  frc_dir_name = getenv("BIOSYM_LIBRARY");
+  frc_dir_name = getenv("MSI2LMP_LIBRARY");
 
   if (argc < 2) {
     printf("usage: %s <rootname> [-class <I|1|II|2>] [-frc <path to frc file>] [-print #] [-ignore] [-nocenter]\n",argv[0]);
@@ -257,9 +273,9 @@ int main (int argc, char *argv[])
   /* set defaults, if nothing else was given */
   if (frc_dir_name == NULL)
 #if (_WIN32)
-    frc_dir_name = "..\\biosym_frc_files";
+    frc_dir_name = "..\\frc_files";
 #else
-  frc_dir_name = "../biosym_frc_files";
+  frc_dir_name = "../frc_files";
 #endif
   if (frc_file_name == NULL)
     frc_file_name = "cvff.frc";
@@ -310,22 +326,30 @@ int main (int argc, char *argv[])
 
 
   if (pflag > 0) {
-    puts("\nRunning msi2lmp.....\n");
+    printf("\nRunning msi2lmp %s ...\n",version);
     if (forcefield & FF_TYPE_CLASS1) puts(" Forcefield: Class I");
     if (forcefield & FF_TYPE_CLASS2) puts(" Forcefield: Class II");
     if (forcefield & FF_TYPE_OPLSAA) puts(" Forcefield: OPLS-AA");
     printf(" Forcefield file name: %s\n",FrcFileName);
   }
 
-  if (((forcefield & FF_TYPE_CLASS1) && (strstr(FrcFileName,"cff") != NULL)) ||
-      ((forcefield & FF_TYPE_CLASS2) &&
-       ! ((strstr(FrcFileName,"cvff") == NULL)
-          || (strstr(FrcFileName,"clayff") == NULL)
-          || (strstr(FrcFileName,"compass") == NULL))) ||
-      ((forcefield & FF_TYPE_OPLSAA) &&
-       ! (strstr(FrcFileName,"opls") == NULL))) {
-    fprintf(stderr," WARNING - forcefield name and class appear to\n");
-    fprintf(stderr,"           be inconsistent - Errors may result\n\n");
+  n = 0;
+  if (forcefield & FF_TYPE_CLASS1) {
+    if (strstr(FrcFileName,"cvff") != NULL) ++n;
+    if (strstr(FrcFileName,"clayff") != NULL) ++n;
+  } else if (forcefield & FF_TYPE_OPLSAA) {
+    if (strstr(FrcFileName,"oplsaa") != NULL) ++n;
+  } else if (forcefield & FF_TYPE_CLASS2) {
+    if (strstr(FrcFileName,"pcff") != NULL) ++n;
+    if (strstr(FrcFileName,"cff91") != NULL) ++n;
+    if (strstr(FrcFileName,"compass") != NULL) ++n;
+  }
+
+  if (n == 0) {
+    if (iflag > 0) fputs(" WARNING",stderr);
+    else           fputs(" Error  ",stderr);
+    
+    fputs("- forcefield name and class appear to be inconsistent\n\n",stderr);
     if (iflag == 0) return 7;
   }
 
@@ -362,9 +386,31 @@ int main (int argc, char *argv[])
   /* Write out the final data */
   WriteDataFile(rootname);
 
+  /* free up memory to detect possible memory corruption */
   free(rootname);
+  free(FrcFileName);
+  ClearFrcData();
+
+  for (n=0; n < no_molecules; n++) {
+    free(molecule[n].residue);
+  }
+
+  free(no_atoms);
+  free(molecule);
+  free(atoms);
+  free(atomtypes);
+  if (bonds) free(bonds);
+  if (bondtypes) free(bondtypes);
+  if (angles) free(angles);
+  if (angletypes) free(angletypes);
+  if (dihedrals) free(dihedrals);
+  if (dihedraltypes) free(dihedraltypes);
+  if (oops) free(oops);
+  if (ooptypes) free(ooptypes);
+  if (angleangles) free(angleangles);
+  if (angleangletypes) free(angleangletypes);
+
   if (pflag > 0)
     printf("\nNormal program termination\n");
   return 0;
 }
-
