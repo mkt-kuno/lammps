@@ -35,7 +35,8 @@ class Atom : protected Pointers {
   bigint nbonds,nangles,ndihedrals,nimpropers;
   int ntypes,nbondtypes,nangletypes,ndihedraltypes,nimpropertypes;
   int bond_per_atom,angle_per_atom,dihedral_per_atom,improper_per_atom;
-  int extra_bond_per_atom;
+  int extra_bond_per_atom,extra_angle_per_atom;
+  int extra_dihedral_per_atom,extra_improper_per_atom;
 
   int firstgroup;               // store atoms in this group first, -1 if unset
   int nfirst;                   // # of atoms in first group on this proc
@@ -109,6 +110,11 @@ class Atom : protected Pointers {
   int cs_flag,csforce_flag,vforce_flag,ervelforce_flag,etag_flag;
   int rho_flag,e_flag,cv_flag,vest_flag;
 
+  // molecules
+
+  int nmolecule,maxmol;
+  class Molecule **molecules;
+
   // extra peratom info in restart file destined for fix & diag
 
   double **extra;
@@ -177,6 +183,10 @@ class Atom : protected Pointers {
 
   int radius_consistency(int, double &);
   int shape_consistency(int, double &, double &, double &);
+
+  void add_molecule(int, char **);
+  int find_molecule(char *);
+  void add_molecule_atom(class Molecule *, int, int, int);
 
   void first_reorder();
   void sort();

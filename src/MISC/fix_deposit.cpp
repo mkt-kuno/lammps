@@ -17,6 +17,7 @@
 #include "fix_deposit.h"
 #include "atom.h"
 #include "atom_vec.h"
+#include "molecule.h"
 #include "force.h"
 #include "update.h"
 #include "modify.h"
@@ -26,11 +27,16 @@
 #include "lattice.h"
 #include "region.h"
 #include "random_park.h"
+#include "math_extra.h"
+#include "math_const.h"
 #include "memory.h"
 #include "error.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
+using namespace MathConst;
+
+enum{ATOM,MOLECULE};
 
 /* ---------------------------------------------------------------------- */
 
@@ -51,23 +57,14 @@ FixDeposit::FixDeposit(LAMMPS *lmp, int narg, char **arg) :
 
   if (seed <= 0) error->all(FLERR,"Illegal fix deposit command");
 
-  // set defaults
-
-  iregion = -1;
-  idregion = NULL;
-  idnext = 0;
-  globalflag = localflag = 0;
-  lo = hi = deltasq = 0.0;
-  nearsq = 0.0;
-  maxattempt = 10;
-  rateflag = 0;
-  vxlo = vxhi = vylo = vyhi = vzlo = vzhi = 0.0;
-  scaleflag = 1;
-  targetflag = 0;
-
   // read options from end of input line
 
   options(narg-7,&arg[7]);
+
+  // error check on type
+
+  if (mode == ATOM && (ntype <= 0 || ntype > atom->ntypes))
+    error->all(FLERR,"Invalid atom type in fix deposit command");
 
   // error checks on region and its extent being inside simulation box
 
@@ -95,6 +92,40 @@ FixDeposit::FixDeposit(LAMMPS *lmp, int narg, char **arg) :
         zlo < domain->boxlo_bound[2] || zhi > domain->boxhi_bound[2])
       error->all(FLERR,"Deposition region extends outside simulation box");
   }
+
+  // error check and further setup for mode = MOLECULE
+
+  if (atom->tag_enable == 0)
+    error->all(FLERR,"Cannot use fix_deposit unless atoms have IDs");
+
+  if (mode == MOLECULE) {
+    if (atom->molecule_flag == 0)
+      error->all(FLERR,"Fix deposit mol requires atom attribute molecule");
+    if (onemol->xflag == 0)
+      error->all(FLERR,"Fix deposit molecule must have coordinates");
+    if (onemol->typeflag == 0)
+      error->all(FLERR,"Fix deposit molecule must have atom types");
+    if (ntype+onemol->maxtype <= 0 || ntype+onemol->maxtype > atom->ntypes)
+      error->all(FLERR,"Invalid atom type in fix deposit mol command");
+
+    // fix deposit uses geoemetric center of molecule for insertion
+
+    onemol->compute_center();
+  }
+
+  if (rigidflag && mode == ATOM)
+    error->all(FLERR,"Cannot use fix deposit rigid and not molecule");
+  if (shakeflag && mode == ATOM)
+    error->all(FLERR,"Cannot use fix deposit shake and not molecule");
+  if (rigidflag && shakeflag)
+    error->all(FLERR,"Cannot use fix deposit rigid and shake");
+
+  // setup of coords and imageflags array
+
+  if (mode == ATOM) natom = 1;
+  else natom = onemol->natoms;
+  memory->create(coords,natom,3,"deposit:coords");
+  memory->create(imageflags,natom,"deposit:imageflags");
 
   // setup scaling
 
@@ -129,16 +160,9 @@ FixDeposit::FixDeposit(LAMMPS *lmp, int narg, char **arg) :
   ty *= yscale;
   tz *= zscale;
 
-  // maxtag_all = current max tag for all atoms
+  // find current max atom and molecule IDs if necessary
 
-  if (idnext) {
-    int *tag = atom->tag;
-    int nlocal = atom->nlocal;
-
-    int maxtag = 0;
-    for (int i = 0; i < nlocal; i++) maxtag = MAX(maxtag,tag[i]);
-    MPI_Allreduce(&maxtag,&maxtag_all,1,MPI_INT,MPI_MAX,world);
-  }
+  if (idnext) find_maxid();
 
   // random number generator, same for all procs
 
@@ -157,7 +181,11 @@ FixDeposit::FixDeposit(LAMMPS *lmp, int narg, char **arg) :
 FixDeposit::~FixDeposit()
 {
   delete random;
+  delete [] idrigid;
+  delete [] idshake;
   delete [] idregion;
+  memory->destroy(coords);
+  memory->destroy(imageflags);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -178,6 +206,33 @@ void FixDeposit::init()
   iregion = domain->find_region(idregion);
   if (iregion == -1)
     error->all(FLERR,"Region ID for fix deposit does not exist");
+
+  // if rigidflag defined, check for rigid/small fix
+  // its molecule template must be same as this one
+
+  fixrigid = NULL;
+  if (rigidflag) {
+    int ifix = modify->find_fix(idrigid);
+    if (ifix < 0) error->all(FLERR,"Fix pour rigid fix does not exist");
+    fixrigid = modify->fix[ifix];
+    int tmp;
+    if (onemol != (Molecule *) fixrigid->extract("onemol",tmp))
+      error->all(FLERR,
+                 "Fix deposit and fix rigid/small not using same molecule ID");
+  }
+
+  // if shakeflag defined, check for SHAKE fix
+  // its molecule template must be same as this one
+
+  fixshake = NULL;
+  if (shakeflag) {
+    int ifix = modify->find_fix(idshake);
+    if (ifix < 0) error->all(FLERR,"Fix deposit shake fix does not exist");
+    fixshake = modify->fix[ifix];
+    int tmp;
+    if (onemol != (Molecule *) fixshake->extract("onemol",tmp))
+      error->all(FLERR,"Fix deposit and fix shake not using same molecule ID");
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -186,9 +241,10 @@ void FixDeposit::init()
 
 void FixDeposit::pre_exchange()
 {
-  int i,j;
-  int flag,flagall;
+  int i,j,m,n,nlocalprev,flag,flagall;
   double coord[3],lamda[3],delx,dely,delz,rsq;
+  double alpha,beta,gamma;
+  double r[3],vnew[3],rotmat[3][3],quat[4];
   double *newcoord;
 
   // just return if should not be called on this timestep
@@ -209,8 +265,13 @@ void FixDeposit::pre_exchange()
     subhi = domain->subhi_lamda;
   }
 
+  // find current max atom and molecule IDs if necessary
+
+  if (!idnext) find_maxid();
+
   // attempt an insertion until successful
 
+  int dimension = domain->dimension;
   int nfix = modify->nfix;
   Fix **fix = modify->fix;
 
@@ -219,7 +280,7 @@ void FixDeposit::pre_exchange()
   while (attempt < maxattempt) {
     attempt++;
 
-    // choose random position for new atom within region
+    // choose random position for new particle within region
 
     coord[0] = xlo + random->uniform() * (xhi-xlo);
     coord[1] = ylo + random->uniform() * (yhi-ylo);
@@ -232,18 +293,19 @@ void FixDeposit::pre_exchange()
 
     // adjust vertical coord by offset
 
-    if (domain->dimension == 2) coord[1] += offset;
+    if (dimension == 2) coord[1] += offset;
     else coord[2] += offset;
 
     // if global, reset vertical coord to be lo-hi above highest atom
     // if local, reset vertical coord to be lo-hi above highest "nearby" atom
     // local computation computes lateral distance between 2 particles w/ PBC
+    // when done, have final coord of atom or center pt of molecule
 
     if (globalflag || localflag) {
       int dim;
       double max,maxall,delx,dely,delz,rsq;
 
-      if (domain->dimension == 2) {
+      if (dimension == 2) {
         dim = 1;
         max = domain->boxlo[1];
       } else {
@@ -259,7 +321,7 @@ void FixDeposit::pre_exchange()
           dely = coord[1] - x[i][1];
           delz = 0.0;
           domain->minimum_image(delx,dely,delz);
-          if (domain->dimension == 2) rsq = delx*delx;
+          if (dimension == 2) rsq = delx*delx;
           else rsq = delx*delx + dely*dely;
           if (rsq > deltasq) continue;
         }
@@ -267,113 +329,180 @@ void FixDeposit::pre_exchange()
       }
 
       MPI_Allreduce(&max,&maxall,1,MPI_DOUBLE,MPI_MAX,world);
-      if (domain->dimension == 2)
+      if (dimension == 2)
         coord[1] = maxall + lo + random->uniform()*(hi-lo);
       else
         coord[2] = maxall + lo + random->uniform()*(hi-lo);
     }
 
-    // now have final coord
-    // if distance to any atom is less than near, try again
+    // coords = coords of all atoms
+    // for molecule, perform random rotation around center pt
+    // apply PBC so final coords are inside box
+    // also store image flag modified due to PBC
+
+    if (mode == ATOM) {
+      coords[0][0] = coord[0];
+      coords[0][1] = coord[1];
+      coords[0][2] = coord[2];
+    } else {
+      if (dimension == 3) {
+        r[0] = random->uniform() - 0.5;
+        r[1] = random->uniform() - 0.5;
+        r[2] = random->uniform() - 0.5;
+      } else {
+        r[0] = r[1] = 0.0;
+        r[2] = 1.0;
+      }
+      double theta = random->uniform() * MY_2PI;
+      MathExtra::norm3(r);
+      MathExtra::axisangle_to_quat(r,theta,quat);
+      MathExtra::quat_to_mat(quat,rotmat);
+      for (i = 0; i < natom; i++) {
+        MathExtra::matvec(rotmat,onemol->dx[i],coords[i]);
+        coords[i][0] += coord[0];
+        coords[i][1] += coord[1];
+        coords[i][2] += coord[2];
+
+        imageflags[i] = ((tagint) IMGMAX << IMG2BITS) |
+          ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+        domain->remap(coords[i],imageflags[i]);
+      }
+    }
+
+    // if distance to any inserted atom is less than near, try again
+    // use minimum_image() to account for PBC
 
     double **x = atom->x;
     int nlocal = atom->nlocal;
 
     flag = 0;
-    for (i = 0; i < nlocal; i++) {
-      delx = coord[0] - x[i][0];
-      dely = coord[1] - x[i][1];
-      delz = coord[2] - x[i][2];
-      domain->minimum_image(delx,dely,delz);
-      rsq = delx*delx + dely*dely + delz*delz;
-      if (rsq < nearsq) flag = 1;
+    for (m = 0; m < natom; m++) {
+      for (i = 0; i < nlocal; i++) {
+        delx = coords[m][0] - x[i][0];
+        dely = coords[m][1] - x[i][1];
+        delz = coords[m][2] - x[i][2];
+        domain->minimum_image(delx,dely,delz);
+        rsq = delx*delx + dely*dely + delz*delz;
+        if (rsq < nearsq) flag = 1;
+      }
     }
     MPI_Allreduce(&flag,&flagall,1,MPI_INT,MPI_MAX,world);
     if (flagall) continue;
 
-    // insertion will proceed
-    // choose random velocity for new atom
+    // proceed with insertion
 
-    double vxtmp = vxlo + random->uniform() * (vxhi-vxlo);
-    double vytmp = vylo + random->uniform() * (vyhi-vylo);
-    double vztmp = vzlo + random->uniform() * (vzhi-vzlo);
+    nlocalprev = atom->nlocal;
 
-    // if we have a sputter target change velocity vector accordingly
+    // choose random velocity for new particle
+    // used for every atom in molecule
+
+    vnew[0] = vxlo + random->uniform() * (vxhi-vxlo);
+    vnew[1] = vylo + random->uniform() * (vyhi-vylo);
+    vnew[2] = vzlo + random->uniform() * (vzhi-vzlo);
+
+    // if target specified, change velocity vector accordingly
+
     if (targetflag) {
-      double vel = sqrt(vxtmp*vxtmp + vytmp*vytmp + vztmp*vztmp);
+      double vel = sqrt(vnew[0]*vnew[0] + vnew[1]*vnew[1] + vnew[2]*vnew[2]);
       delx = tx - coord[0];
       dely = ty - coord[1];
       delz = tz - coord[2];
       double rsq = delx*delx + dely*dely + delz*delz;
       if (rsq > 0.0) {
         double rinv = sqrt(1.0/rsq);
-        vxtmp = delx*rinv*vel;
-        vytmp = dely*rinv*vel;
-        vztmp = delz*rinv*vel;
+        vnew[0] = delx*rinv*vel;
+        vnew[1] = dely*rinv*vel;
+        vnew[2] = delz*rinv*vel;
       }
     }
 
-    // check if new atom is in my sub-box or above it if I'm highest proc
-    // if so, add to my list via create_atom()
-    // initialize info about the atoms
+    // check if new atoms are in my sub-box or above it if I am highest proc
+    // if so, add atom to my list via create_atom()
+    // initialize additional info about the atoms
     // set group mask to "all" plus fix group
 
-    if (domain->triclinic) {
-      domain->x2lamda(coord,lamda);
-      newcoord = lamda;
-    } else newcoord = coord;
+    for (m = 0; m < natom; m++) {
+      if (domain->triclinic) {
+        domain->x2lamda(coords[m],lamda);
+        newcoord = lamda;
+      } else newcoord = coords[m];
+      
+      flag = 0;
+      if (newcoord[0] >= sublo[0] && newcoord[0] < subhi[0] &&
+          newcoord[1] >= sublo[1] && newcoord[1] < subhi[1] &&
+          newcoord[2] >= sublo[2] && newcoord[2] < subhi[2]) flag = 1;
+      else if (dimension == 3 && newcoord[2] >= domain->boxhi[2] &&
+               comm->myloc[2] == comm->procgrid[2]-1 &&
+               newcoord[0] >= sublo[0] && newcoord[0] < subhi[0] &&
+               newcoord[1] >= sublo[1] && newcoord[1] < subhi[1]) flag = 1;
+      else if (dimension == 2 && newcoord[1] >= domain->boxhi[1] &&
+               comm->myloc[1] == comm->procgrid[1]-1 &&
+               newcoord[0] >= sublo[0] && newcoord[0] < subhi[0]) flag = 1;
 
-    flag = 0;
-    if (newcoord[0] >= sublo[0] && newcoord[0] < subhi[0] &&
-        newcoord[1] >= sublo[1] && newcoord[1] < subhi[1] &&
-        newcoord[2] >= sublo[2] && newcoord[2] < subhi[2]) flag = 1;
-    else if (domain->dimension == 3 && newcoord[2] >= domain->boxhi[2] &&
-             comm->myloc[2] == comm->procgrid[2]-1 &&
-             newcoord[0] >= sublo[0] && newcoord[0] < subhi[0] &&
-             newcoord[1] >= sublo[1] && newcoord[1] < subhi[1]) flag = 1;
-    else if (domain->dimension == 2 && newcoord[1] >= domain->boxhi[1] &&
-             comm->myloc[1] == comm->procgrid[1]-1 &&
-             newcoord[0] >= sublo[0] && newcoord[0] < subhi[0]) flag = 1;
+      if (flag) {
+        if (mode == ATOM) atom->avec->create_atom(ntype,coords[m]);
+        else atom->avec->create_atom(ntype+onemol->type[m],coords[m]);
+        n = atom->nlocal - 1;
+        atom->tag[n] = maxtag_all + m+1;
+        if (mode == MOLECULE) atom->molecule[n] = maxmol_all+1;
+        atom->mask[n] = 1 | groupbit;
+        atom->image[n] = imageflags[m];
+        atom->v[n][0] = vnew[0];
+        atom->v[n][1] = vnew[1];
+        atom->v[n][2] = vnew[2];
+        if (mode == MOLECULE) atom->add_molecule_atom(onemol,m,n,maxtag_all);
+        for (j = 0; j < nfix; j++)
+          if (fix[j]->create_attribute) fix[j]->set_arrays(n);
+      }
 
-    if (flag) {
-      atom->avec->create_atom(ntype,coord);
-      int m = atom->nlocal - 1;
-      atom->type[m] = ntype;
-      atom->mask[m] = 1 | groupbit;
-      atom->v[m][0] = vxtmp;
-      atom->v[m][1] = vytmp;
-      atom->v[m][2] = vztmp;
-      for (j = 0; j < nfix; j++)
-        if (fix[j]->create_attribute) fix[j]->set_arrays(m);
+      // FixRigidSmall::set_molecule stores rigid body attributes
+      //   coord is new position of geometric center of mol, not COM
+      // FixShake::set_molecule stores shake info for molecule
+
+      if (rigidflag)
+        fixrigid->set_molecule(nlocalprev,maxtag_all,coord,vnew,quat);
+      else if (shakeflag)
+        fixshake->set_molecule(nlocalprev,maxtag_all,coord,vnew,quat);
     }
-    MPI_Allreduce(&flag,&success,1,MPI_INT,MPI_MAX,world);
+
+    // old code: unsuccessful if no proc performed insertion of an atom
+    // don't think that check is necessary
+    // if get this far, should always be succesful
+    // would be hard to undo partial insertion for a molecule
+    // better to check how many atoms could be inserted (w/out inserting)
+    //   then sum to insure all are inserted, before doing actual insertion
+    // MPI_Allreduce(&flag,&success,1,MPI_INT,MPI_MAX,world);
+
+    success = 1;
     break;
   }
 
-  // warn if not successful b/c too many attempts or no proc owned particle
+  // warn if not successful b/c too many attempts
 
   if (!success && comm->me == 0)
     error->warning(FLERR,"Particle deposition was unsuccessful",0);
 
-  // reset global natoms
-  // if idnext, set new atom ID to incremented maxtag_all
-  // else set new atom ID to value beyond all current atoms
+  // reset global natoms,nbonds,etc
+  // increment maxtag_all and maxmol_all if necessary
   // if global map exists, reset it now instead of waiting for comm
-  // since adding an atom messes up ghosts
+  // since adding atoms messes up ghosts
 
   if (success) {
-    atom->natoms += 1;
-    if (atom->tag_enable) {
-      if (idnext) {
-        maxtag_all++;
-        if (atom->nlocal && atom->tag[atom->nlocal-1] == 0) 
-          atom->tag[atom->nlocal-1] = maxtag_all;
-      } else atom->tag_extend();
-      if (atom->map_style) {
-        atom->nghost = 0;
-        atom->map_init();
-        atom->map_set();
-      }
+    atom->natoms += natom;
+    if (mode == MOLECULE) {
+      atom->nbonds += onemol->nbonds;
+      atom->nangles += onemol->nangles;
+      atom->ndihedrals += onemol->ndihedrals;
+      atom->nimpropers += onemol->nimpropers;
+    }
+    if (idnext) {
+      maxtag_all += natom;
+      if (mode == MOLECULE) maxmol_all++;
+    }
+    if (atom->map_style) {
+      atom->nghost = 0;
+      atom->map_init();
+      atom->map_set();
     }
   }
 
@@ -386,12 +515,51 @@ void FixDeposit::pre_exchange()
 }
 
 /* ----------------------------------------------------------------------
+   maxtag_all = current max atom ID for all atoms
+   maxmol_all = current max molecule ID for all atoms
+------------------------------------------------------------------------- */
+
+void FixDeposit::find_maxid()
+{
+  int *tag = atom->tag;
+  int *molecule = atom->molecule;
+  int nlocal = atom->nlocal;
+
+  int max = 0;
+  for (int i = 0; i < nlocal; i++) max = MAX(max,tag[i]);
+  MPI_Allreduce(&max,&maxtag_all,1,MPI_INT,MPI_MAX,world);
+
+  if (mode == MOLECULE) {
+    max = 0;
+    for (int i = 0; i < nlocal; i++) max = MAX(max,molecule[i]);
+    MPI_Allreduce(&max,&maxmol_all,1,MPI_INT,MPI_MAX,world);
+  }
+}
+
+/* ----------------------------------------------------------------------
    parse optional parameters at end of input line
 ------------------------------------------------------------------------- */
 
 void FixDeposit::options(int narg, char **arg)
 {
-  if (narg < 0) error->all(FLERR,"Illegal fix indent command");
+  // defaults
+
+  iregion = -1;
+  idregion = NULL;
+  mode = ATOM;
+  rigidflag = 0;
+  idrigid = NULL;
+  shakeflag = 0;
+  idshake = NULL;
+  idnext = 0;
+  globalflag = localflag = 0;
+  lo = hi = deltasq = 0.0;
+  nearsq = 0.0;
+  maxattempt = 10;
+  rateflag = 0;
+  vxlo = vxhi = vylo = vyhi = vzlo = vzhi = 0.0;
+  scaleflag = 1;
+  targetflag = 0;
 
   int iarg = 0;
   while (iarg < narg) {
@@ -404,6 +572,31 @@ void FixDeposit::options(int narg, char **arg)
       idregion = new char[n];
       strcpy(idregion,arg[iarg+1]);
       iarg += 2;
+    } else if (strcmp(arg[iarg],"mol") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal fix deposit command");
+      int imol = atom->find_molecule(arg[iarg+1]);
+      if (imol == -1)
+        error->all(FLERR,"Molecule ID for fix deposit does not exist");
+      mode = MOLECULE;
+      onemol = atom->molecules[imol];
+     iarg += 2;
+    } else if (strcmp(arg[iarg],"rigid") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal fix deposit command");
+      int n = strlen(arg[iarg+1]) + 1;
+      delete [] idrigid;
+      idrigid = new char[n];
+      strcpy(idrigid,arg[iarg+1]);
+      rigidflag = 1;
+      iarg += 2;
+    } else if (strcmp(arg[iarg],"shake") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal fix deposit command");
+      int n = strlen(arg[iarg+1]) + 1;
+      delete [] idshake;
+      idshake = new char[n];
+      strcpy(idshake,arg[iarg+1]);
+      shakeflag = 1;
+      iarg += 2;
+
     } else if (strcmp(arg[iarg],"id") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix deposit command");
       if (strcmp(arg[iarg+1],"max") == 0) idnext = 0;
@@ -423,11 +616,14 @@ void FixDeposit::options(int narg, char **arg)
       globalflag = 0;
       lo = force->numeric(FLERR,arg[iarg+1]);
       hi = force->numeric(FLERR,arg[iarg+2]);
-      deltasq = force->numeric(FLERR,arg[iarg+3])*force->numeric(FLERR,arg[iarg+3]);
+      deltasq = force->numeric(FLERR,arg[iarg+3]) * 
+        force->numeric(FLERR,arg[iarg+3]);
       iarg += 4;
+
     } else if (strcmp(arg[iarg],"near") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix deposit command");
-      nearsq = force->numeric(FLERR,arg[iarg+1])*force->numeric(FLERR,arg[iarg+1]);
+      nearsq = force->numeric(FLERR,arg[iarg+1]) * 
+        force->numeric(FLERR,arg[iarg+1]);
       iarg += 2;
     } else if (strcmp(arg[iarg],"attempt") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix deposit command");

@@ -25,16 +25,6 @@ FixStyle(pour,FixPour)
 namespace LAMMPS_NS {
 
 class FixPour : public Fix {
-  friend class PairGranHertzHistory;
-  friend class PairGranHertzHistoryOMP;
-  friend class PairGranHooke;
-  friend class PairGranHookeOMP;
-  friend class PairGranHookeHistory;
-  friend class PairGranHookeHistory2;
-  friend class PairGranHookeHistoryOMP;
-  friend class PairGranHookeCuda;
-  friend class PairGranShmHistory; //~ Added this [KH - 23 November 2012]
-
  public:
   FixPour(class LAMMPS *, int, char **);
   ~FixPour();
@@ -42,10 +32,11 @@ class FixPour : public Fix {
   void init();
   void pre_exchange();
   void reset_dt();
+  void *extract(const char *, int &);
 
  private:
   int ninsert,ntype,seed;
-  int dstyle,npoly;
+  int iregion,mode,idnext,dstyle,npoly,rigidflag,shakeflag;
   double radius_one,radius_max;
   double radius_lo,radius_hi;
   double meanrad,stdevrad; // for Gaussian radius distribution
@@ -59,16 +50,28 @@ class FixPour : public Fix {
   double xlo,xhi,ylo,yhi,zlo,zhi;
   double xc,yc,rc;
   double grav;
+  char *idrigid,*idshake;
+
+  class Molecule *onemol;
+  int natom;
+  double **coords;
+  int *imageflags;
+  class Fix *fixrigid,*fixshake;
+  double oneradius;
 
   int me,nprocs;
   int *recvcounts,*displs;
   int nfreq,nfirst,ninserted,nper;
   double lo_current,hi_current;
-  class RanPark *random;
+  int maxtag_all,maxmol_all;
+  class RanPark *random,*random2;
 
+  void find_maxid();
   int overlap(int);
+  int outside(int, double, double, double);
   void xyz_random(double, double *);
   double radius_sample();
+  void options(int, char **);
 };
 
 }

@@ -40,15 +40,25 @@ class FixDeposit : public Fix {
  private:
   int ninsert,nfreq,seed;
   int iregion,globalflag,localflag,maxattempt,rateflag,scaleflag,targetflag;
-  char *idregion;
+  int mode,rigidflag,shakeflag,idnext;
   double lo,hi,deltasq,nearsq,rate;
   double vxlo,vxhi,vylo,vyhi,vzlo,vzhi;
   double xlo,xhi,ylo,yhi,zlo,zhi;
   double tx,ty,tz;
+  char *idregion;
+  char *idrigid,*idshake;
+
+  class Molecule *onemol;
+  int natom;
+  double **coords;
+  int *imageflags;
+  class Fix *fixrigid,*fixshake;
+
   int nfirst,ninserted;
-  int idnext,maxtag_all;
+  int maxtag_all,maxmol_all;
   class RanPark *random;
 
+  void find_maxid();
   void options(int, char **);
 };
 

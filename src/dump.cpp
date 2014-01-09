@@ -339,8 +339,9 @@ void Dump::write()
  
   // if buffering, convert doubles into strings
   // insure sbuf is sized for communicating
+  // cannot buffer if output is to binary file
 
-  if (buffer_flag) {
+  if (buffer_flag && !binary) {
     nsme = convert_string(nme,buf);
     int nsmin,nsmax;
     MPI_Allreduce(&nsme,&nsmin,1,MPI_INT,MPI_MIN,world);
@@ -443,7 +444,7 @@ void Dump::write()
 
     //~ Free the memory allocated to secondbuf [KH - 31 May 2012]
     memory->destroy(secondbuf);
-  } else if (buffer_flag == 0) {
+  } else if (buffer_flag == 0 || binary) {
     if (filewriter) {
       // filewriter = 1 = this proc writes to file
       // ping each proc in my cluster, receive its data, write data to file
