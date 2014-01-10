@@ -490,10 +490,23 @@ double FixShearHistory::memory_usage()
   int nmypage = comm->nthreads;
   for (int i = 0; i < nmypage; i++) {
     bytes += ipage[i].size();
-    bytes += dpage3[i].size(); //~ [KH - 9 January 2014]
-    bytes += dpage4[i].size();
-    bytes += dpage16[i].size();
-    bytes += dpage17[i].size();
+
+    /*~ Added a switch-case structure to prevent seg faults
+      [KH - 9 January 2014]*/
+    switch (num_quants) {
+    case 4: //~ 4 is the most likely num_quants
+      bytes += dpage4[i].size();
+      break;
+    case 3: //~ 3 is next most likely
+      bytes += dpage3[i].size();
+      break;
+    case 16:
+      bytes += dpage16[i].size();
+      break;
+    case 17:
+      bytes += dpage17[i].size();
+      break;
+    }
   }
 
   return bytes;
