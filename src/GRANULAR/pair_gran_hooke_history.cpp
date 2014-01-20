@@ -1021,7 +1021,7 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
   if (nx < 0.0) sinthetaovertwo *= -1.0;
 
   recipmagnxny = 1.0/sqrt(nx*nx + ny*ny); //~ Potential division by zero
-  if (nx*nx < tolerance && ny*ny < tolerance) recipmagnxny = tolerance;
+  if (nx*nx < tolerance && ny*ny < tolerance) recipmagnxny = 1.0/tolerance;
 
   double q[4];
   q[0] = sqrt(0.5*(1.0 + nz)); //~ = cos(theta)/2
