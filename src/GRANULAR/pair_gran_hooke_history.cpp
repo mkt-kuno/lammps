@@ -1092,11 +1092,11 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
   PI = 4.0*atan(1.0);
   dalpha = 0.5*PI - beta;
 
-  //~ X-Z projection
+  //~ Y-Z projection
   da[0] = radius[j]*(localoldomegaj[0]*dt - dalpha);
   db[0] = radius[i]*(localoldomegai[0]*dt - dalpha);
 
-  //~ Y-Z projection
+  //~ X-Z projection
   da[1] = radius[j]*(localoldomegaj[1]*dt - dalpha);
   db[1] = radius[i]*(localoldomegai[1]*dt - dalpha);
 
