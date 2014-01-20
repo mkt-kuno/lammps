@@ -1080,7 +1080,7 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
   MathExtra::matvec(T,globaldiffcoords,localdiffcoords);
 
   //~ Now find relative rotations, dthetar, in three directions 
-  double PI, beta, dalpha, da[3], db[3], dthetar[3];
+  double PI, beta, dalpha[2], da[3], db[3], dthetar[3];
   
   /*~ beta is calculated using the difference of local z coordinates.
     Note that beta is evaluated as 'nan' if the argument is outside
@@ -1090,17 +1090,22 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
     beta = asin(localdiffcoords[2]/fabs(localdiffcoords[2])); //~ Retain sign
 
   PI = 4.0*atan(1.0);
-  dalpha = 0.5*PI - beta;
+  dalpha[0] = dalpha[1] = 0.5*PI - beta;
+
+  //~ Correct the sign of dalpha, if necessary
+  for (int q = 0; q < 2; q++)
+    if (localdiffcoords[q] < 0.0 && dalpha[q] > 0.0)
+      dalpha[q] *= -1.0;
 
   //~ Y-Z projection
-  da[0] = radius[j]*(localoldomegaj[0]*dt - dalpha);
-  db[0] = radius[i]*(localoldomegai[0]*dt - dalpha);
+  da[0] = radius[j]*(localoldomegaj[0]*dt - dalpha[0]);
+  db[0] = radius[i]*(localoldomegai[0]*dt - dalpha[0]);
 
   //~ X-Z projection
-  da[1] = radius[j]*(localoldomegaj[1]*dt - dalpha);
-  db[1] = radius[i]*(localoldomegai[1]*dt - dalpha);
+  da[1] = radius[j]*(localoldomegaj[1]*dt - dalpha[1]);
+  db[1] = radius[i]*(localoldomegai[1]*dt - dalpha[1]);
 
-  //~ For spin around z axis, dalpha == 0
+  //~ For spin around z axis, dalpha* == 0
   da[2] = radius[j]*localoldomegaj[2]*dt;
   db[2] = radius[i]*localoldomegai[2]*dt;
 
