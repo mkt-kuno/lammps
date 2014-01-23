@@ -1436,11 +1436,8 @@ void FixWallGran::rolling_resistance(int i, int numshearq, double dx, double dy,
       local rolling and twisting resistances are stored in the
       seventh-last, sixth-last and fifth-last columns of the shear 
       array*/
-    if (shear[numshearq-7+q]+localdM[q] > thetalimit[q]) {
-      localdM[q] = 0.0;
-      //~ OK to update regardless of issingle setting
-      shear[numshearq-7+q] = thetalimit[q];
-    }
+    if (shear[numshearq-7+q]+localdM[q] > thetalimit[q])
+      localdM[q] = thetalimit[q] - shear[numshearq-7+q];
   }
 
   /*~ Compute the global moment increments by multiplying the 
