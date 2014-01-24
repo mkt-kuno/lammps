@@ -1185,32 +1185,39 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
     that the increments don't exceed the limits*/
   for (int q = 0; q < 2; q++) {
     if (model_type % 7 > 0) {//~ Rolling resistance enabled
-      if (dthetar[q] < thetalimit[q]) localdM[q] = st[q]*dthetar[q];
-      else localdM[q] = st[q]*thetalimit[q];
+      if (fabs(dthetar[q]) < thetalimit[q]) localdM[q] = st[q]*dthetar[q];
+      else localdM[q] = st[q]*thetalimit[q]*(dthetar[q] < 0.0 ? -1.0 : 1.0);
     } else localdM[q] = 0.0; //~ Rolling resistance disabled
   }
 
   /*~ Now find local increments of twisting resistance for which
     there are two cases*/
   if (model_type % 11 > 0) {//~ Twisting resistance enabled
-    if (dthetar[2] < thetalimit[2]) localdM[2] = st[2]*dthetar[2];
-    else localdM[2] = st[2]*thetalimit[2];
+    if (fabs(dthetar[2]) < thetalimit[2]) localdM[2] = st[2]*dthetar[2];
+    else localdM[2] = st[2]*thetalimit[2]*(dthetar[2] < 0.0 ? -1.0 : 1.0);
 
     if (model_type % 2 == 0) {//~ Option C
       localdM[2] = st[2]*dthetar[2];
-      if (localdM[2] > thetalimit[2]) localdM[2] = thetalimit[2];
+      if (fabs(localdM[2]) > thetalimit[2])
+	localdM[2] > 0.0 ? localdM[2] = thetalimit[2] : localdM[2] = -thetalimit[2];
     }
   } else localdM[2] = 0.0; //~ Twisting resistance disabled
 
+  double scalefactor; //~ Denominator used for scaling resistances
   for (int q = 0; q < 3; q++) {
     /*~ If the accumulated local resistances exceed the permissible
-      limits, set the increments to zero and scale the accumulated
-      resistances to equal the appropriate limit. The accumulated 
-      local rolling and twisting resistances are stored in the
-      seventh-last, sixth-last and fifth-last columns of the shear 
-      array*/
-    if (shear[numshearq-7+q]+localdM[q] > thetalimit[q])
-      localdM[q] = thetalimit[q] - shear[numshearq-7+q];
+      limits, proportionally reduce the size of the incremental
+      resistances and also scale the accumulated resistances 
+      so that the accumulated local resistance will equal the 
+      appropriate limit once the increment is added to it at the end
+      of this function. The accumulated local rolling and twisting 
+      resistances are stored in the seventh-last, sixth-last and
+      fifth-last columns of the shear array*/
+    scalefactor = fabs(shear[numshearq-7+q] + localdM[q]);
+    if (scalefactor > thetalimit[q]) {
+      localdM[q] *= thetalimit[q]/scalefactor;
+      shear[numshearq-7+q] *= thetalimit[q]/scalefactor;
+    }
   }
 
   /*~ Compute the global moment increments by multiplying the 
