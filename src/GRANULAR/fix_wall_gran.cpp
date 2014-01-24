@@ -1355,7 +1355,7 @@ void FixWallGran::rolling_resistance(int i, int numshearq, double dx, double dy,
 
   if (B > tolerance) {
     delbyb = *rolling_delta*B;
-    knbar = fabs(ccel*r*recipcarea/(un*PI*delbyb*delbyb));
+    knbar = fabs(ccel*r/(un*PI*delbyb*delbyb));
   } else {
     //~ Issue a warning and broadcast lastwarning int to all procs
     if (update->ntimestep-lastwarning[0] >= warnfrequency) {
