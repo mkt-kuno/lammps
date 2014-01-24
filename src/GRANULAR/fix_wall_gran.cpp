@@ -1348,15 +1348,14 @@ void FixWallGran::rolling_resistance(int i, int numshearq, double dx, double dy,
     Also calculate some necessary quantities for later use*/
   int warnfrequency = 100; //~ How often to warn about stiffness calcs
   double PI = 4.0*atan(1.0);
-  double un, B, delbyb, recipcarea, recipA, knbar, ksbar;
+  double un, B, delbyb, recipA, knbar, ksbar;
 
   un = radius - r; //~ Normal contact overlap
   B = sqrt(radius*radius - r*r); //~ Radius of contact plane
 
   if (B > tolerance) {
-    recipcarea = 1.0/(PI*B*B); //~ Reciprocal of contact area
     delbyb = *rolling_delta*B;
-    knbar = fabs(ccel*r*recipcarea/un);
+    knbar = fabs(ccel*r*recipcarea/(un*PI*delbyb*delbyb));
   } else {
     //~ Issue a warning and broadcast lastwarning int to all procs
     if (update->ntimestep-lastwarning[0] >= warnfrequency) {
@@ -1378,7 +1377,7 @@ void FixWallGran::rolling_resistance(int i, int numshearq, double dx, double dy,
       && comm->me == 0)
     error->warning(FLERR,"Using zero kt: tangential contact stiffness cannot be estimated in rolling resistance model");
 
-  if (B > tolerance && effectivekt > tolerance) ksbar = effectivekt*recipcarea;
+  if (B > tolerance && effectivekt > tolerance) ksbar = effectivekt*recipA;
   else if (shear[numshearq-1] > tolerance) ksbar = fabs(shear[numshearq-1]);
   else {
     if (kt >= tolerance && update->ntimestep-lastwarning[1] >= warnfrequency) {

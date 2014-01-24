@@ -1120,16 +1120,15 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
     contact overlap and contact area. If division by zero, issue a warning.
     Also calculate some necessary quantities for later use*/
   int warnfrequency = 100; //~ How often to warn about stiffness calcs
-  double un, deltai, B, delbyb, recipcarea, recipA, knbar, ksbar;
+  double un, deltai, B, delbyb, recipA, knbar, ksbar;
   
   un = radsum - r; //~ Normal contact overlap
   deltai = 0.5*un*rinv*(2.0*radius[j] - un);
   B = sqrt(deltai*(2.0*radius[i] - deltai)); //~ Radius of contact plane
   
   if (B > tolerance) {
-    recipcarea = 1.0/(PI*B*B); //~ Reciprocal of contact area
     delbyb = rolling_delta*B;
-    knbar = fabs(ccel*r*recipcarea/un);
+    knbar = fabs(ccel*r*recipcarea/(un*PI*delbyb*delbyb));
   } else {
     //~ Issue a warning and broadcast lastwarning int to all procs
     if (update->ntimestep-lastwarning[0] >= warnfrequency) {
@@ -1151,7 +1150,7 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
       && comm->me == 0)
     error->warning(FLERR,"Using zero kt: tangential contact stiffness cannot be estimated in rolling resistance model");
 
-  if (B > tolerance && effectivekt > tolerance) ksbar = effectivekt*recipcarea;
+  if (B > tolerance && effectivekt > tolerance) ksbar = effectivekt*recipA;
   else if (shear[numshearq-1] > tolerance) ksbar = fabs(shear[numshearq-1]);
   else {
     if (kt >= tolerance && update->ntimestep-lastwarning[1] >= warnfrequency) {
