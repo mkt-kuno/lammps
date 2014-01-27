@@ -1440,9 +1440,9 @@ void FixWallGran::rolling_resistance(int i, int numshearq, double dx, double dy,
       resistances are stored in the seventh-last, sixth-last and
       fifth-last columns of the shear array*/
     scalefactor = fabs(shear[numshearq-7+q] + localdM[q]);
-    if (scalefactor > thetalimit[q]) {
-      localdM[q] *= thetalimit[q]/scalefactor;
-      shear[numshearq-7+q] *= thetalimit[q]/scalefactor;
+    if (scalefactor > -st[q]*thetalimit[q]) {
+      localdM[q] *= -st[q]*thetalimit[q]/scalefactor;
+      shear[numshearq-7+q] *= -st[q]*thetalimit[q]/scalefactor;
     }
   }
 
