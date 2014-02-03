@@ -134,8 +134,8 @@ void Pair::modify_params(int narg, char **arg)
       rolling_delta = atof(arg[iarg+2]);
 
       //~ Check whether these are reasonable
-      if (rolling_delta < 1.0)
-	error->all(FLERR,"Delta value should be greater than or equal to one in rolling resistance model");
+      if (rolling_delta < 0.0)
+	error->all(FLERR,"Delta value should be positive in rolling resistance model");
 
       if (model_type < 1)
 	error->all(FLERR,"model_type must be a positive integer in rolling resistance model");
