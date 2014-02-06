@@ -84,7 +84,7 @@ class DumpVTK : public Dump {
   virtual void init_style();
   virtual void write_header(bigint);
   int count();
-  void pack(int *);
+  void pack(tagint *);
   virtual void write_data(int, double *);
   bigint memory_usage();
 

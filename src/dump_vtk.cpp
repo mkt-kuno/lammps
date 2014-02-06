@@ -44,7 +44,7 @@ enum{ID,MOL,TYPE,ELEMENT,MASS,
      TQX,TQY,TQZ,SPIN,ERADIUS,ERVEL,ERFORCE,
      COMPUTE,FIX,VARIABLE};
 enum{LT,LE,GT,GE,EQ,NEQ};
-enum{INT,DOUBLE,STRING};    // same as in DumpCFG
+enum{INT,DOUBLE,STRING,BIGINT};    // same as in DumpCFG
 
 #define INVOKED_PERATOM 8
 
@@ -175,6 +175,7 @@ DumpVTK::DumpVTK(LAMMPS *lmp, int narg, char **arg) :
     if (vtype[i] == INT) strcat(format_default,"%d ");
     else if (vtype[i] == DOUBLE) strcat(format_default,"%g ");
     else if (vtype[i] == STRING) strcat(format_default,"%s ");
+    else if (vtype[i] == BIGINT) strcat(format_default,BIGINT_FORMAT " ");
     vformat[i] = NULL;
   }
 }
@@ -408,7 +409,7 @@ int DumpVTK::count()
       // customize by adding to if statement
 
       if (thresh_array[ithresh] == ID) {
-        int *tag = atom->tag;
+        tagint *tag = atom->tag;
         for (i = 0; i < nlocal; i++) dchoose[i] = tag[i];
         ptr = dchoose;
         nstride = 1;
@@ -506,7 +507,7 @@ int DumpVTK::count()
 
       } else if (thresh_array[ithresh] == XU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double xprd = domain->xprd;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = x[i][0] + ((image[i] & IMGMASK) - IMGMAX) * xprd;
@@ -514,7 +515,7 @@ int DumpVTK::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == YU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double yprd = domain->yprd;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = x[i][1] + ((image[i] >> IMGBITS & IMGMASK) - IMGMAX) * yprd;
@@ -522,7 +523,7 @@ int DumpVTK::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == ZU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double zprd = domain->zprd;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = x[i][2] + ((image[i] >> IMG2BITS) - IMGMAX) * zprd;
@@ -531,7 +532,7 @@ int DumpVTK::count()
 
       } else if (thresh_array[ithresh] == XUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *h = domain->h;
         int xbox,ybox,zbox;
         for (i = 0; i < nlocal; i++) {
@@ -544,7 +545,7 @@ int DumpVTK::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == YUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *h = domain->h;
         int ybox,zbox;
         for (i = 0; i < nlocal; i++) {
@@ -556,7 +557,7 @@ int DumpVTK::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == ZUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *h = domain->h;
         int zbox;
         for (i = 0; i < nlocal; i++) {
@@ -568,7 +569,7 @@ int DumpVTK::count()
 
       } else if (thresh_array[ithresh] == XSU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double boxxlo = domain->boxlo[0];
         double invxprd = 1.0/domain->xprd;
         for (i = 0; i < nlocal; i++)
@@ -578,7 +579,7 @@ int DumpVTK::count()
 
       } else if (thresh_array[ithresh] == YSU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double boxylo = domain->boxlo[1];
         double invyprd = 1.0/domain->yprd;
         for (i = 0; i < nlocal; i++)
@@ -589,7 +590,7 @@ int DumpVTK::count()
 
       } else if (thresh_array[ithresh] == ZSU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double boxzlo = domain->boxlo[2];
         double invzprd = 1.0/domain->zprd;
         for (i = 0; i < nlocal; i++)
@@ -599,7 +600,7 @@ int DumpVTK::count()
 
       } else if (thresh_array[ithresh] == XSUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *boxlo = domain->boxlo;
         double *h_inv = domain->h_inv;
         for (i = 0; i < nlocal; i++)
@@ -611,7 +612,7 @@ int DumpVTK::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == YSUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *boxlo = domain->boxlo;
         double *h_inv = domain->h_inv;
         for (i = 0; i < nlocal; i++)
@@ -622,7 +623,7 @@ int DumpVTK::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == ZSUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *boxlo = domain->boxlo;
         double *h_inv = domain->h_inv;
         for (i = 0; i < nlocal; i++)
@@ -632,19 +633,19 @@ int DumpVTK::count()
         nstride = 1;
 
       } else if (thresh_array[ithresh] == IX) {
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = (image[i] & IMGMASK) - IMGMAX;
         ptr = dchoose;
         nstride = 1;
       } else if (thresh_array[ithresh] == IY) {
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = (image[i] >> IMGBITS & IMGMASK) - IMGMAX;
         ptr = dchoose;
         nstride = 1;
       } else if (thresh_array[ithresh] == IZ) {
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = (image[i] >> IMG2BITS) - IMGMAX;
         ptr = dchoose;
@@ -861,11 +862,11 @@ int DumpVTK::count()
 
 /* ---------------------------------------------------------------------- */
 
-void DumpVTK::pack(int *ids)
+void DumpVTK::pack(tagint *ids)
 {
   for (int n = 0; n < size_one; n++) (this->*pack_choice[n])(n);
   if (ids) {
-    int *tag = atom->tag;
+    tagint *tag = atom->tag;
     for (int i = 0; i < nchoose; i++)
       ids[i] = tag[clist[i]];
   }
@@ -998,7 +999,8 @@ int DumpVTK::parse_fields(int narg, char **arg)
 
     if (strcmp(arg[iarg],"id") == 0) {
       pack_choice[i] = &DumpVTK::pack_id;
-      vtype[i] = INT;
+      if (sizeof(tagint) == sizeof(smallint)) vtype[i] = INT;
+      else vtype[i] = BIGINT;
     } else if (strcmp(arg[iarg],"mol") == 0) {
       if (!atom->molecule_flag)
         error->all(FLERR,"Dumping an atom property that isn't allocated");
@@ -1705,7 +1707,7 @@ void DumpVTK::pack_variable(int n)
 
 void DumpVTK::pack_id(int n)
 {
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = tag[clist[i]];
@@ -1895,7 +1897,7 @@ void DumpVTK::pack_xu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double xprd = domain->xprd;
 
@@ -1912,7 +1914,7 @@ void DumpVTK::pack_yu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double yprd = domain->yprd;
 
@@ -1929,7 +1931,7 @@ void DumpVTK::pack_zu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double zprd = domain->zprd;
 
@@ -1946,7 +1948,7 @@ void DumpVTK::pack_xu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *h = domain->h;
   int xbox,ybox,zbox;
@@ -1967,7 +1969,7 @@ void DumpVTK::pack_yu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *h = domain->h;
   int ybox,zbox;
@@ -1987,7 +1989,7 @@ void DumpVTK::pack_zu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *h = domain->h;
   int zbox;
@@ -2006,7 +2008,7 @@ void DumpVTK::pack_xsu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double boxxlo = domain->boxlo[0];
   double invxprd = 1.0/domain->xprd;
@@ -2024,7 +2026,7 @@ void DumpVTK::pack_ysu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double boxylo = domain->boxlo[1];
   double invyprd = 1.0/domain->yprd;
@@ -2042,7 +2044,7 @@ void DumpVTK::pack_zsu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double boxzlo = domain->boxlo[2];
   double invzprd = 1.0/domain->zprd;
@@ -2060,7 +2062,7 @@ void DumpVTK::pack_xsu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *boxlo = domain->boxlo;
   double *h_inv = domain->h_inv;
@@ -2079,7 +2081,7 @@ void DumpVTK::pack_ysu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *boxlo = domain->boxlo;
   double *h_inv = domain->h_inv;
@@ -2098,7 +2100,7 @@ void DumpVTK::pack_zsu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *boxlo = domain->boxlo;
   double *h_inv = domain->h_inv;
@@ -2114,7 +2116,7 @@ void DumpVTK::pack_zsu_triclinic(int n)
 
 void DumpVTK::pack_ix(int n)
 {
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = (image[clist[i]] & IMGMASK) - IMGMAX;
@@ -2126,7 +2128,7 @@ void DumpVTK::pack_ix(int n)
 
 void DumpVTK::pack_iy(int n)
 {
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = (image[clist[i]] >> IMGBITS & IMGMASK) - IMGMAX;
@@ -2138,7 +2140,7 @@ void DumpVTK::pack_iy(int n)
 
 void DumpVTK::pack_iz(int n)
 {
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = (image[clist[i]] >> IMG2BITS) - IMGMAX;
