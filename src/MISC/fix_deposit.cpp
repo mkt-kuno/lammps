@@ -99,14 +99,17 @@ FixDeposit::FixDeposit(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"Cannot use fix_deposit unless atoms have IDs");
 
   if (mode == MOLECULE) {
-    if (atom->molecule_flag == 0)
-      error->all(FLERR,"Fix deposit mol requires atom attribute molecule");
     if (onemol->xflag == 0)
       error->all(FLERR,"Fix deposit molecule must have coordinates");
     if (onemol->typeflag == 0)
       error->all(FLERR,"Fix deposit molecule must have atom types");
-    if (ntype+onemol->maxtype <= 0 || ntype+onemol->maxtype > atom->ntypes)
+    if (ntype+onemol->ntypes <= 0 || ntype+onemol->ntypes > atom->ntypes)
       error->all(FLERR,"Invalid atom type in fix deposit mol command");
+
+    if (atom->molecular == 2 && onemol != atom->avec->onemols[0])
+      error->all(FLERR,"Fix deposit molecule template ID must be same "
+                 "as atom_style template ID");
+    onemol->check_attributes(0);
 
     // fix deposit uses geoemetric center of molecule for insertion
 
@@ -218,7 +221,8 @@ void FixDeposit::init()
     int tmp;
     if (onemol != (Molecule *) fixrigid->extract("onemol",tmp))
       error->all(FLERR,
-                 "Fix deposit and fix rigid/small not using same molecule ID");
+                 "Fix deposit and fix rigid/small not using "
+                 "same molecule template ID");
   }
 
   // if shakeflag defined, check for SHAKE fix
@@ -231,7 +235,8 @@ void FixDeposit::init()
     fixshake = modify->fix[ifix];
     int tmp;
     if (onemol != (Molecule *) fixshake->extract("onemol",tmp))
-      error->all(FLERR,"Fix deposit and fix shake not using same molecule ID");
+      error->all(FLERR,"Fix deposit and fix shake not using "
+                 "same molecule template ID");
   }
 }
 
@@ -363,8 +368,8 @@ void FixDeposit::pre_exchange()
         coords[i][1] += coord[1];
         coords[i][2] += coord[2];
 
-        imageflags[i] = ((tagint) IMGMAX << IMG2BITS) |
-          ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+        imageflags[i] = ((imageint) IMGMAX << IMG2BITS) |
+          ((imageint) IMGMAX << IMGBITS) | IMGMAX;
         domain->remap(coords[i],imageflags[i]);
       }
     }
@@ -444,7 +449,13 @@ void FixDeposit::pre_exchange()
         else atom->avec->create_atom(ntype+onemol->type[m],coords[m]);
         n = atom->nlocal - 1;
         atom->tag[n] = maxtag_all + m+1;
-        if (mode == MOLECULE) atom->molecule[n] = maxmol_all+1;
+        if (mode == MOLECULE) {
+          if (atom->molecular) atom->molecule[n] = maxmol_all+1;
+          if (atom->molecular == 2) {
+            atom->molindex[n] = 0;
+            atom->molatom[n] = m;
+          }
+        }
         atom->mask[n] = 1 | groupbit;
         atom->image[n] = imageflags[m];
         atom->v[n][0] = vnew[0];
@@ -489,16 +500,18 @@ void FixDeposit::pre_exchange()
 
   if (success) {
     atom->natoms += natom;
+    if (atom->natoms < 0 || atom->natoms > MAXBIGINT)
+      error->all(FLERR,"Too many total atoms");
     if (mode == MOLECULE) {
       atom->nbonds += onemol->nbonds;
       atom->nangles += onemol->nangles;
       atom->ndihedrals += onemol->ndihedrals;
       atom->nimpropers += onemol->nimpropers;
     }
-    if (idnext) {
-      maxtag_all += natom;
-      if (mode == MOLECULE) maxmol_all++;
-    }
+    maxtag_all += natom;
+    if (maxtag_all >= MAXTAGINT)
+      error->all(FLERR,"New atom IDs exceed maximum allowed ID");
+    if (mode == MOLECULE && atom->molecule_flag) maxmol_all++;
     if (atom->map_style) {
       atom->nghost = 0;
       atom->map_init();
@@ -521,18 +534,18 @@ void FixDeposit::pre_exchange()
 
 void FixDeposit::find_maxid()
 {
-  int *tag = atom->tag;
-  int *molecule = atom->molecule;
+  tagint *tag = atom->tag;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
 
-  int max = 0;
+  tagint max = 0;
   for (int i = 0; i < nlocal; i++) max = MAX(max,tag[i]);
-  MPI_Allreduce(&max,&maxtag_all,1,MPI_INT,MPI_MAX,world);
+  MPI_Allreduce(&max,&maxtag_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
 
-  if (mode == MOLECULE) {
+  if (mode == MOLECULE && molecule) {
     max = 0;
     for (int i = 0; i < nlocal; i++) max = MAX(max,molecule[i]);
-    MPI_Allreduce(&max,&maxmol_all,1,MPI_INT,MPI_MAX,world);
+    MPI_Allreduce(&max,&maxmol_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
   }
 }
 
@@ -576,10 +589,13 @@ void FixDeposit::options(int narg, char **arg)
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix deposit command");
       int imol = atom->find_molecule(arg[iarg+1]);
       if (imol == -1)
-        error->all(FLERR,"Molecule ID for fix deposit does not exist");
+        error->all(FLERR,"Molecule template ID for fix deposit does not exist");
+      if (atom->molecules[imol]->nset > 1 && comm->me == 0)
+        error->warning(FLERR,"Molecule template for "
+                       "fix deposit has multiple molecules");
       mode = MOLECULE;
       onemol = atom->molecules[imol];
-     iarg += 2;
+      iarg += 2;
     } else if (strcmp(arg[iarg],"rigid") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix deposit command");
       int n = strlen(arg[iarg+1]) + 1;

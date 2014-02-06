@@ -19,6 +19,10 @@
 
 #ifdef LMP_MPIIO
 
+#if defined(MPI_STUBS)
+#error "The MPIIO package cannot be compiled in serial with MPI STUBS"
+#endif
+
 #include "restart_mpiio.h"
 
 #else
@@ -34,9 +38,10 @@ class RestartMPIIO {
 
   RestartMPIIO(class LAMMPS *) {mpiio_exists = 0;}
   ~RestartMPIIO() {}
-  void open() {}
-  void write() {}
-  void read() {}
+  void openForRead(char *) {}
+  void openForWrite(char *) {}
+  void write(MPI_Offset,int,double *) {}
+  void read(MPI_Offset,long,double *) {}
   void close() {}
 };
 

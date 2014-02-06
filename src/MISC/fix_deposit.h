@@ -51,11 +51,11 @@ class FixDeposit : public Fix {
   class Molecule *onemol;
   int natom;
   double **coords;
-  int *imageflags;
+  imageint *imageflags;
   class Fix *fixrigid,*fixshake;
 
   int nfirst,ninserted;
-  int maxtag_all,maxmol_all;
+  tagint maxtag_all,maxmol_all;
   class RanPark *random;
 
   void find_maxid();
@@ -75,6 +75,10 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
+E: Invalid atom type in fix deposit command
+
+Self-explanatory.
+
 E: Must specify a region in fix deposit
 
 The region keyword must be specified with this fix.
@@ -92,7 +96,59 @@ E: Deposition region extends outside simulation box
 
 Self-explanatory.
 
+E: Cannot use fix_deposit unless atoms have IDs
+
+Self-explanatory.
+
+E: Fix deposit molecule must have coordinates
+
+The defined molecule does not specify coordinates.
+
+E: Fix deposit molecule must have atom types
+
+The defined molecule does not specify atom types.
+
+E: Invalid atom type in fix deposit mol command
+
+The atom types in the defined molecule are added to the value
+specified in the create_atoms command, as an offset.  The final value
+for each atom must be between 1 to N, where N is the number of atom
+types.
+
+E: Fix deposit molecule template ID must be same as atom_style template ID
+
+When using atom_style template, you cannot deposit molecules that are
+not in that template.
+
+E: Cannot use fix deposit rigid and not molecule
+
+Self-explanatory.
+
+E: Cannot use fix deposit shake and not molecule
+
+Self-explanatory.
+
+E: Cannot use fix deposit rigid and shake
+
+These two attributes are conflicting.
+
 E: Region ID for fix deposit does not exist
+
+Self-explanatory.
+
+E: Fix pour rigid fix does not exist
+
+Self-explanatory.
+
+E: Fix deposit and fix rigid/small not using same molecule template ID
+
+Self-explanatory.
+
+E: Fix deposit shake fix does not exist
+
+Self-explanatory.
+
+E: Fix deposit and fix shake not using same molecule template ID
 
 Self-explanatory.
 
@@ -102,9 +158,21 @@ The fix deposit command was not able to insert as many atoms as
 needed.  The requested volume fraction may be too high, or other atoms
 may be in the insertion region.
 
-U: Use of fix deposit with undefined lattice
+E: Too many total atoms
 
-Must use lattice command with compute fix deposit command if units
-option is set to lattice.
+See the setting for bigint in the src/lmptype.h file.
+
+E: New atom IDs exceed maximum allowed ID
+
+See the setting for tagint in the src/lmptype.h file.
+
+E: Molecule template ID for fix deposit does not exist
+
+Self-explanatory.
+
+W: Molecule template for fix deposit has multiple molecules
+
+The fix deposit command will only create molecules of a single type,
+i.e. the first molecule in the template.
 
 */

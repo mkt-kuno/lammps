@@ -53,7 +53,7 @@ class AtomVecMeso : public AtomVec {
   int pack_restart(int, double *);
   int unpack_restart(double *);
   void create_atom(int, double *);
-  void data_atom(double *, tagint, char **);
+  void data_atom(double *, imageint, char **);
   int data_atom_hybrid(int, char **);
   void pack_data(double **);
   int pack_data_hybrid(int, double *);
@@ -62,8 +62,9 @@ class AtomVecMeso : public AtomVec {
   bigint memory_usage();
 
  private:
-  int *tag,*type,*mask;
-  tagint *image;
+  tagint *tag;
+  int *type,*mask;
+  imageint *image;
   double **x,**v,**f;
   double *rho, *drho, *e, *de, *cv;
   double **vest; // estimated velocity during force computation

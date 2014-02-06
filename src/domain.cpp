@@ -23,6 +23,8 @@
 #include "domain.h"
 #include "style_region.h"
 #include "atom.h"
+#include "atom_vec.h"
+#include "molecule.h"
 #include "force.h"
 #include "kspace.h"
 #include "update.h"
@@ -451,13 +453,13 @@ void Domain::reset_box()
 void Domain::pbc()
 {
   int i;
-  tagint idim,otherdims;
+  imageint idim,otherdims;
   double *lo,*hi,*period;
   int nlocal = atom->nlocal;
   double **x = atom->x;
   double **v = atom->v;
   int *mask = atom->mask;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   if (triclinic == 0) {
     lo = boxlo;
@@ -559,7 +561,8 @@ void Domain::pbc()
 
 void Domain::image_check()
 {
-  int i,j,k;
+  int i,j,k,n,imol,iatom;
+  tagint tagprev;
 
   // only need to check if system is molecular and some dimension is periodic
   // if running verlet/split, don't check on KSpace partition since
@@ -576,7 +579,7 @@ void Domain::image_check()
   memory->create(unwrap,atom->nmax,3,"domain:unwrap");
 
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   for (i = 0; i < nlocal; i++)
@@ -589,8 +592,15 @@ void Domain::image_check()
   // flag if any bond component is longer than non-periodic box length
   //   which means image flags in that dimension were different
 
+  int molecular = atom->molecular;
+
   int *num_bond = atom->num_bond;
-  int **bond_atom = atom->bond_atom;
+  tagint **bond_atom = atom->bond_atom;
+  int **bond_type = atom->bond_type;
+  tagint *tag = atom->tag;
+  int *molindex = atom->molindex;
+  int *molatom = atom->molatom;
+  Molecule **onemols = atom->avec->onemols;
 
   double delx,dely,delz;
 
@@ -598,9 +608,25 @@ void Domain::image_check()
   int nmissing = 0;
 
   int flag = 0;
-  for (i = 0; i < nlocal; i++)
-    for (j = 0; j < num_bond[i]; j++) {
-      k = atom->map(bond_atom[i][j]);
+  for (i = 0; i < nlocal; i++) {
+    if (molecular == 1) n = num_bond[i];
+    else {
+      if (molindex[i] < 0) continue;
+      imol = molindex[i];
+      iatom = molatom[i];
+      n = onemols[imol]->num_bond[iatom];
+    }
+    
+    for (j = 0; j < n; j++) {
+      if (molecular == 1) {
+        if (bond_type[i][j] <= 0) continue;
+        k = atom->map(bond_atom[i][j]);
+      } else {
+        if (onemols[imol]->bond_type[iatom][j] < 0) continue;
+        tagprev = tag[i] - iatom - 1;
+        k = atom->map(onemols[imol]->bond_atom[iatom][j]+tagprev);
+      }
+
       if (k == -1) {
         nmissing++;
         if (lostbond == ERROR)
@@ -619,6 +645,7 @@ void Domain::image_check()
       if (!yperiodic && dely > yprd) flag = 1;
       if (dimension == 3 && !zperiodic && delz > zprd) flag = 1;
     }
+  }
 
   int flagall;
   MPI_Allreduce(&flag,&flagall,1,MPI_INT,MPI_MAX,world);
@@ -629,7 +656,7 @@ void Domain::image_check()
     int all;
     MPI_Allreduce(&nmissing,&all,1,MPI_INT,MPI_SUM,world);
     if (all && comm->me == 0) 
-      error->warning(FLERR,"Bond atoms missing in image check");
+      error->warning(FLERR,"Bond atom missing in image check");
   }
 
   memory->destroy(unwrap);
@@ -644,7 +671,8 @@ void Domain::image_check()
 
 void Domain::box_too_small_check()
 {
-  int i,j,k;
+  int i,j,k,n,imol,iatom;
+  tagint tagprev;
 
   // only need to check if system is molecular and some dimension is periodic
   // if running verlet/split, don't check on KSpace partition since
@@ -661,9 +689,16 @@ void Domain::box_too_small_check()
   // in this case, image_check() should warn,
   //   assuming 2 atoms have consistent image flags
 
-  int *num_bond = atom->num_bond;
-  int **bond_atom = atom->bond_atom;
+  int molecular = atom->molecular;
+
   double **x = atom->x;
+  int *num_bond = atom->num_bond;
+  tagint **bond_atom = atom->bond_atom;
+  int **bond_type = atom->bond_type;
+  tagint *tag = atom->tag;
+  int *molindex = atom->molindex;
+  int *molatom = atom->molatom;
+  Molecule **onemols = atom->avec->onemols;
   int nlocal = atom->nlocal;
 
   double delx,dely,delz,rsq,r;
@@ -672,15 +707,32 @@ void Domain::box_too_small_check()
   int lostbond = output->thermo->lostbond;
   int nmissing = 0;
 
-  for (i = 0; i < nlocal; i++)
-    for (j = 0; j < num_bond[i]; j++) {
-      k = atom->map(bond_atom[i][j]);
+  for (i = 0; i < nlocal; i++) {
+    if (molecular == 1) n = num_bond[i];
+    else {
+      if (molindex[i] < 0) continue;
+      imol = molindex[i];
+      iatom = molatom[i];
+      n = onemols[imol]->num_bond[iatom];
+    }
+
+    for (j = 0; j < n; j++) {
+      if (molecular == 1) {
+        if (bond_type[i][j] <= 0) continue;
+        k = atom->map(bond_atom[i][j]);
+      } else {
+        if (onemols[imol]->bond_type[iatom][j] < 0) continue;
+        tagprev = tag[i] - iatom - 1;
+        k = atom->map(onemols[imol]->bond_atom[iatom][j]+tagprev);
+      }
+
       if (k == -1) {
         nmissing++;
         if (lostbond == ERROR)
           error->one(FLERR,"Bond atom missing in box size check");
         continue;
       }
+
       delx = x[i][0] - x[k][0];
       dely = x[i][1] - x[k][1];
       delz = x[i][2] - x[k][2];
@@ -688,12 +740,13 @@ void Domain::box_too_small_check()
       rsq = delx*delx + dely*dely + delz*delz;
       maxbondme = MAX(maxbondme,rsq);
     }
+  }
 
   if (lostbond == WARN) {
     int all;
     MPI_Allreduce(&nmissing,&all,1,MPI_INT,MPI_SUM,world);
     if (all && comm->me == 0) 
-      error->warning(FLERR,"Bond atoms missing in box size check");
+      error->warning(FLERR,"Bond atom missing in box size check");
   }
 
   double maxbondall;
@@ -994,11 +1047,11 @@ void Domain::closest_image(const double * const xi, const double * const xj,
    increment/decrement in wrap-around fashion
 ------------------------------------------------------------------------- */
 
-void Domain::remap(double *x, tagint &image)
+void Domain::remap(double *x, imageint &image)
 {
   double *lo,*hi,*period,*coord;
   double lamda[3];
-  tagint idim,otherdims;
+  imageint idim,otherdims;
 
   if (triclinic == 0) {
     lo = boxlo;
@@ -1203,7 +1256,7 @@ void Domain::remap_near(double *xnew, double *xold)
    for triclinic, use h[] to add in tilt factors in other dims as needed
 ------------------------------------------------------------------------- */
 
-void Domain::unmap(double *x, tagint image)
+void Domain::unmap(double *x, imageint image)
 {
   int xbox = (image & IMGMASK) - IMGMAX;
   int ybox = (image >> IMGBITS & IMGMASK) - IMGMAX;
@@ -1226,7 +1279,7 @@ void Domain::unmap(double *x, tagint image)
    for triclinic, use h[] to add in tilt factors in other dims as needed
 ------------------------------------------------------------------------- */
 
-void Domain::unmap(double *x, tagint image, double *y)
+void Domain::unmap(double *x, imageint image, double *y)
 {
   int xbox = (image & IMGMASK) - IMGMAX;
   int ybox = (image >> IMGBITS & IMGMASK) - IMGMAX;
@@ -1264,7 +1317,7 @@ void Domain::unmap(double *x, tagint image, double *y)
 
 void Domain::image_flip(int m, int n, int p)
 {
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   for (int i = 0; i < nlocal; i++) {
@@ -1275,9 +1328,9 @@ void Domain::image_flip(int m, int n, int p)
     ybox -= p*zbox;
     xbox -= m*ybox + n*zbox;
 
-    image[i] = ((tagint) (xbox + IMGMAX) & IMGMASK) | 
-      (((tagint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) | 
-      (((tagint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
+    image[i] = ((imageint) (xbox + IMGMAX) & IMGMASK) | 
+      (((imageint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) | 
+      (((imageint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
   }
 }
 

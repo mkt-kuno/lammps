@@ -59,6 +59,8 @@ class LAMMPS {
  private:
   void help();
   void print_style(const char *, int &);
+  LAMMPS() {};                   // prohibit using the default constructor
+  LAMMPS(const LAMMPS &) {};     // prohibit using the copy constructor
 };
 
 }
@@ -100,7 +102,7 @@ For a multi-partition run, the master screen file cannot be opened.
 Check that the directory you are running in allows for files to be
 created.
 
-E: Cannot open log.lammps
+E: Cannot open log.lammps for writing
 
 The default LAMMPS log file cannot be opened.  Check that the
 directory you are running in allows for files to be created.
@@ -130,6 +132,10 @@ E: Smallint setting in lmptype.h is invalid
 
 It has to be the size of an integer.
 
+E: Imageint setting in lmptype.h is invalid
+
+Imageint must be as large or larger than smallint.
+
 E: Tagint setting in lmptype.h is invalid
 
 Tagint must be as large or larger than smallint.
@@ -146,9 +152,11 @@ E: MPI_LMP_BIGINT and bigint in lmptype.h are not compatible
 
 The size of the MPI datatype does not match the size of a bigint.
 
-E: Small, tag, big integers are not sized correctly
+E: Small to big integers are not sized correctly
 
-See description of these 3 data types in src/lmptype.h.
+This error occurs whenthe sizes of smallint, imageint, tagint, bigint,
+as defined in src/lmptype.h are not what is expected.  Contact
+the developers if this occurs.
 
 E: Cannot use -cuda on without USER-CUDA installed
 

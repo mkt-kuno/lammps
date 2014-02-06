@@ -47,9 +47,9 @@ class PairComb3 : public Pair {
     double pcos6,pcos5,pcos4,pcos3,pcos2,pcos1,pcos0;
     double gamma,powerm,powern,bigA,bigB1,bigB2,bigB3;
     double bigd,bigr,cut,cutsq,c1,c2,c3,c4;
-    double plp1,plp2,plp3,plp4,plp5,plp6;
-    double pbb1,pbb2,ptork1,ptork2;
-    double addrep, vdwflag;
+    double p6p0,p6p1,p6p2,p6p3,p6p4,p6p5,p6p6;
+    double ptork1,ptork2;
+    double addrepr,addrep, vdwflag;
     double QU,QL,DU,DL,Qo,dQ,aB,bB,nD,bD,qmin,qmax;
     double chi,dj,dk,dl,dm,esm,cmn1,cmn2,pcmn1,pcmn2;
     double coulcut, lcut, lcutsq;
@@ -182,9 +182,9 @@ class PairComb3 : public Pair {
         double &, double &, double &, double &, Param *);
 
   // Legendre polynomials
-  void selflp(Param *, Param *, double, double &, double &);
-  double elp(Param *, Param *, double, double, double *, double * ,double &);
-  void flp(Param *, Param *, double, double, double *, double *, double *, 
+  void selfp6p(Param *, Param *, double, double &, double &);
+  double ep6p(Param *, Param *, double, double, double *, double * ,double &);
+  void fp6p(Param *, Param *, double, double, double *, double *, double *, 
 	  double *, double *);
 
   // long range q-dependent terms

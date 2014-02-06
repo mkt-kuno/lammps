@@ -46,7 +46,8 @@ class PRD : protected Pointers {
   double time_start;
 
   MPI_Comm comm_replica;
-  int *tagall,*displacements,*imageall;
+  tagint *tagall;
+  int *displacements,*imageall;
   double **xall;
 
   int ncoincident;
@@ -120,7 +121,7 @@ after the PRD simulation.
 
 E: Too many timesteps
 
-The cumulative timesteps must fit in a 64-bit integer.
+The cummulative timesteps must fit in a 64-bit integer.
 
 E: Cannot use PRD with a changing box
 

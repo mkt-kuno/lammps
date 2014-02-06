@@ -38,5 +38,11 @@ class CiteMe : protected Pointers {
 
 /* ERROR/WARNING messages:
 
+E: Cannot open log.cite file
+
+This file is created when you use some LAMMPS features, to indicate
+what paper you should cite on behalf of those who implemented
+the feature.  Check that you have write priveleges into the directory
+you are running in.
 
 */

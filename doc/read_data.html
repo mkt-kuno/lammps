@@ -208,6 +208,15 @@ are point particles.  See the discussion of ellipsoidflag and the
 <I>Triangles</I> section below.  See the discussion of bodyflag and the
 <I>Bodies</I> section below.
 </P>
+<P>IMPORTANT NOTE: For <A HREF = "atom_style.html">atom_style template</A>, the
+molecular topology (bonds,angles,etc) is contained in the molecule
+templates read-in by the <A HREF = "molecule.html">molecule</A> command.  This means
+you cannot set the <I>bonds</I>, <I>angles</I>, etc header keywords in the data
+file, nor can you define <I>Bonds</I>, <I>Angles</I>, etc sections as discussed
+below.  You can set the <I>bond types</I>, <I>angle types</I>, etc header
+keywords, though it is not necessary.  If specified, they must match
+the maximum values defined in any of the template molecules.
+</P>
 <HR>
 
 <P>These are the section keywords for the body of the file.
@@ -343,6 +352,7 @@ of analysis.
 <TR><TD >molecular</TD><TD > atom-ID molecule-ID atom-type x y z</TD></TR>
 <TR><TD >peri</TD><TD > atom-ID atom-type volume density x y z</TD></TR>
 <TR><TD >sphere</TD><TD > atom-ID atom-type diameter density x y z</TD></TR>
+<TR><TD >template</TD><TD > atom-ID molecule-ID template-index template-atom atom-type x y z</TD></TR>
 <TR><TD >tri</TD><TD > atom-ID molecule-ID atom-type triangleflag density x y z</TD></TR>
 <TR><TD >wavepacket</TD><TD > atom-ID atom-type charge spin eradius etag cs_re cs_im x y z</TD></TR>
 <TR><TD >hybrid</TD><TD > atom-ID atom-type x y z sub-style1 sub-style2 ...  
@@ -359,6 +369,8 @@ of analysis.
 <LI>lineflag = 1 for line segment particles, 0 for point particles
 <LI>triangleflag = 1 for triangular particles, 0 for point particles
 <LI>bodyflag = 1 for body particles, 0 for point particles
+<LI>template-index = which molecule within the molecule template the atom is part of
+<LI>template-atom = which atom within a template molecule the atom is
 <LI>density = density of particle (mass/distance^3 or mass/distance^2 or mass/distance units, depending on dimensionality of particle)
 <LI>mass = mass of particle (mass units)
 <LI>volume = volume of particle (distance^3 units)
@@ -382,11 +394,11 @@ setting in the data file header.
 in dump files.  Normally, it is a unique value from 1 to Natoms for
 each atom.  Unique values larger than Natoms can be used, but they
 will cause extra memory to be allocated on each processor, if an atom
-map array is used (see the <A HREF = "atom_modify.html">atom_modify</A> command).
-If an atom map array is not used (e.g. an atomic system with no
-bonds), and velocities are not assigned in the data file, and you
-don't care if unique atom IDs appear in dump files, then the atom-IDs
-can all be set to 0.
+map array is used, but not if an atom map hash is used; see the
+<A HREF = "atom_modify.html">atom_modify</A> command for details.  If an atom map is
+not used (e.g. an atomic system with no bonds), and you don't care if
+unique atom IDs appear in dump files, then the atom-IDs can all be set
+to 0.
 </P>
 <P>The molecule ID is a 2nd identifier attached to an atom.  Normally, it
 is a number from 1 to N, identifying which molecule the atom belongs
@@ -402,6 +414,16 @@ body of finite size, or whether the particle is a point particle.
 Additional attributes must be defined for each ellipsoid, line,
 triangle, or body in the corresponding <I>Ellipsoids</I>, <I>Lines</I>,
 <I>Triangles</I>, or <I>Bodies</I> section.
+</P>
+<P>The <I>template-index</I> and <I>template-atom</I> are only defined used by
+<A HREF = "atom_style.html">atom_style template</A>.  In this case the
+<A HREF = "molecule.html">molecule</A> command is used to define a molecule template
+which contains one or more molecules.  If an atom belongs to one of
+those molecules, its <I>template-index</I> and <I>template-atom</I> are both set
+to positive integers; if not the values are both 0.  The
+<I>template-index</I> is which molecule (1 to Nmols) the atom belongs to.
+The <I>template-atom</I> is which atom (1 to Natoms) within the molecule
+the atom is.
 </P>
 <P>Some pair styles and fixes and computes that operate on finite-size
 particles allow for a mixture of finite-size and point particles.  See
@@ -438,24 +460,52 @@ for atom_style hybrid dipole full would list "q" twice:
 </P>
 <PRE>atom-ID atom-type x y z q mux muy myz molecule-ID q 
 </PRE>
-<P>Atom lines (all lines or none of them) can optionally list 3 trailing
-integer values: nx,ny,nz.  For periodic dimensions, they specify which
-image of the simulation box the atom is considered to be in.  An image
-of 0 means it is inside the box as defined.  A value of 2 means add 2
-box lengths to get the true value.  A value of -1 means subtract 1 box
-length to get the true value.  LAMMPS updates these flags as atoms
-cross periodic boundaries during the simulation.  The flags can be
-output with atom snapshots via the <A HREF = "dump.html">dump</A> command.
+<P>Atom lines specify the (x,y,z) coordinates of atoms.  These can be
+inside or outside the simulation box.  When the data file is read,
+LAMMPS wraps coordinates outside the box back into the box for
+dimensions that are periodic.  As discussed above, if an atom is
+outside the box in a non-periodic dimension, it will be lost.
 </P>
-<P>If nx,ny,nz values are not set in the data file, LAMMPS initializes
-them to 0.  If image information is needed for later analysis and they
-are not all initially 0, it's important to set them correctly in the
-data file.  Also, if you plan to use the <A HREF = "replicate.html">replicate</A>
-command to generate a larger system, these flags must be listed
-correctly for bonded atoms when the bond crosses a periodic boundary.
-I.e. the values of the image flags should be different by 1 (in the
-appropriate dimension) for the two atoms in such a bond.
+<P>LAMMPS always stores atom coordinates as values which are inside the
+simulation box.  It also stores 3 flags which indicate which image of
+the simulation box (in each dimension) the atom would be in if its
+coordinates were unwrapped across periodic boundaries.  An image flag
+of 0 means the atom is still inside the box when unwrapped.  A value
+of 2 means add 2 box lengths to get the unwrapped coordinate.  A value
+of -1 means subtract 1 box length to get the unwrapped coordinate.
+LAMMPS updates these flags as atoms cross periodic boundaries during
+the simulation.  The <A HREF = "dump.html">dump</A> command can output atom atom
+coordinates in wrapped or unwrapped form, as well as the 3 image
+flags.
 </P>
+<P>In the data file, atom lines (all lines or none of them) can
+optionally list 3 trailing integer values (nx,ny,nz), which are used
+to initialize the atom's image flags.  If nx,ny,nz values are not
+listed in the data file, LAMMPS initializes them to 0.  Note that the
+image flags are immediately updated if an atom's coordinates need to
+wrapped back into the simulation box.
+</P>
+<P>It is only important to set image flags correctly in a data file if a
+simulation model relies on unwrapped coordinates for some calculation;
+otherwise they can be left unspecified.  Examples of LAMMPS commands
+that use unwrapped coordinates internally are as follows:
+</P>
+<UL><LI>Atoms in a rigid body (see <A HREF = "fix_rigid.html">fix rigid</A>, <A HREF = "fix_rigid.html">fix
+rigid/small</A>) must have consistent image flags, so that
+when the atoms are unwrapped, they are near each other, i.e. as a
+single body. 
+
+<LI>If the <A HREF = "replicate.html">replicate</A> command is used to generate a larger
+system, image flags must be consistent for bonded atoms when the bond
+crosses a periodic boundary.  I.e. the values of the image flags
+should be different by 1 (in the appropriate dimension) for the two
+atoms in such a bond. 
+
+<LI>If you plan to <A HREF = "dump.html">dump</A> image flags and perform post-analysis
+that will unwrap atom coordinates, it may be important that a
+continued run (restarted from a data file) begins with image flags
+that are consistent with the previous run. 
+</UL>
 <P>Atom velocities and other atom quantities not defined above are set to
 0.0 when the <I>Atoms</I> section is read.  Velocities can be set later by
 a <I>Velocities</I> section in the data file or by a

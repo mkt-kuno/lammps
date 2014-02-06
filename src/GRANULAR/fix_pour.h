@@ -55,7 +55,7 @@ class FixPour : public Fix {
   class Molecule *onemol;
   int natom;
   double **coords;
-  int *imageflags;
+  imageint *imageflags;
   class Fix *fixrigid,*fixshake;
   double oneradius;
 
@@ -63,7 +63,7 @@ class FixPour : public Fix {
   int *recvcounts,*displs;
   int nfreq,nfirst,ninserted,nper;
   double lo_current,hi_current;
-  int maxtag_all,maxmol_all;
+  tagint maxtag_all,maxmol_all;
   class RanPark *random,*random2;
 
   void find_maxid();
@@ -91,17 +91,13 @@ E: Fix pour requires atom attributes radius, rmass
 
 The atom style defined does not have these attributes.
 
-E: Fix pour region ID does not exist
+E: Invalid atom type in fix pour command
 
 Self-explanatory.
 
-E: Fix pour polydisperse fractions do not sum to 1.0
-
-UNDOCUMENTED
-
 E: Must specify a region in fix pour
 
-The region keyword must be specified with this fix.
+Self-explanatory.
 
 E: Fix pour region does not support a bounding box
 
@@ -114,13 +110,11 @@ Only static regions can be used with fix pour.
 
 E: Insertion region extends outside simulation box
 
-Region specified with fix pour command extends outside the global
-simulation box.
+Self-explanatory.
 
-E: Must use a z-axis cylinder with fix pour
+E: Must use a z-axis cylinder region with fix pour
 
-The axis of the cylinder region used with the fix pour command must
-be oriented along the z dimension.
+Self-explanatory.
 
 E: Must use a block or cylinder region with fix pour
 
@@ -130,35 +124,111 @@ E: Must use a block region with fix pour for 2d simulations
 
 Self-explanatory.
 
+E: Cannot use fix_pour unless atoms have IDs
+
+Self-explanatory.
+
+E: Fix pour molecule must have coordinates
+
+The defined molecule does not specify coordinates.
+
+E: Fix pour molecule must have atom types
+
+The defined molecule does not specify atom types.
+
+E: Invalid atom type in fix pour mol command
+
+The atom types in the defined molecule are added to the value
+specified in the create_atoms command, as an offset.  The final value
+for each atom must be between 1 to N, where N is the number of atom
+types.
+
+E: Fix pour molecule template ID must be same as atom style template ID
+
+When using atom_style template, you cannot pour molecules that are
+not in that template.
+
+E: Cannot use fix pour rigid and not molecule
+
+Self-explanatory.
+
+E: Cannot use fix pour shake and not molecule
+
+Self-explanatory.
+
+E: Cannot use fix pour rigid and shake
+
+These two attributes are conflicting.
+
 E: No fix gravity defined for fix pour
 
-Cannot add poured particles without gravity to move them.
+Gravity is required to use fix pour.
 
 E: Cannot use fix pour with triclinic box
 
-This feature is not yet supported.
+This option is not yet supported.
 
 E: Gravity must point in -z to use with fix pour in 3d
 
-Gravity must be pointing "down" in a 3d box, i.e. theta = 180.0.
+Self-explanatory.
 
 E: Gravity must point in -y to use with fix pour in 2d
 
-Gravity must be pointing "down" in a 2d box.
+Self-explanatory.
 
 E: Gravity changed since fix pour was created
 
-Gravity must be static and not dynamic for use with fix pour.
+The gravity vector defined by fix gravity must be static.
+
+E: Fix pour rigid fix does not exist
+
+Self-explanatory.
+
+E: Fix pour and fix rigid/small not using same molecule template ID
+
+Self-explanatory.
+
+E: Fix pour shake fix does not exist
+
+Self-explanatory.
+
+E: Fix pour and fix shake not using same molecule template ID
+
+Self-explanatory.
 
 W: Less insertions than requested
 
-Less atom insertions occurred on this timestep due to the fix pour
-command than were scheduled.  This is probably because there were too
-many overlaps detected.
+The fix pour command was unsuccessful at finding open space
+for as many particles as it tried to insert.
+
+E: Too many total atoms
+
+See the setting for bigint in the src/lmptype.h file.
+
+E: New atom IDs exceed maximum allowed ID
+
+See the setting for tagint in the src/lmptype.h file.
+
+E: Fix pour region ID does not exist
+
+Self-explanatory.
+
+E: Molecule template ID for fix pour does not exist
+
+Self-explanatory.
+
+W: Molecule template for fix pour has multiple molecules
+
+The fix pour command will only create molecules of a single type,
+i.e. the first molecule in the template.
+
+E: Fix pour polydisperse fractions do not sum to 1.0
+
+Self-explanatory.
 
 E: Cannot change timestep with fix pour
 
-This fix pre-computes some values based on the timestep, so it cannot
-be changed during a simulation run.
+This is because fix pour pre-computes the time delay for particles to
+fall out of the insertion volume due to gravity.
 
 */

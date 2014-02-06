@@ -42,7 +42,7 @@ class AtomVecBody : public AtomVec {
 
   AtomVecBody(class LAMMPS *);
   ~AtomVecBody();
-  void settings(int, char **);
+  void process_args(int, char **);
   void grow(int);
   void grow_reset();
   void copy(int, int, int);
@@ -67,10 +67,8 @@ class AtomVecBody : public AtomVec {
   int size_restart();
   int pack_restart(int, double *);
   int unpack_restart(double *);
-  void write_restart_settings(FILE *);
-  void read_restart_settings(FILE *);
   void create_atom(int, double *);
-  void data_atom(double *, tagint, char **);
+  void data_atom(double *, imageint, char **);
   int data_atom_hybrid(int, char **);
   void data_vel(int, char **);
   int data_vel_hybrid(int, char **);
@@ -90,19 +88,16 @@ class AtomVecBody : public AtomVec {
   void data_body(int, int, int, char **, char **);
 
  private:
-  int *tag,*type,*mask;
-  tagint *image;
+  tagint *tag;
+  int *type,*mask;
+  imageint *image;
   double **x,**v,**f;
   double *rmass;
   double **angmom,**torque;
   int *body;
 
   int nlocal_bonus,nghost_bonus,nmax_bonus;
-
-  int nargcopy;          // copy of command-line args
-  char **argcopy;        // for writing to restart file
-  int copyflag;
-  int intdoubleratio;    // sizeof(double) / sizeof(int)
+  int intdoubleratio;       // sizeof(double) / sizeof(int)
 
   MyPoolChunk<int> *icp;
   MyPoolChunk<double> *dcp;
@@ -135,10 +130,6 @@ E: Per-processor system is too big
 
 The number of owned atoms plus ghost atoms on a single
 processor must fit in 32-bit integer.
-
-E: Invalid atom ID in Atoms section of data file
-
-Atom IDs must be positive integers.
 
 E: Invalid atom type in Atoms section of data file
 

@@ -41,7 +41,7 @@ class FixAveSpatial : public Fix {
   int me,nvalues;
   int nrepeat,nfreq,irepeat;
   bigint nvalid;
-  int ndim,normflag,regionflag,iregion,overwrite;
+  int ndim,normflag,regionflag,overwrite;
   char *tstring,*sstring,*idregion;
   int *which,*argindex,*value2index;
   char **ids;
@@ -160,11 +160,10 @@ E: Fix ave/spatial for triclinic boxes requires units reduced
 
 Self-explanatory.
 
-E: Fix ave/spatial settings invalid with changing box
+E: Fix ave/spatial settings invalid with changing box size
 
-If the ave setting is "running" or "window" and the box size/shape
-changes during the simulation, then the units setting must be
-"reduced", else the number of bins may change.
+If the box size changes, only the units reduced option can be
+used.
 
 E: Fix for fix ave/spatial not computed at compatible time
 
@@ -175,9 +174,5 @@ E: Fix ave/spatial missed timestep
 
 You cannot reset the timestep to a value beyond where the fix
 expects to next perform averaging.
-
-U: Use of fix ave/spatial with undefined lattice
-
-A lattice must be defined to use fix ave/spatial with units = lattice.
 
 */

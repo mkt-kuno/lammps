@@ -67,6 +67,17 @@ typedef real rtensor[3][3];
 typedef real rvec2[2];
 typedef real rvec4[4];
 
+#ifdef LAMMPS_SMALLSMALL
+typedef int tagint;
+#endif
+
+#ifdef LAMMPS_SMALLBIG
+typedef int tagint;
+#endif
+
+#ifdef LAMMPS_BIGBIG
+typedef int64_t tagint;
+#endif
 
 typedef struct {
   int step, bigN;
@@ -75,14 +86,14 @@ typedef struct {
 } restart_header;
 
 typedef struct {
-  int orig_id, type;
+  tagint orig_id, type;
   char name[8];
   rvec x, v;
 } restart_atom;
 
 typedef struct
 {
-  int  orig_id;
+  tagint  orig_id;
   int  imprt_id;
   int  type;
   int  num_bonds;
@@ -98,7 +109,7 @@ typedef struct
 
 typedef struct
 {
-  int  orig_id;
+  tagint  orig_id;
   int  imprt_id;
   int  type;
   int  num_bonds;
@@ -348,7 +359,7 @@ typedef struct
 
 struct _reax_atom
 {
-  int  orig_id;
+  tagint  orig_id;
   int  imprt_id;
   int  type;
   char name[8];

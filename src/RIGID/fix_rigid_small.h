@@ -48,7 +48,7 @@ class FixRigidSmall : public Fix {
   void grow_arrays(int);
   void copy_arrays(int, int, int);
   void set_arrays(int);
-  void set_molecule(int, int, double *, double *, double *);
+  void set_molecule(int, tagint, double *, double *, double *);
 
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
@@ -81,7 +81,7 @@ class FixRigidSmall : public Fix {
   int firstflag;            // 1 for first-time setup of rigid bodies
   int commflag;             // various modes of forward/reverse comm
   int nbody;                // total # of rigid bodies
-  int maxmol;               // max mol-ID
+  tagint maxmol;            // max mol-ID
   double maxextent;         // furthest distance from body owner to body atom
 
   struct Body {
@@ -97,7 +97,7 @@ class FixRigidSmall : public Fix {
     double ez_space[3];
     double angmom[3];         // space-frame angular momentum of body
     double omega[3];          // space-frame omega of body
-    tagint image;             // image flags of xcm
+    imageint image;             // image flags of xcm
     int remapflag[4];         // PBC remap flags
     int ilocal;               // index of owning atom
   };
@@ -112,7 +112,7 @@ class FixRigidSmall : public Fix {
   // only defined for owned atoms, except bodyown for own+ghost
 
   int *bodyown;         // index of body if atom owns a body, -1 if not
-  int *bodytag;         // ID of body this atom is in, 0 if none
+  tagint *bodytag;      // ID of body this atom is in, 0 if none
                         // ID = tag of atom that owns body
   int *atom2body;       // index of owned/ghost body this atom is in, -1 if not
                         // can point to original or any image of the body
@@ -157,10 +157,10 @@ class FixRigidSmall : public Fix {
 
   // class data used by ring communication callbacks
 
-  std::map<int,int> *hash;
+  std::map<tagint,int> *hash;
   double **bbox;
   double **ctr;
-  int *idclose;
+  tagint *idclose;
   double *rsqclose;
   double rsqfar;
 
@@ -197,17 +197,34 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-E: Fix rigid/small langevin period must be > 0.0
-
-Self-explanatory.
-
 E: Fix rigid/small requires atom attribute molecule
 
 Self-explanatory.
 
-E: No rigid bodies defined
+E: Fix rigid/small requires an atom map, see atom_modify
 
-The fix specification did not end up defining any rigid bodies.
+Self-explanatory.
+
+E: Fix rigid/small langevin period must be > 0.0
+
+Self-explanatory.
+
+E: Molecule template ID for fix rigid/small does not exist
+
+Self-explanatory.
+
+W: Molecule template for fix rigid/small has multiple molecules
+
+The fix rigid/small command will only recoginze molecules of a single
+type, i.e. the first molecule in the template.
+
+E: Fix rigid/small molecule must have coordinates
+
+The defined molecule does not specify coordinates.
+
+E: Fix rigid/small molecule must have atom types
+
+The defined molecule does not specify atom types.
 
 W: More than one fix rigid
 
@@ -221,7 +238,8 @@ incorrect.
 
 W: Cannot count rigid body degrees-of-freedom before bodies are fully initialized
 
-UNDOCUMENTED
+This means the temperature associated with the rigid bodies may be
+incorrect on this timestep.
 
 W: Computing temperature of portions of rigid bodies
 
@@ -242,6 +260,33 @@ E: Fix rigid: Bad principal moments
 
 The principal moments of inertia computed for a rigid body
 are not within the required tolerances.
+
+E: Cannot open fix rigid/small infile %s
+
+The specified file cannot be opened.  Check that the path and name are
+correct.
+
+E: Unexpected end of fix rigid/small file
+
+A read operation from the file failed.
+
+E: Fix rigid file has no lines
+
+Self-explanatory.
+
+E: Incorrect rigid body format in fix rigid/small file
+
+The number of fields per line is not what expected.
+
+E: Invalid rigid body ID in fix rigid/small file
+
+The ID does not match the number of an existing ID of rigid bodies
+that are defined by the fix rigid/small command.
+
+E: Cannot open fix rigid restart file %s
+
+The specified file cannot be opened.  Check that the path and name are
+correct.
 
 E: Rigid body atoms %d %d missing on proc %d at step %ld
 

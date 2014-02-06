@@ -168,6 +168,11 @@ E: Invalid dump image element name
 The specified element name was not in the standard list of elements.
 See the dump_modify doc page.
 
+E: Invalid color map min/max values
+
+The min/max values are not consistent with either each other or
+with values in the color map.
+
 E: Invalid dump image zoom value
 
 Zoom value must be > 0.0.

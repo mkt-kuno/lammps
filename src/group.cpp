@@ -51,10 +51,12 @@ Group::Group(LAMMPS *lmp) : Pointers(lmp)
   names = new char*[MAX_GROUP];
   bitmask = new int[MAX_GROUP];
   inversemask = new int[MAX_GROUP];
+  dynamic = new int[MAX_GROUP];
 
   for (int i = 0; i < MAX_GROUP; i++) names[i] = NULL;
   for (int i = 0; i < MAX_GROUP; i++) bitmask[i] = 1 << i;
   for (int i = 0; i < MAX_GROUP; i++) inversemask[i] = bitmask[i] ^ ~0;
+  for (int i = 0; i < MAX_GROUP; i++) dynamic[i] = 0;
 
   // create "all" group
 
@@ -75,6 +77,7 @@ Group::~Group()
   delete [] names;
   delete [] bitmask;
   delete [] inversemask;
+  delete [] dynamic;
 }
 
 /* ----------------------------------------------------------------------
@@ -114,8 +117,17 @@ void Group::assign(int narg, char **arg)
     int bits = inversemask[igroup];
     for (i = 0; i < nlocal; i++) mask[i] &= bits;
 
+    if (dynamic[igroup]) {
+      int n = strlen("GROUP_") + strlen(names[igroup]) + 1;
+      char *fixID = new char[n];
+      sprintf(fixID,"GROUP_%s",names[igroup]);
+      modify->delete_fix(fixID);
+      delete [] fixID;
+    }
+
     delete [] names[igroup];
     names[igroup] = NULL;
+    dynamic[igroup] = 0;
     ngroup--;
 
     return;
@@ -156,6 +168,7 @@ void Group::assign(int narg, char **arg)
         mask[i] |= bit;
 
   // style = type, molecule, id
+  // add to group if atom matches type/molecule/id or condition
 
   } else if (strcmp(arg[1],"type") == 0 || strcmp(arg[1],"molecule") == 0 ||
              strcmp(arg[1],"id") == 0) {
@@ -174,7 +187,7 @@ void Group::assign(int narg, char **arg)
          strcmp(arg[2],"<=") == 0 || strcmp(arg[2],">=") == 0 ||
          strcmp(arg[2],"<>") == 0)) {
 
-      int condition,bound1,bound2;
+      int condition;
       if (strcmp(arg[2],"<") == 0) condition = LT;
       else if (strcmp(arg[2],"<=") == 0) condition = LE;
       else if (strcmp(arg[2],">") == 0) condition = GT;
@@ -184,70 +197,119 @@ void Group::assign(int narg, char **arg)
       else if (strcmp(arg[2],"<>") == 0) condition = BETWEEN;
       else error->all(FLERR,"Illegal group command");
       
-      bound1 = force->inumeric(FLERR,arg[3]);
+      tagint bound1,bound2;
+      if (sizeof(tagint) == sizeof(smallint))
+        bound1 = force->inumeric(FLERR,arg[3]);
+      else
+        bound1 = force->bnumeric(FLERR,arg[3]);
       bound2 = -1;
 
       if (condition == BETWEEN) {
         if (narg != 5) error->all(FLERR,"Illegal group command");
-        bound2 = force->inumeric(FLERR,arg[4]);
+        if (sizeof(tagint) == sizeof(smallint))
+          bound2 = force->inumeric(FLERR,arg[4]);
+        else
+          bound2 = force->bnumeric(FLERR,arg[4]);
       } else if (narg != 4) error->all(FLERR,"Illegal group command");
 
-      int *attribute;
+      int *attribute = NULL;
+      tagint *tattribute = NULL;
       if (category == TYPE) attribute = atom->type;
-      else if (category == MOLECULE) attribute = atom->molecule;
-      else if (category == ID) attribute = atom->tag;
+      else if (category == MOLECULE) tattribute = atom->molecule;
+      else if (category == ID) tattribute = atom->tag;
 
       // add to group if meets condition
 
-      if (condition == LT) {
-        for (i = 0; i < nlocal; i++) if (attribute[i] < bound1) mask[i] |= bit;
-      } else if (condition == LE) {
-        for (i = 0; i < nlocal; i++) if (attribute[i] <= bound1) mask[i] |= bit;
-      } else if (condition == GT) {
-        for (i = 0; i < nlocal; i++) if (attribute[i] > bound1) mask[i] |= bit;
-      } else if (condition == GE) {
-        for (i = 0; i < nlocal; i++) if (attribute[i] >= bound1) mask[i] |= bit;
-      } else if (condition == EQ) {
-        for (i = 0; i < nlocal; i++) if (attribute[i] == bound1) mask[i] |= bit;
-      } else if (condition == NEQ) {
-        for (i = 0; i < nlocal; i++) if (attribute[i] != bound1) mask[i] |= bit;
-      } else if (condition == BETWEEN) {
-      for (i = 0; i < nlocal; i++)
-        if (attribute[i] >= bound1 && attribute[i] <= bound2) mask[i] |= bit;
+      if (attribute) {
+        if (condition == LT) {
+          for (i = 0; i < nlocal; i++) 
+            if (attribute[i] < bound1) mask[i] |= bit;
+        } else if (condition == LE) {
+          for (i = 0; i < nlocal; i++) 
+            if (attribute[i] <= bound1) mask[i] |= bit;
+        } else if (condition == GT) {
+          for (i = 0; i < nlocal; i++) 
+            if (attribute[i] > bound1) mask[i] |= bit;
+        } else if (condition == GE) {
+          for (i = 0; i < nlocal; i++) 
+            if (attribute[i] >= bound1) mask[i] |= bit;
+        } else if (condition == EQ) {
+          for (i = 0; i < nlocal; i++) 
+            if (attribute[i] == bound1) mask[i] |= bit;
+        } else if (condition == NEQ) {
+          for (i = 0; i < nlocal; i++) 
+            if (attribute[i] != bound1) mask[i] |= bit;
+        } else if (condition == BETWEEN) {
+          for (i = 0; i < nlocal; i++)
+            if (attribute[i] >= bound1 && attribute[i] <= bound2)
+              mask[i] |= bit;
+        }
+      } else {
+        if (condition == LT) {
+          for (i = 0; i < nlocal; i++) 
+            if (tattribute[i] < bound1) mask[i] |= bit;
+        } else if (condition == LE) {
+          for (i = 0; i < nlocal; i++) 
+            if (tattribute[i] <= bound1) mask[i] |= bit;
+        } else if (condition == GT) {
+          for (i = 0; i < nlocal; i++) 
+            if (tattribute[i] > bound1) mask[i] |= bit;
+        } else if (condition == GE) {
+          for (i = 0; i < nlocal; i++) 
+            if (tattribute[i] >= bound1) mask[i] |= bit;
+        } else if (condition == EQ) {
+          for (i = 0; i < nlocal; i++) 
+            if (tattribute[i] == bound1) mask[i] |= bit;
+        } else if (condition == NEQ) {
+          for (i = 0; i < nlocal; i++) 
+            if (tattribute[i] != bound1) mask[i] |= bit;
+        } else if (condition == BETWEEN) {
+          for (i = 0; i < nlocal; i++)
+            if (tattribute[i] >= bound1 && tattribute[i] <= bound2)
+              mask[i] |= bit;
+        }
       }
-      
+
     // args = list of values
       
     } else {
-      int *attribute;
+      int *attribute = NULL;
+      tagint *tattribute = NULL;
       if (category == TYPE) attribute = atom->type;
-      else if (category == MOLECULE) attribute = atom->molecule;
-      else if (category == ID) attribute = atom->tag;
-
+      else if (category == MOLECULE) tattribute = atom->molecule;
+      else if (category == ID) tattribute = atom->tag;
+                                 
       char *ptr;
-      int start,stop,delta;
+      tagint start,stop,delta;
 
       for (int iarg = 2; iarg < narg; iarg++) {
         if (strchr(arg[iarg],':')) {
-          start = atoi(strtok(arg[iarg],":")); 
-          stop = atoi(strtok(NULL,":"));
+          start = ATOTAGINT(strtok(arg[iarg],":")); 
+          stop = ATOTAGINT(strtok(NULL,":"));
           ptr = strtok(NULL,":");
-          if (ptr) delta = atoi(ptr);
+          if (ptr) delta = ATOTAGINT(ptr);
           else delta = 1;
         } else {
-          start = stop = atoi(arg[iarg]);
+          start = stop = ATOTAGINT(arg[iarg]);
           delta = 1;
         }
 
         // add to group if attribute matches value or sequence
       
-        for (i = 0; i < nlocal; i++)
-          if (attribute[i] >= start && attribute[i] <= stop &&
-              (attribute[i]-start) % delta == 0) mask[i] |= bit;
+        if (attribute) {
+          for (i = 0; i < nlocal; i++)
+            if (attribute[i] >= start && attribute[i] <= stop &&
+                (attribute[i]-start) % delta == 0) mask[i] |= bit;
+        } else {
+          for (i = 0; i < nlocal; i++)
+            if (tattribute[i] >= start && tattribute[i] <= stop &&
+                (tattribute[i]-start) % delta == 0) mask[i] |= bit;
+        }
       }
     }
 
   // style = variable
+  // add to group if atom-atyle variable is non-zero
 
   } else if (strcmp(arg[1],"variable") == 0) {
 
@@ -283,6 +345,8 @@ void Group::assign(int narg, char **arg)
     for (int iarg = 2; iarg < narg; iarg++) {
       jgroup = find(arg[iarg]);
       if (jgroup == -1) error->all(FLERR,"Group ID does not exist");
+      if (dynamic[jgroup]) 
+        error->all(FLERR,"Cannot subtract groups using a dynamic group");
       list[iarg-2] = jgroup;
     }
 
@@ -319,6 +383,8 @@ void Group::assign(int narg, char **arg)
     for (int iarg = 2; iarg < narg; iarg++) {
       jgroup = find(arg[iarg]);
       if (jgroup == -1) error->all(FLERR,"Group ID does not exist");
+      if (dynamic[jgroup]) 
+        error->all(FLERR,"Cannot union groups using a dynamic group");
       list[iarg-2] = jgroup;
     }
 
@@ -347,6 +413,8 @@ void Group::assign(int narg, char **arg)
     for (int iarg = 2; iarg < narg; iarg++) {
       jgroup = find(arg[iarg]);
       if (jgroup == -1) error->all(FLERR,"Group ID does not exist");
+      if (dynamic[jgroup]) 
+        error->all(FLERR,"Cannot intersect groups using a dynamic group");
       list[iarg-2] = jgroup;
     }
 
@@ -364,6 +432,60 @@ void Group::assign(int narg, char **arg)
     }
 
     delete [] list;
+
+  // style = dynamic
+  // create a new FixGroup to dynamically determine atoms in group
+
+  } else if (strcmp(arg[1],"dynamic") == 0) {
+
+    if (narg < 4) error->all(FLERR,"Illegal group command");
+    if (strcmp(arg[0],arg[2]) == 0) 
+      error->all(FLERR,"Group dynamic cannot reference itself");
+    if (find(arg[2]) < 0) 
+      error->all(FLERR,"Group dynamic parent group does not exist");
+    if (igroup == 0) error->all(FLERR,"Group all cannot be made dynamic");
+
+    // if group is already dynamic, delete existing FixGroup
+
+    if (dynamic[igroup]) {
+      int n = strlen("GROUP_") + strlen(names[igroup]) + 1;
+      char *fixID = new char[n];
+      sprintf(fixID,"GROUP_%s",names[igroup]);
+      modify->delete_fix(fixID);
+      delete [] fixID;
+    }
+
+    dynamic[igroup] = 1;
+
+    int n = strlen("GROUP_") + strlen(names[igroup]) + 1;
+    char *fixID = new char[n];
+    sprintf(fixID,"GROUP_%s",names[igroup]);
+
+    char **newarg = new char*[narg];
+    newarg[0] = fixID;
+    newarg[1] = arg[2];
+    newarg[2] = (char *) "GROUP";
+    for (int i = 3; i < narg; i++) newarg[i] = arg[i];
+    modify->add_fix(narg,newarg);
+    delete [] newarg;
+    delete [] fixID;
+
+  // style = static
+  // remove dynamic FixGroup if necessary
+
+  } else if (strcmp(arg[1],"static") == 0) {
+
+    if (narg != 2) error->all(FLERR,"Illegal group command");
+
+    if (dynamic[igroup]) {
+      int n = strlen("GROUP_") + strlen(names[igroup]) + 1;
+      char *fixID = new char[n];
+      sprintf(fixID,"GROUP_%s",names[igroup]);
+      modify->delete_fix(fixID);
+      delete [] fixID;
+    }
+
+    dynamic[igroup] = 0;
 
   // not a valid group style
 
@@ -762,7 +884,7 @@ void Group::xcm(int igroup, double masstotal, double *cm)
   double **x = atom->x;
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
   int nlocal = atom->nlocal;
@@ -816,7 +938,7 @@ void Group::xcm(int igroup, double masstotal, double *cm, int iregion)
   double **x = atom->x;
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
   int nlocal = atom->nlocal;
@@ -1086,7 +1208,7 @@ double Group::gyration(int igroup, double masstotal, double *cm)
   double **x = atom->x;
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
   int nlocal = atom->nlocal;
@@ -1126,7 +1248,7 @@ double Group::gyration(int igroup, double masstotal, double *cm, int iregion)
   double **x = atom->x;
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
   int nlocal = atom->nlocal;
@@ -1166,7 +1288,7 @@ void Group::angmom(int igroup, double *cm, double *lmom)
   double **v = atom->v;
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
   int nlocal = atom->nlocal;
@@ -1208,7 +1330,7 @@ void Group::angmom(int igroup, double *cm, double *lmom, int iregion)
   double **v = atom->v;
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
   int nlocal = atom->nlocal;
@@ -1248,7 +1370,7 @@ void Group::torque(int igroup, double *cm, double *tq)
   double **x = atom->x;
   double **f = atom->f;
   int *mask = atom->mask;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   double dx,dy,dz;
@@ -1285,7 +1407,7 @@ void Group::torque(int igroup, double *cm, double *tq, int iregion)
   double **x = atom->x;
   double **f = atom->f;
   int *mask = atom->mask;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   double dx,dy,dz;
@@ -1322,7 +1444,7 @@ void Group::inertia(int igroup, double *cm, double itensor[3][3])
   double **x = atom->x;
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
   int nlocal = atom->nlocal;
@@ -1372,7 +1494,7 @@ void Group::inertia(int igroup, double *cm, double itensor[3][3], int iregion)
   double **x = atom->x;
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
   int nlocal = atom->nlocal;

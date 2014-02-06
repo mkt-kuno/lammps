@@ -73,19 +73,21 @@ void Replicate::command(int narg, char **arg)
 
   // maxtag = largest atom tag across all existing atoms
 
-  int maxtag = 0;
-  for (i = 0; i < atom->nlocal; i++) maxtag = MAX(atom->tag[i],maxtag);
-  int maxtag_all;
-  MPI_Allreduce(&maxtag,&maxtag_all,1,MPI_INT,MPI_MAX,world);
-  maxtag = maxtag_all;
+  tagint maxtag = 0;
+  if (atom->tag_enable) {
+    for (i = 0; i < atom->nlocal; i++) maxtag = MAX(atom->tag[i],maxtag);
+    tagint maxtag_all;
+    MPI_Allreduce(&maxtag,&maxtag_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
+    maxtag = maxtag_all;
+  }
 
   // maxmol = largest molecule tag across all existing atoms
 
-  int maxmol = 0;
+  tagint maxmol = 0;
   if (atom->molecule_flag) {
     for (i = 0; i < atom->nlocal; i++) maxmol = MAX(atom->molecule[i],maxmol);
-    int maxmol_all;
-    MPI_Allreduce(&maxmol,&maxmol_all,1,MPI_INT,MPI_MAX,world);
+    tagint maxmol_all;
+    MPI_Allreduce(&maxmol,&maxmol_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
     maxmol = maxmol_all;
   }
 
@@ -108,41 +110,27 @@ void Replicate::command(int narg, char **arg)
 
   // old = original atom class
   // atom = new replicated atom class
-  // if old atom style was hybrid, pass sub-style names to create_avec
 
   Atom *old = atom;
   atom = new Atom(lmp);
   atom->settings(old);
-
-  int nstyles = 0;
-  char **keywords = NULL;
-  if (strcmp(old->atom_style,"hybrid") == 0) {
-    AtomVecHybrid *avec_hybrid = (AtomVecHybrid *) old->avec;
-    nstyles = avec_hybrid->nstyles;
-    keywords = avec_hybrid->keywords;
-  }
-  atom->create_avec(old->atom_style,nstyles,keywords);
+  atom->create_avec(old->atom_style,old->avec->nargcopy,old->avec->argcopy);
 
   // check that new system will not be too large
-  // if molecular and N > MAXTAGINT, error
-  // if atomic and new N > MAXTAGINT, turn off tags for existing and new atoms
-  // new system cannot exceed MAXBIGINT
-  // NOTE: change these 2 to MAXTAGINT when allow tagint = bigint
+  // new tags cannot exceed MAXTAGINT
+  // new system sizes cannot exceed MAXBIGINT
 
-  if (atom->molecular && 
-      (nrep*old->natoms < 0 || nrep*old->natoms > MAXSMALLINT))
-    error->all(FLERR,"Replicated molecular system atom IDs are too big");
-  if (nrep*old->natoms < 0 || nrep*old->natoms > MAXSMALLINT)
-    atom->tag_enable = 0;
-  if (atom->tag_enable == 0)
-    for (int i = 0; i < atom->nlocal; i++)
-      atom->tag[i] = 0;
+  if (atom->tag_enable) {
+    bigint maxnewtag = maxtag + (nrep-1)*old->natoms;
+    if (maxnewtag < 0 || maxnewtag >= MAXTAGINT)
+      error->all(FLERR,"Replicated system atom IDs are too big");
+  }
 
-  if (nrep*old->natoms < 0 || nrep*old->natoms > MAXBIGINT ||
-      nrep*old->nbonds < 0 || nrep*old->nbonds > MAXBIGINT ||
-      nrep*old->nangles < 0 || nrep*old->nangles > MAXBIGINT ||
-      nrep*old->ndihedrals < 0 || nrep*old->ndihedrals > MAXBIGINT ||
-      nrep*old->nimpropers < 0 || nrep*old->nimpropers > MAXBIGINT)
+  if (nrep*old->natoms < 0 || nrep*old->natoms >= MAXBIGINT ||
+      nrep*old->nbonds < 0 || nrep*old->nbonds >= MAXBIGINT ||
+      nrep*old->nangles < 0 || nrep*old->nangles >= MAXBIGINT ||
+      nrep*old->ndihedrals < 0 || nrep*old->ndihedrals >= MAXBIGINT ||
+      nrep*old->nimpropers < 0 || nrep*old->nimpropers >= MAXBIGINT)
     error->all(FLERR,"Replicated system is too big");
 
   // assign atom and topology counts in new class from old one
@@ -257,8 +245,9 @@ void Replicate::command(int narg, char **arg)
   AtomVec *old_avec = old->avec;
   AtomVec *avec = atom->avec;
 
-  int ix,iy,iz,atom_offset,mol_offset;
-  tagint image;
+  int ix,iy,iz;
+  tagint atom_offset,mol_offset;
+  imageint image;
   double x[3],lamda[3];
   double *coord;
   int tag_enable = atom->tag_enable;
@@ -279,8 +268,8 @@ void Replicate::command(int narg, char **arg)
 
           m = 0;
           while (m < n) {
-            image = ((tagint) IMGMAX << IMG2BITS) |
-              ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+            image = ((imageint) IMGMAX << IMG2BITS) |
+              ((imageint) IMGMAX << IMGBITS) | IMGMAX;
             if (triclinic == 0) {
               x[0] = buf[m+1] + ix*old_xprd;
               x[1] = buf[m+2] + iy*old_yprd;
@@ -315,32 +304,34 @@ void Replicate::command(int narg, char **arg)
               atom->tag[i] += atom_offset;
               atom->image[i] = image;
 
-              if (atom->molecule_flag) {
+              if (atom->molecular) {
                 if (atom->molecule[i] > 0)
                   atom->molecule[i] += mol_offset;
-                if (atom->avec->bonds_allow)
-                  for (j = 0; j < atom->num_bond[i]; j++)
-                    atom->bond_atom[i][j] += atom_offset;
-                if (atom->avec->angles_allow)
-                  for (j = 0; j < atom->num_angle[i]; j++) {
-                    atom->angle_atom1[i][j] += atom_offset;
-                    atom->angle_atom2[i][j] += atom_offset;
-                    atom->angle_atom3[i][j] += atom_offset;
-                  }
-                if (atom->avec->dihedrals_allow)
-                  for (j = 0; j < atom->num_dihedral[i]; j++) {
-                    atom->dihedral_atom1[i][j] += atom_offset;
-                    atom->dihedral_atom2[i][j] += atom_offset;
-                    atom->dihedral_atom3[i][j] += atom_offset;
-                    atom->dihedral_atom4[i][j] += atom_offset;
-                  }
-                if (atom->avec->impropers_allow)
-                  for (j = 0; j < atom->num_improper[i]; j++) {
-                    atom->improper_atom1[i][j] += atom_offset;
-                    atom->improper_atom2[i][j] += atom_offset;
-                    atom->improper_atom3[i][j] += atom_offset;
-                    atom->improper_atom4[i][j] += atom_offset;
-                  }
+                if (atom->molecular == 1) {
+                  if (atom->avec->bonds_allow)
+                    for (j = 0; j < atom->num_bond[i]; j++)
+                      atom->bond_atom[i][j] += atom_offset;
+                  if (atom->avec->angles_allow)
+                    for (j = 0; j < atom->num_angle[i]; j++) {
+                      atom->angle_atom1[i][j] += atom_offset;
+                      atom->angle_atom2[i][j] += atom_offset;
+                      atom->angle_atom3[i][j] += atom_offset;
+                    }
+                  if (atom->avec->dihedrals_allow)
+                    for (j = 0; j < atom->num_dihedral[i]; j++) {
+                      atom->dihedral_atom1[i][j] += atom_offset;
+                      atom->dihedral_atom2[i][j] += atom_offset;
+                      atom->dihedral_atom3[i][j] += atom_offset;
+                      atom->dihedral_atom4[i][j] += atom_offset;
+                    }
+                  if (atom->avec->impropers_allow)
+                    for (j = 0; j < atom->num_improper[i]; j++) {
+                      atom->improper_atom1[i][j] += atom_offset;
+                      atom->improper_atom2[i][j] += atom_offset;
+                      atom->improper_atom3[i][j] += atom_offset;
+                      atom->improper_atom4[i][j] += atom_offset;
+                    }
+                }
               }
             } else m += static_cast<int> (buf[m]);
           }
@@ -393,14 +384,20 @@ void Replicate::command(int narg, char **arg)
     }
   }
 
-  // create global mapping and bond topology now that system is defined
+  // check that atom IDs are valid
+
+  atom->tag_check();
+
+  // create global mapping of atoms
 
   if (atom->map_style) {
-    atom->nghost = 0;
     atom->map_init();
     atom->map_set();
   }
-  if (atom->molecular) {
+
+  // create special bond lists for molecular systems
+
+  if (atom->molecular == 1) {
     Special special(lmp);
     special.build();
   }

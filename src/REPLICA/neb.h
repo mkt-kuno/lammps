@@ -108,18 +108,27 @@ E: Too many timesteps
 
 The cummulative timesteps must fit in a 64-bit integer.
 
-E: Incorrect format in NEB coordinate file
+E: Unexpected end of neb file
 
-Self-explanatory.
+A read operation from the file failed.
+
+E: Incorrect atom format in neb file
+
+The number of fields per line is not what expected.
+
+E: Invalid atom IDs in neb file
+
+An ID in the file was not found in the system.
 
 E: Cannot open gzipped file
 
-LAMMPS is attempting to open a gzipped version of the specified file
-but was unsuccessful.  Check that the path and name are correct.
+LAMMPS was compiled without support for reading and writing gzipped
+files through a pipeline to the gzip program with -DLAMMPS_GZIP.
 
 E: Cannot open file %s
 
 The specified file cannot be opened.  Check that the path and name are
-correct.
+correct. If the file is a compressed file, also check that the gzip
+executable can be found and run.
 
 */

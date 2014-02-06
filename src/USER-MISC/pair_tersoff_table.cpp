@@ -524,8 +524,8 @@ void PairTersoffTable::compute(int eflag, int vflag)
 
 void PairTersoffTable::deallocatePreLoops(void)
 {
-    memory->destroy (preGtetaFunction);
-    memory->destroy (preGtetaFunctionDerived);
+    memory->destroy(preGtetaFunction);
+    memory->destroy(preGtetaFunctionDerived);
     memory->destroy(preCutoffFunction);
     memory->destroy(preCutoffFunctionDerived);
 }
@@ -815,8 +815,6 @@ void PairTersoffTable::coeff(int narg, char **arg)
 
 void PairTersoffTable::init_style()
 {
-  if (atom->tag_enable == 0)
-    error->all(FLERR,"Pair style Tersoff requires atom IDs");
   if (force->newton_pair == 0)
     error->all(FLERR,"Pair style Tersoff requires newton pair on");
 

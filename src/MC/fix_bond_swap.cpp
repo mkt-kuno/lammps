@@ -72,6 +72,11 @@ FixBondSwap::FixBondSwap(LAMMPS *lmp, int narg, char **arg) :
   int seed = force->inumeric(FLERR,arg[5]);
   random = new RanMars(lmp,seed + comm->me);
 
+  // error check
+
+  if (atom->molecular != 1)
+    error->all(FLERR,"Cannot use fix bond/swap with non-molecular systems");
+
   // create a new compute temp style
   // id = fix-ID + temp, compute group = fix group
 
@@ -126,7 +131,8 @@ void FixBondSwap::init()
   // require an atom style with molecule IDs
 
   if (atom->molecule == NULL)
-    error->all(FLERR,"Must use atom style with molecule IDs with fix bond/swap");
+    error->all(FLERR,
+               "Must use atom style with molecule IDs with fix bond/swap");
 
   int icompute = modify->find_compute(id_temp);
   if (icompute < 0)
@@ -179,9 +185,9 @@ void FixBondSwap::pre_neighbor()
 {
   int i,j,ii,jj,m,inum,jnum;
   int inext,iprev,ilast,jnext,jprev,jlast,ibond,iangle,jbond,jangle;
-  int itag,inexttag,iprevtag,ilasttag,jtag,jnexttag,jprevtag,jlasttag;
   int ibondtype,jbondtype,iangletype,inextangletype,jangletype,jnextangletype;
-  int i1,i2,i3,j1,j2,j3,tmp;
+  tagint itag,inexttag,iprevtag,ilasttag,jtag,jnexttag,jprevtag,jlasttag;
+  tagint i1,i2,i3,j1,j2,j3;
   int *ilist,*jlist,*numneigh,**firstneigh;
   double delta,factor;
 
@@ -191,19 +197,19 @@ void FixBondSwap::pre_neighbor()
 
   // local ptrs to atom arrays
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int *num_bond = atom->num_bond;
-  int **bond_atom = atom->bond_atom;
+  tagint **bond_atom = atom->bond_atom;
   int **bond_type = atom->bond_type;
   int *num_angle = atom->num_angle;
-  int **angle_atom1 = atom->angle_atom1;
-  int **angle_atom2 = atom->angle_atom2;
-  int **angle_atom3 = atom->angle_atom3;
+  tagint **angle_atom1 = atom->angle_atom1;
+  tagint **angle_atom2 = atom->angle_atom2;
+  tagint **angle_atom3 = atom->angle_atom3;
   int **angle_type = atom->angle_type;
   int **nspecial = atom->nspecial;
-  int **special = atom->special;
+  tagint **special = atom->special;
   int newton_bond = force->newton_bond;
   int nlocal = atom->nlocal;
 
@@ -231,6 +237,7 @@ void FixBondSwap::pre_neighbor()
       alist[neligible++] = i;
   }
 
+  int tmp;
   for (i = 0; i < neligible; i++) {
     j = static_cast<int> (random->uniform() * neligible);
     tmp = alist[i];

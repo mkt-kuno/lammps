@@ -107,15 +107,15 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
   // maxmol = largest molecule #
 
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
 
   maxmol = -1;
   for (i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) maxmol = MAX(maxmol,molecule[i]);
 
-  int itmp;
-  MPI_Allreduce(&maxmol,&itmp,1,MPI_INT,MPI_MAX,world);
+  tagint itmp;
+  MPI_Allreduce(&maxmol,&itmp,1,MPI_LMP_TAGINT,MPI_MAX,world);
   maxmol = itmp;
 
   // parse optional args
@@ -152,7 +152,11 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix rigid/small command");
       int imol = atom->find_molecule(arg[iarg+1]);
       if (imol == -1)
-        error->all(FLERR,"Molecule ID for fix rigid/small does not exist");
+        error->all(FLERR,"Molecule template ID for "
+                   "fix rigid/small does not exist");
+      if (atom->molecules[imol]->nset > 1 && comm->me == 0)
+        error->warning(FLERR,"Molecule template for "
+                       "fix rigid/small has multiple molecules");
       onemol = atom->molecules[imol];
       iarg += 2;
     } else error->all(FLERR,"Illegal fix rigid/small command");
@@ -182,7 +186,7 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
 
   // set nlocal_body and allocate bodies I own
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
 
   nlocal_body = nghost_body = 0;
   for (i = 0; i < nlocal; i++)
@@ -391,7 +395,7 @@ void FixRigidSmall::setup(int vflag)
   double **x = atom->x;
   double **f = atom->f;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   double *xcm,*fcm,*tcm;
@@ -599,7 +603,7 @@ void FixRigidSmall::final_integrate()
 
   // sum over atoms to get force and torque on rigid body
 
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double **x = atom->x;
   double **f = atom->f;
   int nlocal = atom->nlocal;
@@ -744,7 +748,7 @@ void FixRigidSmall::pre_neighbor()
 {
   // remap xcm and image flags of each body as needed
 
-  tagint original,oldimage,newimage;
+  imageint original,oldimage,newimage;
 
   for (int ibody = 0; ibody < nlocal_body; ibody++) {
     Body *b = &body[ibody];
@@ -780,11 +784,11 @@ void FixRigidSmall::pre_neighbor()
 
   // adjust image flags of any atom in a rigid body whose xcm was remapped
 
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   int ibody;
-  tagint idim,otherdims;
+  imageint idim,otherdims;
 
   for (int i = 0; i < nlocal; i++) {
     if (atom2body[i] < 0) continue;
@@ -952,7 +956,7 @@ void FixRigidSmall::set_xv()
   double xz = domain->xz;
   double yz = domain->yz;
 
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double **x = atom->x;
   double **v = atom->v;
   double **f = atom->f;
@@ -1127,7 +1131,7 @@ void FixRigidSmall::set_v()
   double *rmass = atom->rmass;
   double *mass = atom->mass;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   // set v of each atom
@@ -1246,7 +1250,7 @@ void FixRigidSmall::create_bodies()
 
   // error check on image flags of atoms in rigid bodies
 
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
@@ -1284,7 +1288,7 @@ void FixRigidSmall::create_bodies()
   // value = index into per-body data structure
   // n = # of entries in hash
 
-  hash = new std::map<int,int>();
+  hash = new std::map<tagint,int>();
   hash->clear();
 
   // setup hash
@@ -1292,7 +1296,7 @@ void FixRigidSmall::create_bodies()
   // value = index into N-length data structure
   // n = count of unique bodies my atoms are part of
 
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
 
   n = 0;
   for (i = 0; i < nlocal; i++) {
@@ -1350,14 +1354,14 @@ void FixRigidSmall::create_bodies()
 
   // pack my atoms into buffer as molecule ID, atom ID, unwrapped coords
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
 
   m = 0;
   for (i = 0; i < nlocal; i++) {
     if (!(mask[i] & groupbit)) continue;
     domain->unmap(x[i],image[i],unwrap);
     buf[m++] = molecule[i];
-    buf[m++] = tag[i];
+    buf[m++] = ubuf(tag[i]).d;
     buf[m++] = unwrap[0];
     buf[m++] = unwrap[1];
     buf[m++] = unwrap[2];
@@ -1388,7 +1392,7 @@ void FixRigidSmall::create_bodies()
   for (i = 0; i < nlocal; i++) {
     if (!(mask[i] & groupbit)) continue;
     domain->unmap(x[i],image[i],unwrap);
-    buf[m++] = bodytag[i];
+    buf[m++] = ubuf(bodytag[i]).i;
     buf[m++] = unwrap[0];
     buf[m++] = unwrap[1];
     buf[m++] = unwrap[2];
@@ -1426,7 +1430,7 @@ void FixRigidSmall::create_bodies()
 
 void FixRigidSmall::ring_bbox(int n, char *cbuf)
 {
-  std::map<int,int> *hash = frsptr->hash;
+  std::map<tagint,int> *hash = frsptr->hash;
   double **bbox = frsptr->bbox;
 
   double *buf = (double *) cbuf;
@@ -1458,15 +1462,16 @@ void FixRigidSmall::ring_bbox(int n, char *cbuf)
 
 void FixRigidSmall::ring_nearest(int n, char *cbuf)
 {
-  std::map<int,int> *hash = frsptr->hash;
+  std::map<tagint,int> *hash = frsptr->hash;
   double **ctr = frsptr->ctr;
-  int *idclose = frsptr->idclose;
+  tagint *idclose = frsptr->idclose;
   double *rsqclose = frsptr->rsqclose;
 
   double *buf = (double *) cbuf;
   int ndatums = n/5;
 
-  int j,imol,tag;
+  int j,imol;
+  tagint tag;
   double delx,dely,delz,rsq;
   double *x;
 
@@ -1475,7 +1480,7 @@ void FixRigidSmall::ring_nearest(int n, char *cbuf)
     imol = static_cast<int> (buf[m]);
     if (hash->find(imol) != hash->end()) {
       j = hash->find(imol)->second;
-      tag = static_cast<int> (buf[m+1]);
+      tag = (tagint) ubuf(buf[m+1]).i;
       x = &buf[m+2];
       delx = x[0] - ctr[j][0];
       dely = x[1] - ctr[j][1];
@@ -1498,21 +1503,22 @@ void FixRigidSmall::ring_nearest(int n, char *cbuf)
 void FixRigidSmall::ring_farthest(int n, char *cbuf)
 {
   double **x = frsptr->atom->x;
-  tagint *image = frsptr->atom->image;
+  imageint *image = frsptr->atom->image;
   int nlocal = frsptr->atom->nlocal;
 
   double *buf = (double *) cbuf;
   int ndatums = n/4;
 
-  int itag,iowner;
+  int iowner;
+  tagint tag;
   double delx,dely,delz,rsq;
   double *xx;
   double unwrap[3];
 
   int m = 0;
   for (int i = 0; i < ndatums; i++, m += 4) {
-    itag = static_cast<int> (buf[m]);
-    iowner = frsptr->atom->map(itag);
+    tag = (tagint) ubuf(buf[m]).i;
+    iowner = frsptr->atom->map(tag);
     if (iowner < 0 || iowner >= nlocal) continue;
     frsptr->domain->unmap(x[iowner],image[iowner],unwrap);
     xx = &buf[m+1];
@@ -1630,7 +1636,7 @@ void FixRigidSmall::setup_bodies_static()
   // compute mass & center-of-mass of each rigid body
 
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *xcm;
 
@@ -1684,8 +1690,8 @@ void FixRigidSmall::setup_bodies_static()
   // then remap the xcm of each body back into simulation box if needed
 
   for (ibody = 0; ibody < nlocal_body; ibody++)
-    body[ibody].image = ((tagint) IMGMAX << IMG2BITS) | 
-      ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+    body[ibody].image = ((imageint) IMGMAX << IMG2BITS) | 
+      ((imageint) IMGMAX << IMGBITS) | IMGMAX;
 
   pre_neighbor();
 
@@ -2045,7 +2051,7 @@ void FixRigidSmall::setup_bodies_dynamic()
   double *rmass = atom->rmass;
   double *mass = atom->mass;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   double *xcm,*vcm,*acm;
@@ -2145,8 +2151,8 @@ void FixRigidSmall::setup_bodies_dynamic()
 
 void FixRigidSmall::readfile(int which, double **array, int *inbody)
 {
-  int i,j,m,nchunk,id,eofflag;
-  int nlines;
+  int i,j,m,nchunk,eofflag,nlines;
+  tagint id;
   FILE *fp;
   char *eof,*start,*next,*buf;
   char line[MAXLINE];
@@ -2155,10 +2161,10 @@ void FixRigidSmall::readfile(int which, double **array, int *inbody)
   // key = mol ID of bodies my atoms own
   // value = index into local body array
 
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
 
-  hash = new std::map<int,int>();
+  hash = new std::map<tagint,int>();
   for (int i = 0; i < nlocal; i++)
     if (bodyown[i] >= 0) (*hash)[atom->molecule[i]] = bodyown[i];
 
@@ -2217,28 +2223,28 @@ void FixRigidSmall::readfile(int which, double **array, int *inbody)
       for (j = 1; j < nwords; j++)
         values[j] = strtok(NULL," \t\n\r\f");
 
-      id = atoi(values[0]);
+      id = ATOTAGINT(values[0]);
       if (id <= 0 || id > maxmol) 
         error->all(FLERR,"Invalid rigid body ID in fix rigid/small file");
       if (hash->find(id) == hash->end()) {
         buf = next + 1;
         continue;
       }
-      id = (*hash)[id];
-      inbody[id] = 1;
+      m = (*hash)[id];
+      inbody[m] = 1;
 
       if (which == 0) {
-        body[id].mass = atof(values[1]);
-        body[id].xcm[0] = atof(values[2]);
-        body[id].xcm[1] = atof(values[3]);
-        body[id].xcm[2] = atof(values[4]);
+        body[m].mass = atof(values[1]);
+        body[m].xcm[0] = atof(values[2]);
+        body[m].xcm[1] = atof(values[3]);
+        body[m].xcm[2] = atof(values[4]);
       } else {
-        array[id][0] = atof(values[5]);
-        array[id][1] = atof(values[6]);
-        array[id][2] = atof(values[7]);
-        array[id][3] = atof(values[10]);
-        array[id][4] = atof(values[9]);
-        array[id][5] = atof(values[8]);
+        array[m][0] = atof(values[5]);
+        array[m][1] = atof(values[6]);
+        array[m][2] = atof(values[7]);
+        array[m][3] = atof(values[10]);
+        array[m][4] = atof(values[9]);
+        array[m][5] = atof(values[8]);
       }
 
       buf = next + 1;
@@ -2439,7 +2445,7 @@ void FixRigidSmall::set_arrays(int i)
           relative to template in Molecule class
 ------------------------------------------------------------------------- */
 
-void FixRigidSmall::set_molecule(int nlocalprev, int tagprev, 
+void FixRigidSmall::set_molecule(int nlocalprev, tagint tagprev, 
                                  double *xgeom, double *vcm, double *quat)
 {
   int m;
@@ -2450,7 +2456,7 @@ void FixRigidSmall::set_molecule(int nlocalprev, int tagprev,
   if (nlocalprev == nlocal) return;
 
   double **x = atom->x;
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
 
   for (int i = nlocalprev; i < nlocal; i++) {
     bodytag[i] = tagprev + onemol->comatom;
@@ -2496,8 +2502,8 @@ void FixRigidSmall::set_molecule(int nlocalprev, int tagprev,
 
       b->angmom[0] = b->angmom[1] = b->angmom[2] = 0.0;
       b->omega[0] = b->omega[1] = b->omega[2] = 0.0;
-      b->image = ((tagint) IMGMAX << IMG2BITS) |
-        ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+      b->image = ((imageint) IMGMAX << IMG2BITS) |
+        ((imageint) IMGMAX << IMGBITS) | IMGMAX;
       b->ilocal = i;
       nlocal_body++;
     }
@@ -2510,7 +2516,7 @@ void FixRigidSmall::set_molecule(int nlocalprev, int tagprev,
 
 int FixRigidSmall::pack_exchange(int i, double *buf)
 {
-  buf[0] = bodytag[i];
+  buf[0] = ubuf(bodytag[i]).d;
   buf[1] = displace[i][0];
   buf[2] = displace[i][1];
   buf[3] = displace[i][2];
@@ -2554,7 +2560,7 @@ int FixRigidSmall::pack_exchange(int i, double *buf)
 
 int FixRigidSmall::unpack_exchange(int nlocal, double *buf)
 {
-  bodytag[nlocal] = static_cast<int> (buf[0]);
+  bodytag[nlocal] = (tagint) ubuf(buf[0]).i;
   displace[nlocal][0] = buf[1];
   displace[nlocal][1] = buf[2];
   displace[nlocal][2] = buf[3];
@@ -2839,7 +2845,6 @@ void FixRigidSmall::unpack_reverse_comm(int n, int *list, double *buf)
   int i,j,k;
   double *fcm,*torque,*vcm,*angmom,*xcm;
 
-  int *tag = atom->tag;
   int nlocal = atom->nlocal;
 
   int m = 0;
@@ -2940,8 +2945,8 @@ void FixRigidSmall::reset_atom2body()
       if (iowner == -1) {
         char str[128];
         sprintf(str,
-                "Rigid body atoms %d %d missing on proc %d at step " 
-                BIGINT_FORMAT,
+                "Rigid body atoms " TAGINT_FORMAT " " TAGINT_FORMAT 
+                " missing on proc %d at step " BIGINT_FORMAT,
                 atom->tag[i],bodytag[i],comm->me,update->ntimestep);
         error->one(FLERR,str);
         

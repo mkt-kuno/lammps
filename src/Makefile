@@ -14,8 +14,8 @@ OBJ = 	$(SRC:.cpp=.o)
 # Package variables
 
 PACKAGE = asphere body class2 colloid dipole fld gpu granular kim \
-	  kspace manybody mc meam misc molecule opt peri poems reax replica \
-	  rigid shock srd voronoi xtc
+	  kspace manybody mc meam misc molecule mpiio opt peri poems \
+	  reax replica rigid shock srd voronoi xtc
 
 PACKUSER = user-atc user-awpmd user-cg-cmm user-colvars \
 	   user-cuda user-eff user-lb user-misc user-omp user-molfile \
@@ -147,21 +147,21 @@ package:
 	@echo ''
 	@echo 'User-contributed packages:' $(PACKUSER)
 	@echo ''
-	@echo 'make package             list available packages'
-	@echo 'make package-status      status of all packages'
-	@echo 'make yes-package         install a single package in src dir'
-	@echo 'make no-package          remove a single package from src dir'
-	@echo 'make yes-all             install all packages in src dir'
-	@echo 'make no-all              remove all packages from src dir'
-	@echo 'make yes-standard        install all standard packages'
-	@echo 'make no-standard         remove all standard packages'
-	@echo 'make yes-user            install all user packages'
-	@echo 'make no-user             remove all user packages'
-	@echo 'make no-lib              remove all packages with external libs'
+	@echo 'make package              list available packages'
+	@echo 'make package-status (ps)  status of all packages'
+	@echo 'make yes-package          install a single package in src dir'
+	@echo 'make no-package           remove a single package from src dir'
+	@echo 'make yes-all              install all packages in src dir'
+	@echo 'make no-all               remove all packages from src dir'
+	@echo 'make yes-standard         install all standard packages'
+	@echo 'make no-standard          remove all standard packages'
+	@echo 'make yes-user             install all user packages'
+	@echo 'make no-user              remove all user packages'
+	@echo 'make no-lib               remove all packages with external libs'
 	@echo ''
-	@echo 'make package-update      replace src files with package files'
-	@echo 'make package-overwrite   replace package files with src files'
-	@echo 'make package-diff        diff src files against package file'
+	@echo 'make package-update (pu)  replace src files with package files'
+	@echo 'make package-overwrite    replace package files with src files'
+	@echo 'make package-diff (pd)    diff src files against package file'
 
 yes-all:
 	@for p in $(PACKALL); do $(MAKE) yes-$$p; done
@@ -219,12 +219,12 @@ no-%:
 # overwrite = overwrite package files with newer src files
 # diff = show differences between src and package files
 
-package-status:
+package-status ps:
 	@for p in $(PACKAGEUC); do $(SHELL) Package.sh $$p status; done
 	@echo ''
 	@for p in $(PACKUSERUC); do $(SHELL) Package.sh $$p status; done
 
-package-update:
+package-update pu:
 	@for p in $(PACKAGEUC); do $(SHELL) Package.sh $$p update; done
 	@echo ''
 	@for p in $(PACKUSERUC); do $(SHELL) Package.sh $$p update; done
@@ -234,7 +234,7 @@ package-overwrite:
 	@echo ''
 	@for p in $(PACKUSERUC); do $(SHELL) Package.sh $$p overwrite; done
 
-package-diff:
+package-diff pd:
 	@for p in $(PACKAGEUC); do $(SHELL) Package.sh $$p diff; done
 	@echo ''
 	@for p in $(PACKUSERUC); do $(SHELL) Package.sh $$p diff; done

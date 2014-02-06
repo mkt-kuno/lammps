@@ -92,7 +92,7 @@ FixTMD::FixTMD(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
 
   int *mask = atom->mask;
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double **x = atom->x;
   double *mass = atom->mass;
   int nlocal = atom->nlocal;
@@ -186,7 +186,7 @@ void FixTMD::initial_integrate(int vflag)
   double **v = atom->v;
   double **f = atom->f;
   double *mass = atom->mass;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int *type = atom->type;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
@@ -394,7 +394,8 @@ void FixTMD::readfile(char *file)
 
   char *buffer = new char[CHUNK*MAXLINE];
   char *next,*bufptr;
-  int i,m,nlines,tag,imageflag,ix,iy,iz;
+  int i,m,nlines,imageflag,ix,iy,iz;
+  tagint itag;
   double x,y,z,xprd,yprd,zprd;
 
   int firstline = 1;
@@ -457,11 +458,12 @@ void FixTMD::readfile(char *file)
       }
 
       if (imageflag)
-        sscanf(bufptr,"%d %lg %lg %lg %d %d %d",&tag,&x,&y,&z,&ix,&iy,&iz);
+        sscanf(bufptr,TAGINT_FORMAT " %lg %lg %lg %d %d %d",
+               &itag,&x,&y,&z,&ix,&iy,&iz);
       else
-        sscanf(bufptr,"%d %lg %lg %lg",&tag,&x,&y,&z);
+        sscanf(bufptr,TAGINT_FORMAT " %lg %lg %lg",&itag,&x,&y,&z);
 
-      m = atom->map(tag);
+      m = atom->map(itag);
       if (m >= 0 && m < nlocal && mask[m] & groupbit) {
         if (imageflag) {
           xf[m][0] = x + ix*xprd;

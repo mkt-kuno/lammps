@@ -66,6 +66,11 @@ E: Bond style quartic cannot be used with 3,4-body interactions
 No angle, dihedral, or improper styles can be defined when using
 bond style quartic.
 
+E: Bond style quartic cannot be used with atom style template
+
+This bond style can change the bond topology which is not
+allowed with this atom style.
+
 E: Bond style quartic requires special_bonds = 1,1,1
 
 This is a restriction of the current bond quartic implementation.

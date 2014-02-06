@@ -205,7 +205,6 @@ void Velocity::create(double t_desired, int seed)
     int mapflag = 0;
     if (atom->map_style == 0) {
       mapflag = 1;
-      atom->map_style = 1;
       atom->nghost = 0;
       atom->map_init();
       atom->map_set();
@@ -736,7 +735,7 @@ void Velocity::zero_rotation()
   double **x = atom->x;
   double **v = atom->v;
   int *mask = atom->mask;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   double dx,dy,dz;

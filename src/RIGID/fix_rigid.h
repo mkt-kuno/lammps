@@ -90,7 +90,7 @@ class FixRigid : public Fix {
   double **omega;           // angular velocity of each in space coords
   double **torque;          // torque on each rigid body in space coords
   double **quat;            // quaternion of each rigid body
-  tagint *imagebody;        // image flags of xcm of each rigid body
+  imageint *imagebody;        // image flags of xcm of each rigid body
   double **fflag;           // flag for on/off of center-of-mass force
   double **tflag;           // flag for on/off of center-of-mass torque
   double **langextra;       // Langevin thermostat forces and torques
@@ -158,6 +158,10 @@ E: Fix rigid molecule requires atom attribute molecule
 
 Self-explanatory.
 
+E: Too many molecules for fix rigid
+
+The limit is 2^31 = ~2 billion molecules.
+
 E: Could not find fix rigid group ID
 
 A group ID used in the fix rigid command does not exist.
@@ -204,7 +208,8 @@ incorrect.
 
 W: Cannot count rigid body degrees-of-freedom before bodies are fully initialized
 
-UNDOCUMENTED
+This means the temperature associated with the rigid bodies may be
+incorrect on this timestep.
 
 W: Computing temperature of portions of rigid bodies
 
@@ -235,13 +240,22 @@ E: Unexpected end of fix rigid file
 
 A read operation from the file failed.
 
+E: Fix rigid file has no lines
+
+Self-explanatory.
+
 E: Incorrect rigid body format in fix rigid file
 
 The number of fields per line is not what expected.
 
 E: Invalid rigid body ID in fix rigid file
 
-The ID does not match the number or an existing ID of rigid bodies
+The ID does not match the number of an existing ID of rigid bodies
 that are defined by the fix rigid command.
+
+E: Cannot open fix rigid restart file %s
+
+The specified file cannot be opened.  Check that the path and name are
+correct.
 
 */

@@ -668,7 +668,7 @@ int PairReaxC::write_reax_lists()
 {
   int itr_i, itr_j, itr_g, i, j, g, flag;
   int nlocal, nghost, num_nbrs;
-  int *ilist, *jlist, *numneigh, **firstneigh, *marked, *tag;
+  int *ilist, *jlist, *numneigh, **firstneigh, *marked;
   double d_sqr, g_d, g_d_sqr;
   rvec dvec, g_dvec;
   double *dist, **x, SMALL = 0.0001;
@@ -676,7 +676,6 @@ int PairReaxC::write_reax_lists()
   far_neighbor_data *far_list;
 
   x = atom->x;
-  tag = atom->tag;
   nlocal = atom->nlocal;
   nghost = atom->nghost;
   ilist = list->ilist;
@@ -797,7 +796,7 @@ double PairReaxC::memory_usage()
 
 void PairReaxC::FindBond()
 {
-  int i, ii, j, pj, jtag, nj, jtmp, jj;
+  int i, ii, j, pj, nj, jtmp, jj;
   double bo_tmp, bo_cut, rij, rsq, r_tmp;
 
   bond_data *bo_ij;

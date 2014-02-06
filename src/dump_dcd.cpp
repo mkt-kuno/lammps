@@ -175,13 +175,13 @@ void DumpDCD::write_header(bigint n)
 
 /* ---------------------------------------------------------------------- */
 
-void DumpDCD::pack(int *ids)
+void DumpDCD::pack(tagint *ids)
 {
   int m,n;
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
 

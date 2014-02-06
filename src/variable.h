@@ -63,6 +63,7 @@ class Variable : protected Pointers {
     double value;          // single scalar  
     double *array;         // per-atom or per-type list of doubles
     int *iarray;           // per-atom list of ints
+    bigint *barray;        // per-atom list of bigints
     int type;              // operation, see enum{} in variable.cpp
     int nstride;           // stride between atoms if array is a 2d array
     int selfalloc;         // 1 if array is allocated here, else 0
@@ -146,9 +147,9 @@ E: File variable could not read value
 
 Check the file assigned to the variable.
 
-E: Afile variable could not read values
+E: Atomfile variable could not read values
 
-UNDOCUMENTED
+Check the file assigned to the variable.
 
 E: Variable name must be alphanumeric or underscore characters
 
@@ -166,6 +167,10 @@ E: Invalid variable style with next command
 
 Variable styles {equal} and {world} cannot be used in a next
 command.
+
+E: Next command must list all universe and uloop variables
+
+This is to insure they stay in sync.
 
 E: Invalid syntax in variable formula
 
@@ -248,6 +253,10 @@ E: Atom-style variable in equal-style variable formula
 
 Atom-style variables generate one value per atom which is not allowed
 in an equal-style variable.
+
+E: Atomfile-style variable in equal-style variable formula
+
+Self-explanatory.
 
 E: Mismatched variable in variable formula
 
@@ -360,9 +369,13 @@ E: Variable ID in variable formula does not exist
 
 Self-explanatory.
 
-E: Invalid variable in special function next
+E: Atomfile variable in equal-style variable formula
 
-Only file-style variables can be used with the next() function.
+Self-explanatory.
+
+E: Invalid variable style in special function next
+
+Only file-style or atomfile-style variables can be used with next().
 
 E: Indexed per-atom vector in variable formula without atom map
 
@@ -370,6 +383,10 @@ Accessing a value from an atom vector requires the ability to lookup
 an atom index, which is provided by an atom map.  An atom map does not
 exist (by default) for non-molecular problems.  Using the atom_modify
 map command will force an atom map to be created.
+
+E: Variable uses atom property that isn't allocated
+
+Self-explanatory.
 
 E: Invalid atom vector in variable formula
 
@@ -396,5 +413,13 @@ E: Cannot open file variable file %s
 
 The specified file cannot be opened.  Check that the path and name are
 correct.
+
+E: Cannot use atomfile-style variable unless atom map exists
+
+Self-explanatory.  See the atom_modify command to create a map.
+
+E: Invalid atom ID in variable file
+
+Self-explanatory.
 
 */

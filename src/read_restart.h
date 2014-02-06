@@ -38,8 +38,13 @@ class ReadRestart : protected Pointers {
   int multiproc;             // 0 = proc 0 writes for all
                              // else # of procs writing files
 
+  // MPI-IO values
+
   int mpiioflag;               // 1 for MPIIO output, else 0
   class RestartMPIIO *mpiio;   // MPIIO for restart file input
+  int numChunksAssigned;
+  bigint assignedChunkSize;
+  MPI_Offset assignedChunkOffset,headerOffset;
 
   void file_search(char *, char *);
   void header(int);
@@ -77,9 +82,22 @@ E: Cannot read_restart after simulation box is defined
 The read_restart command cannot be used after a read_data,
 read_restart, or create_box command.
 
+E: Read restart MPI-IO input not allowed with % in filename
+
+This is because a % signifies one file per processor and MPI-IO
+creates one large file for all processors.
+
+E: Reading from MPI-IO filename when MPIIO package is not installed
+
+Self-explanatory.
+
 E: Cannot open restart file %s
 
 Self-explanatory.
+
+E: Invalid flag in peratom section of restart file
+
+The format of this section of the file is not correct.
 
 E: Did not assign all atoms correctly
 
@@ -96,24 +114,32 @@ E: Found no restart file matching pattern
 
 When using a "*" in the restart file name, no matching file was found.
 
-W: Restart file version does not match LAMMPS version
+E: Restart file incompatible with current version
 
-This may cause problems when reading the restart file.
+This is probably because you are trying to read a file created with a
+version of LAMMPS that is too old compared to the current version.
+Use your older version of LAMMPS and convert the restart file
+to a data file.
 
 E: Smallint setting in lmptype.h is not compatible
 
 Smallint stored in restart file is not consistent with LAMMPS version
 you are running.
 
+E: Imageint setting in lmptype.h is not compatible
+
+Format of imageint stored in restart file is not consistent with
+LAMMPS version you are running.  See the settings in src/lmptype.h
+
 E: Tagint setting in lmptype.h is not compatible
 
-Smallint stored in restart file is not consistent with LAMMPS version
-you are running.
+Format of tagint stored in restart file is not consistent with LAMMPS
+version you are running.  See the settings in src/lmptype.h
 
 E: Bigint setting in lmptype.h is not compatible
 
-Bigint stored in restart file is not consistent with LAMMPS version
-you are running.
+Format of bigint stored in restart file is not consistent with LAMMPS
+version you are running.  See the settings in src/lmptype.h
 
 E: Cannot run 2d simulation with nonperiodic Z dimension
 
@@ -157,5 +183,37 @@ Unrecognized entry in restart file.
 E: Invalid flag in force field section of restart file
 
 Unrecognized entry in restart file.
+
+E: Restart file is not a multi-proc file
+
+The file is inconsistent with the filename you specified for it.
+
+E: Restart file is a multi-proc file
+
+The file is inconsistent with the filename you specified for it.
+
+E: Restart file is a MPI-IO file
+
+The file is inconsistent with the filename you specified for it.
+
+E: Restart file is not a MPI-IO file
+
+The file is inconsistent with the filename you specified for it.
+
+E: Invalid LAMMPS restart file
+
+The file does not appear to be a LAMMPS restart file since
+it doesn't contain the correct magic string at the beginning.
+
+E: Restart file byte ordering is swapped
+
+The file was written on a machine with different byte-ordering than
+the machine you are reading it on.  Convert it to a text data file
+instead, on the machine you wrote it on.
+
+E: Restart file byte ordering is not recognized
+
+The file does not appear to be a LAMMPS restart file since it doesn't
+contain a recognized byte-orderomg flag at the beginning.
 
 */

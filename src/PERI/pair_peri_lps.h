@@ -26,6 +26,8 @@ namespace LAMMPS_NS {
 
 class PairPeriLPS : public Pair {
  public:
+  double *theta;
+
   PairPeriLPS(class LAMMPS *);
   virtual ~PairPeriLPS();
   int pack_comm(int, int *, double *, int, int *);
@@ -48,11 +50,10 @@ class PairPeriLPS : public Pair {
   int ifix_peri;
   double **bulkmodulus;
   double **shearmodulus;
-  double **s00, **alpha;
+  double **s00,**alpha;
   double **cut;
 
   double *s0_new;
-  double *theta;
   int nmax;
 
   void allocate();
@@ -101,9 +102,5 @@ E: Divide by 0 in influence function of pair peri/lps
 
 This should not normally occur.  It is likely a problem with your
 model.
-
-U: Pair peri requires a lattice be defined
-
-Use the lattice command for this purpose.
 
 */

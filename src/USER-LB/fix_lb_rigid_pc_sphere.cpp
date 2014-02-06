@@ -95,31 +95,36 @@ FixLbRigidPCSphere::FixLbRigidPCSphere(LAMMPS *lmp, int narg, char **arg) :
   } else if (strcmp(arg[3],"molecule") == 0) {
     iarg = 4;
     if (atom->molecular == 0)
-      error->all(FLERR,"Must use a molecular atom style with fix lb/rigid/pc/sphere molecule");
+      error->all(FLERR,"Must use a molecular atom style with "
+                 "fix lb/rigid/pc/sphere molecule");
 
     int *mask = atom->mask;
-    int *molecule = atom->molecule;
+    tagint *molecule = atom->molecule;
     int nlocal = atom->nlocal;
 
-    int maxmol = -1;
+    tagint maxmol_tag = -1;
     for (i = 0; i < nlocal; i++)
-      if (mask[i] & groupbit) maxmol = MAX(maxmol,molecule[i]);
+      if (mask[i] & groupbit) maxmol_tag = MAX(maxmol_tag,molecule[i]);
 
-    int itmp;
-    MPI_Allreduce(&maxmol,&itmp,1,MPI_INT,MPI_MAX,world);
-    maxmol = itmp + 1;
+    tagint itmp;
+    MPI_Allreduce(&maxmol_tag,&itmp,1,MPI_LMP_TAGINT,MPI_MAX,world);
+    if (itmp+1 > MAXSMALLINT) 
+      error->all(FLERR,"Too many molecules for fix lb/rigid/pc/sphere");
+    int maxmol = (int) itmp;
 
-    int *ncount = new int[maxmol];
-    for (i = 0; i < maxmol; i++) ncount[i] = 0;
+    int *ncount;
+    memory->create(ncount,maxmol+1,"rigid:ncount");
+    for (i = 0; i <= maxmol; i++) ncount[i] = 0;
 
     for (i = 0; i < nlocal; i++)
       if (mask[i] & groupbit) ncount[molecule[i]]++;
 
-    int *nall = new int[maxmol];
-    MPI_Allreduce(ncount,nall,maxmol,MPI_INT,MPI_SUM,world);
+    int *nall;
+    memory->create(nall,maxmol+1,"rigid:ncount");
+    MPI_Allreduce(ncount,nall,maxmol+1,MPI_LMP_TAGINT,MPI_SUM,world);
 
     nbody = 0;
-    for (i = 0; i < maxmol; i++)
+    for (i = 0; i <= maxmol; i++)
       if (nall[i]) nall[i] = nbody++;
       else nall[i] = -1;
 
@@ -128,8 +133,8 @@ FixLbRigidPCSphere::FixLbRigidPCSphere(LAMMPS *lmp, int narg, char **arg) :
       if (mask[i] & groupbit) body[i] = nall[molecule[i]];
     }
 
-    delete [] ncount;
-    delete [] nall;
+    memory->destroy(ncount);
+    memory->destroy(nall);
 
   // each listed group is a rigid body
   // check if all listed groups exist
@@ -140,7 +145,8 @@ FixLbRigidPCSphere::FixLbRigidPCSphere(LAMMPS *lmp, int narg, char **arg) :
     if (narg < 5) error->all(FLERR,"Illegal fix lb/rigid/pc/sphere command");
     nbody = atoi(arg[4]);
     if (nbody <= 0) error->all(FLERR,"Illegal fix lb/rigid/pc/sphere command");
-    if (narg < 5+nbody) error->all(FLERR,"Illegal fix lb/rigid/pc/sphere command");
+    if (narg < 5+nbody) 
+      error->all(FLERR,"Illegal fix lb/rigid/pc/sphere command");
     iarg = 5 + nbody;
 
     int *igroups = new int[nbody];
@@ -345,8 +351,8 @@ FixLbRigidPCSphere::FixLbRigidPCSphere(LAMMPS *lmp, int narg, char **arg) :
   // set here, so image value will persist from run to run
 
   for (ibody = 0; ibody < nbody; ibody++)
-    imagebody[ibody] = ((tagint) IMGMAX << IMG2BITS) | 
-      ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+    imagebody[ibody] = ((imageint) IMGMAX << IMG2BITS) | 
+      ((imageint) IMGMAX << IMGBITS) | IMGMAX;
 
   // print statistics
 
@@ -466,7 +472,7 @@ void FixLbRigidPCSphere::init()
   int *type = atom->type;
   int nlocal = atom->nlocal;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double *rmass = atom->rmass;
   double *mass = atom->mass;  
   int *periodicity = domain->periodicity;
@@ -656,7 +662,7 @@ void FixLbRigidPCSphere::setup(int vflag)
   int *type = atom->type;
   int nlocal = atom->nlocal;
 
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int *periodicity = domain->periodicity;
 
   double unwrap[3];
@@ -766,7 +772,7 @@ void FixLbRigidPCSphere::initial_integrate(int vflag)
   int *type = atom->type;
   int nlocal = atom->nlocal;
 
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double unwrap[3];
   double dx,dy,dz;
@@ -951,7 +957,7 @@ void FixLbRigidPCSphere::final_integrate()
 
   // sum over atoms to get force and torque on rigid body
   double massone;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   double **x = atom->x;
   double **f = atom->f;
   double **v = atom->v;
@@ -1119,7 +1125,7 @@ void FixLbRigidPCSphere::set_v()
   double *rmass = atom->rmass;
   double *mass = atom->mass;  
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   double xprd = domain->xprd;
@@ -1211,7 +1217,7 @@ void FixLbRigidPCSphere::set_xv()
   double *rmass = atom->rmass;
   double *mass = atom->mass;  
   int *type = atom->type;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
   double xprd = domain->xprd;
@@ -1326,7 +1332,7 @@ void FixLbRigidPCSphere::set_xv()
 
 void FixLbRigidPCSphere::pre_neighbor()
 {
-  int original,oldimage,newimage;
+  imageint original,oldimage,newimage;
 
   for (int ibody = 0; ibody < nbody; ibody++) {
     original = imagebody[ibody];
@@ -1349,10 +1355,11 @@ void FixLbRigidPCSphere::pre_neighbor()
 
   // adjust image flags of any atom in a rigid body whose xcm was remapped
 
-  int *atomimage = atom->image;
+  imageint *atomimage = atom->image;
   int nlocal = atom->nlocal;
 
-  int ibody,idim,otherdims;
+  int ibody;
+  imageint idim,otherdims;
 
   for (int i = 0; i < nlocal; i++) {
     if (body[i] == -1) continue;

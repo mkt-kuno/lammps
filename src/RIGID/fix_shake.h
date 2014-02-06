@@ -40,7 +40,7 @@ class FixShake : public Fix {
   void copy_arrays(int, int, int);
   void set_arrays(int);
   void update_arrays(int, int);
-  void set_molecule(int, int, double *, double *, double *);
+  void set_molecule(int, tagint, double *, double *, double *);
 
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
@@ -64,6 +64,7 @@ class FixShake : public Fix {
   double *mass_list;                     // constrain bonds to these masses
   int nmass;                             // # of masses in mass_list
 
+  int molecular;                         // copy of atom->molecular
   double *bond_distance,*angle_distance; // constraint distances
 
   int ifix_respa;                        // rRESPA fix needed by SHAKE
@@ -79,7 +80,7 @@ class FixShake : public Fix {
   int *shake_flag;                       // 0 if atom not in SHAKE cluster
                                          // 1 = size 3 angle cluster
                                          // 2,3,4 = size of bond-only cluster
-  int **shake_atom;                      // global IDs of atoms in cluster
+  tagint **shake_atom;                   // global IDs of atoms in cluster
                                          // central atom is 1st
                                          // lowest global ID is 1st for size 2
   int **shake_type;                      // bondtype of each bond in cluster
@@ -102,9 +103,8 @@ class FixShake : public Fix {
   double *a_ave,*a_max,*a_min;
   double *a_ave_all,*a_max_all,*a_min_all;
 
-  // molecules added on-the-fly with SHAKE constraints
-
-  class Molecule *onemol;
+  class Molecule **onemols;             // atom style template pointer
+  class Molecule *onemol;               // molecule added on-the-fly
 
   void find_clusters();
   int masscheck(double);
@@ -115,8 +115,8 @@ class FixShake : public Fix {
   void shake4(int);
   void shake3angle(int);
   void stats();
-  int bondfind(int, int, int);
-  int anglefind(int, int, int);
+  int bondtype_findset(int, tagint, tagint, int);
+  int angletype_findset(int, tagint, tagint, int);
 
   // static variable for ring communication callback to access class data
   // callback functions for ring communication
@@ -164,6 +164,19 @@ E: Too many masses for fix shake
 
 The fix shake command cannot list more masses than there are atom
 types.
+
+E: Molecule template ID for fix shake does not exist
+
+Self-explanatory.
+
+W: Molecule template for fix shake has multiple molecules
+
+The fix shake command will only recoginze molecules of a single
+type, i.e. the first molecule in the template.
+
+E: Fix shake molecule template must have shake info
+
+The defined molecule does not specify SHAKE information.
 
 E: More than one fix shake
 

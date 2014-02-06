@@ -59,14 +59,16 @@ FixShake::FixShake(LAMMPS *lmp, int narg, char **arg) :
 
   // error check
 
-  if (atom->molecular == 0)
+  molecular = atom->molecular;
+  if (molecular == 0)
     error->all(FLERR,"Cannot use fix shake with non-molecular system");
 
   // perform initial allocation of atom-based arrays
   // register with Atom class
 
   shake_flag = NULL;
-  shake_atom = shake_type = NULL;
+  shake_atom = NULL;
+  shake_type = NULL;
   xshake = NULL;
 
   grow_arrays(atom->nmax);
@@ -154,7 +156,10 @@ FixShake::FixShake(LAMMPS *lmp, int narg, char **arg) :
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix shake command");
       int imol = atom->find_molecule(arg[iarg+1]);
       if (imol == -1)
-        error->all(FLERR,"Molecule ID for fix shake does not exist");
+        error->all(FLERR,"Molecule template ID for fix shake does not exist");
+      if (atom->molecules[imol]->nset > 1 && comm->me == 0)
+        error->warning(FLERR,"Molecule template for "
+                       "fix shake has multiple molecules");
       onemol = atom->molecules[imol];
       iarg += 2;
     } else error->all(FLERR,"Illegal fix shake command");
@@ -163,7 +168,7 @@ FixShake::FixShake(LAMMPS *lmp, int narg, char **arg) :
   // error check for Molecule template
 
   if (onemol && onemol->shakeflag == 0)
-    error->all(FLERR,"Fix shake molecule must have shake info");
+    error->all(FLERR,"Fix shake molecule template must have shake info");
 
   // allocate bond and angle distance arrays, indexed from 1 to n
 
@@ -215,35 +220,23 @@ FixShake::~FixShake()
   // set bond_type and angle_type back to positive for SHAKE clusters
   // must set for all SHAKE bonds and angles stored by each atom
 
-  int **bond_type = atom->bond_type;
-  int **angle_type = atom->angle_type;
   int nlocal = atom->nlocal;
 
-  int n;
   for (int i = 0; i < nlocal; i++) {
     if (shake_flag[i] == 0) continue;
     else if (shake_flag[i] == 1) {
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][1]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][2]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = anglefind(i,shake_atom[i][1],shake_atom[i][2]);
-      if (n >= 0) angle_type[i][n] = -angle_type[i][n];
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][1],1);
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][2],1);
+      angletype_findset(i,shake_atom[i][1],shake_atom[i][2],1);
     } else if (shake_flag[i] == 2) {
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][1]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][1],1);
     } else if (shake_flag[i] == 3) {
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][1]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][2]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][1],1);
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][2],1);
     } else if (shake_flag[i] == 4) {
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][1]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][2]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][3]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][1],1);
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][2],1);
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][3],1);
     }
   }
 
@@ -493,8 +486,8 @@ void FixShake::pre_neighbor()
         atom2 = atom->map(shake_atom[i][1]);
         if (atom1 == -1 || atom2 == -1) {
           char str[128];
-          sprintf(str,
-                  "Shake atoms %d %d missing on proc %d at step " BIGINT_FORMAT,
+          sprintf(str,"Shake atoms " TAGINT_FORMAT " " TAGINT_FORMAT 
+                  " missing on proc %d at step " BIGINT_FORMAT,
                   shake_atom[i][0],shake_atom[i][1],me,update->ntimestep);
           error->one(FLERR,str);
         }
@@ -505,9 +498,9 @@ void FixShake::pre_neighbor()
         atom3 = atom->map(shake_atom[i][2]);
         if (atom1 == -1 || atom2 == -1 || atom3 == -1) {
           char str[128];
-          sprintf(str,
-                  "Shake atoms %d %d %d missing on proc %d at step "
-                  BIGINT_FORMAT,
+          sprintf(str,"Shake atoms " 
+                  TAGINT_FORMAT " " TAGINT_FORMAT " " TAGINT_FORMAT
+                  " missing on proc %d at step " BIGINT_FORMAT,
                   shake_atom[i][0],shake_atom[i][1],shake_atom[i][2],
                   me,update->ntimestep);
           error->one(FLERR,str);
@@ -520,9 +513,10 @@ void FixShake::pre_neighbor()
         atom4 = atom->map(shake_atom[i][3]);
         if (atom1 == -1 || atom2 == -1 || atom3 == -1 || atom4 == -1) {
           char str[128];
-          sprintf(str,
-                  "Shake atoms %d %d %d %d missing on proc %d at step "
-                  BIGINT_FORMAT,
+          sprintf(str,"Shake atoms " 
+                  TAGINT_FORMAT " " TAGINT_FORMAT " " 
+                  TAGINT_FORMAT " " TAGINT_FORMAT
+                  " missing on proc %d at step " BIGINT_FORMAT,
                   shake_atom[i][0],shake_atom[i][1],
                   shake_atom[i][2],shake_atom[i][3],
                   me,update->ntimestep);
@@ -618,7 +612,7 @@ int FixShake::dof(int igroup)
   int groupbit = group->bitmask[igroup];
 
   int *mask = atom->mask;
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int nlocal = atom->nlocal;
 
   // count dof in a cluster if and only if
@@ -650,28 +644,28 @@ int FixShake::dof(int igroup)
 
 void FixShake::find_clusters()
 {
-  int i,j,m,n;
+  int i,j,m,n,imol,iatom;
   int flag,flag_all,messtag,loop,nbuf,nbufmax,size;
+  tagint tagprev;
   double massone;
-  int *buf,*bufcopy;
-  MPI_Request request;
-  MPI_Status status;
+  tagint *buf;
 
   if (me == 0 && screen) fprintf(screen,"Finding SHAKE clusters ...\n");
 
-  // local copies of atom ptrs
+  onemols = atom->avec->onemols;
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
   double *mass = atom->mass;
   double *rmass = atom->rmass;
-  int **bond_type = atom->bond_type;
-  int **angle_type = atom->angle_type;
   int **nspecial = atom->nspecial;
-  int **special = atom->special;
-  int nlocal = atom->nlocal;
+  tagint **special = atom->special;
+  
+  int *molindex = atom->molindex;
+  int *molatom = atom->molatom;
 
+  int nlocal = atom->nlocal;
   int angles_allow = atom->avec->angles_allow;
 
   // setup ring of procs
@@ -696,14 +690,24 @@ void FixShake::find_clusters()
   // -----------------------------------------------------
 
   int max = 0;
-  for (i = 0; i < nlocal; i++) max = MAX(max,nspecial[i][0]);
+  if (molecular == 1) {
+    for (i = 0; i < nlocal; i++) max = MAX(max,nspecial[i][0]);
+  } else {
+    for (i = 0; i < nlocal; i++) {
+      imol = molindex[i];
+      if (imol < 0) continue;
+      iatom = molatom[i];
+      max = MAX(max,onemols[imol]->nspecial[iatom][0]);
+    }
+  }
 
   int *npartner;
   memory->create(npartner,nlocal,"shake:npartner");
   memory->create(nshake,nlocal,"shake:nshake");
 
-  int **partner_tag,**partner_mask,**partner_type,**partner_massflag;
-  int ** partner_bondtype,**partner_shake,**partner_nshake;
+  tagint **partner_tag;
+  int **partner_mask,**partner_type,**partner_massflag;
+  int **partner_bondtype,**partner_shake,**partner_nshake;
   memory->create(partner_tag,nlocal,max,"shake:partner_tag");
   memory->create(partner_mask,nlocal,max,"shake:partner_mask");
   memory->create(partner_type,nlocal,max,"shake:partner_type");
@@ -716,9 +720,22 @@ void FixShake::find_clusters()
   // set npartner and partner_tag from special arrays
   // -----------------------------------------------------
 
-  for (i = 0; i < nlocal; i++) {
-    npartner[i] = nspecial[i][0];
-    for (j = 0; j < npartner[i]; j++) partner_tag[i][j] = special[i][j];
+  if (molecular == 1) {
+    for (i = 0; i < nlocal; i++) {
+      npartner[i] = nspecial[i][0];
+      for (j = 0; j < npartner[i]; j++)
+        partner_tag[i][j] = special[i][j];
+    }
+  } else {
+    for (i = 0; i < nlocal; i++) {
+      imol = molindex[i];
+      if (imol < 0) continue;
+      iatom = molatom[i];
+      tagprev = tag[i] - iatom - 1;
+      npartner[i] = onemols[imol]->nspecial[iatom][0];
+      for (j = 0; j < npartner[i]; j++)
+        partner_tag[i][j] = onemols[imol]->special[iatom][j] + tagprev;;
+    }
   }
 
   // -----------------------------------------------------
@@ -751,11 +768,11 @@ void FixShake::find_clusters()
           else massone = mass[type[m]];
           partner_massflag[i][j] = masscheck(massone);
         }
-        n = bondfind(i,tag[i],partner_tag[i][j]);
-        if (n >= 0) partner_bondtype[i][j] = bond_type[i][n];
+        n = bondtype_findset(i,tag[i],partner_tag[i][j],0);
+        if (n) partner_bondtype[i][j] = n;
         else {
-          n = bondfind(m,tag[i],partner_tag[i][j]);
-          if (n >= 0) partner_bondtype[i][j] = bond_type[m][n];
+          n = bondtype_findset(m,tag[i],partner_tag[i][j],0);
+          if (n) partner_bondtype[i][j] = n;
         }
       } else nbuf += nper;
     }
@@ -775,8 +792,8 @@ void FixShake::find_clusters()
         buf[size+2] = 0;
         buf[size+3] = 0;
         buf[size+4] = 0;
-        n = bondfind(i,tag[i],partner_tag[i][j]);
-        if (n >= 0) buf[size+5] = bond_type[i][n];
+        n = bondtype_findset(i,tag[i],partner_tag[i][j],0);
+        if (n) buf[size+5] = n;
         else buf[size+5] = 0;
         size += nper;
       }
@@ -786,7 +803,7 @@ void FixShake::find_clusters()
   // cycle buffer around ring of procs back to self
 
   fsptr = this;
-  comm->ring(size,sizeof(int),buf,1,ring_bonds,buf);
+  comm->ring(size,sizeof(tagint),buf,1,ring_bonds,buf);
 
   // store partner info returned to me
 
@@ -912,7 +929,7 @@ void FixShake::find_clusters()
   // cycle buffer around ring of procs back to self
 
   fsptr = this;
-  comm->ring(size,sizeof(int),buf,2,ring_nshake,buf);
+  comm->ring(size,sizeof(tagint),buf,2,ring_nshake,buf);
 
   // store partner info returned to me
   
@@ -999,12 +1016,11 @@ void FixShake::find_clusters()
     }
 
     if (nshake[i] == 2 && angles_allow) {
-      n = anglefind(i,shake_atom[i][1],shake_atom[i][2]);
-      if (n < 0) continue;
-      if (angle_type[i][n] < 0) continue;
-      if (angle_flag[angle_type[i][n]]) {
+      n = angletype_findset(i,shake_atom[i][1],shake_atom[i][2],0);
+      if (n <= 0) continue;
+      if (angle_flag[n]) {
         shake_flag[i] = 1;
-        shake_type[i][2] = angle_type[i][n];
+        shake_type[i][2] = n;
       }
     }
   }
@@ -1066,7 +1082,7 @@ void FixShake::find_clusters()
   // cycle buffer around ring of procs back to self
 
   fsptr = this;
-  comm->ring(size,sizeof(int),buf,3,ring_shake,NULL);
+  comm->ring(size,sizeof(tagint),buf,3,ring_shake,NULL);
 
   memory->destroy(buf);
 
@@ -1092,27 +1108,18 @@ void FixShake::find_clusters()
   for (i = 0; i < nlocal; i++) {
     if (shake_flag[i] == 0) continue;
     else if (shake_flag[i] == 1) {
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][1]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][2]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = anglefind(i,shake_atom[i][1],shake_atom[i][2]);
-      if (n >= 0) angle_type[i][n] = -angle_type[i][n];
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][1],-1);
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][2],-1);
+      angletype_findset(i,shake_atom[i][1],shake_atom[i][2],-1);
     } else if (shake_flag[i] == 2) {
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][1]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][1],-1);
     } else if (shake_flag[i] == 3) {
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][1]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][2]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][1],-1);
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][2],-1);
     } else if (shake_flag[i] == 4) {
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][1]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][2]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
-      n = bondfind(i,shake_atom[i][0],shake_atom[i][3]);
-      if (n >= 0) bond_type[i][n] = -bond_type[i][n];
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][1],-1);
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][2],-1);
+      bondtype_findset(i,shake_atom[i][0],shake_atom[i][3],-1);
     }
   }
 
@@ -1168,12 +1175,11 @@ void FixShake::ring_bonds(int ndatum, char *cbuf)
   double *rmass = atom->rmass;
   double *mass = atom->mass;
   int *mask = atom->mask;
-  int **bond_type = atom->bond_type;
   int *type = atom->type;
   int nlocal = atom->nlocal;
   int nmass = fsptr->nmass;
 
-  int *buf = (int *) cbuf;
+  tagint *buf = (tagint *) cbuf;
   int m,n;
   double massone;
 
@@ -1188,8 +1194,8 @@ void FixShake::ring_bonds(int ndatum, char *cbuf)
         buf[i+4] = fsptr->masscheck(massone);
       }
       if (buf[i+5] == 0) {
-        n = fsptr->bondfind(m,buf[i],buf[i+1]);
-        if (n >= 0) buf[i+5] = bond_type[m][n];
+        n = fsptr->bondtype_findset(m,buf[i],buf[i+1],0);
+        if (n) buf[i+5] = n;
       }
     }
   }
@@ -1207,7 +1213,7 @@ void FixShake::ring_nshake(int ndatum, char *cbuf)
 
   int *nshake = fsptr->nshake;
 
-  int *buf = (int *) cbuf;
+  tagint *buf = (tagint *) cbuf;
   int m;
 
   for (int i = 0; i < ndatum; i += 3) {
@@ -1227,10 +1233,10 @@ void FixShake::ring_shake(int ndatum, char *cbuf)
   int nlocal = atom->nlocal;
 
   int *shake_flag = fsptr->shake_flag;
-  int **shake_atom = fsptr->shake_atom;
+  tagint **shake_atom = fsptr->shake_atom;
   int **shake_type = fsptr->shake_type;
 
-  int *buf = (int *) cbuf;
+  tagint *buf = (tagint *) cbuf;
   int m;
 
   for (int i = 0; i < ndatum; i += 9) {
@@ -2229,45 +2235,116 @@ void FixShake::stats()
 }
 
 /* ----------------------------------------------------------------------
-   find a bond between global tags n1 and n2 stored with local atom i
-   return -1 if don't find it
-   return bond index if do find it
+   find a bond between global atom IDs n1 and n2 stored with local atom i
+   if find it:
+     if setflag = 0, return bond type
+     if setflag = -1/1, set bond type to negative/positive and return 0
+   if do not find it, return 0
 ------------------------------------------------------------------------- */
 
-int FixShake::bondfind(int i, int n1, int n2)
+int FixShake::bondtype_findset(int i, tagint n1, tagint n2, int setflag)
 {
-  int *tag = atom->tag;
-  int **bond_atom = atom->bond_atom;
-  int nbonds = atom->num_bond[i];
+  int m,nbonds;
+  int *btype;
 
-  int m;
-  for (m = 0; m < nbonds; m++) {
-    if (n1 == tag[i] && n2 == bond_atom[i][m]) break;
-    if (n1 == bond_atom[i][m] && n2 == tag[i]) break;
+  if (molecular == 1) {
+    tagint *tag = atom->tag;
+    tagint **bond_atom = atom->bond_atom;
+    nbonds = atom->num_bond[i];
+
+    for (m = 0; m < nbonds; m++) {
+      if (n1 == tag[i] && n2 == bond_atom[i][m]) break;
+      if (n1 == bond_atom[i][m] && n2 == tag[i]) break;
+    }
+
+  } else {
+    int imol = atom->molindex[i];
+    int iatom = atom->molatom[i];
+    tagint *tag = atom->tag;
+    tagint tagprev = tag[i] - iatom - 1;
+    tagint *batom = onemols[imol]->bond_atom[iatom];
+    btype = onemols[imol]->bond_type[iatom];
+    nbonds = onemols[imol]->num_bond[iatom];
+    
+    for (m = 0; m < nbonds; m++) {
+      if (n1 == tag[i] && n2 == batom[m]+tagprev) break;
+      if (n1 == batom[m]+tagprev && n2 == tag[i]) break;
+    }
   }
-  if (m < nbonds) return m;
-  return -1;
+
+  if (m < nbonds) {
+    if (setflag == 0) {
+      if (molecular == 1) return atom->bond_type[i][m];
+      else return btype[m];
+    }
+    if (molecular == 1) {
+      if ((setflag < 0 && atom->bond_type[i][m] > 0) ||
+          (setflag > 0 && atom->bond_type[i][m] < 0))
+        atom->bond_type[i][m] = -atom->bond_type[i][m];
+    } else {
+      if ((setflag < 0 && btype[m] > 0) ||
+          (setflag > 0 && btype[m] < 0)) btype[m] = -btype[m];
+    }
+  }
+
+  return 0;
 }
 
 /* ----------------------------------------------------------------------
-   find an angle with global end atoms n1 and n2 stored with local atom i
-   return -1 if don't find it
-   return angle index if do find it
+   find an angle with global end atom IDs n1 and n2 stored with local atom i
+   if find it:
+     if setflag = 0, return angle type
+     if setflag = -1/1, set angle type to negative/positive and return 0
+   if do not find it, return 0
 ------------------------------------------------------------------------- */
 
-int FixShake::anglefind(int i, int n1, int n2)
+int FixShake::angletype_findset(int i, tagint n1, tagint n2, int setflag)
 {
-  int **angle_atom1 = atom->angle_atom1;
-  int **angle_atom3 = atom->angle_atom3;
-  int nangles = atom->num_angle[i];
+  int m,nangles;
+  int *atype;
 
-  int m;
-  for (m = 0; m < nangles; m++) {
-    if (n1 == angle_atom1[i][m] && n2 == angle_atom3[i][m]) break;
-    if (n1 == angle_atom3[i][m] && n2 == angle_atom1[i][m]) break;
+  if (molecular == 1) {
+    tagint **angle_atom1 = atom->angle_atom1;
+    tagint **angle_atom3 = atom->angle_atom3;
+    nangles = atom->num_angle[i];
+
+    for (m = 0; m < nangles; m++) {
+      if (n1 == angle_atom1[i][m] && n2 == angle_atom3[i][m]) break;
+      if (n1 == angle_atom3[i][m] && n2 == angle_atom1[i][m]) break;
+    }
+
+  } else {
+    int imol = atom->molindex[i];
+    int iatom = atom->molatom[i];
+    tagint *tag = atom->tag;
+    tagint tagprev = tag[i] - iatom - 1;
+    tagint *aatom1 = onemols[imol]->angle_atom1[iatom];
+    tagint *aatom3 = onemols[imol]->angle_atom3[iatom];
+    atype = onemols[imol]->angle_type[iatom];
+    nangles = onemols[imol]->num_angle[iatom];
+    
+    for (m = 0; m < nangles; m++) {
+      if (n1 == aatom1[m]+tagprev && n2 == aatom3[m]+tagprev) break;
+      if (n1 == aatom3[m]+tagprev && n2 == aatom1[m]+tagprev) break;
+    }
   }
-  if (m < nangles) return m;
-  return -1;
+
+  if (m < nangles) {
+    if (setflag == 0) {
+      if (molecular == 1) return atom->angle_type[i][m];
+      else return atype[m];
+    }
+    if (molecular == 1) {
+      if ((setflag < 0 && atom->angle_type[i][m] > 0) ||
+          (setflag > 0 && atom->angle_type[i][m] < 0))
+        atom->angle_type[i][m] = -atom->angle_type[i][m];
+    } else {
+      if ((setflag < 0 && atype[m] > 0) ||
+          (setflag > 0 && atype[m] < 0)) atype[m] = -atype[m];
+    }
+  }
+
+  return 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -2379,7 +2456,7 @@ void FixShake::update_arrays(int i, int atom_offset)
    xgeom,vcm,quat ignored
 ------------------------------------------------------------------------- */
 
-void FixShake::set_molecule(int nlocalprev, int tagprev, 
+void FixShake::set_molecule(int nlocalprev, tagint tagprev, 
                             double *xgeom, double *vcm, double *quat)
 {
   int m,flag;
@@ -2387,8 +2464,8 @@ void FixShake::set_molecule(int nlocalprev, int tagprev,
   int nlocal = atom->nlocal;
   if (nlocalprev == nlocal) return;
 
-  int *tag = atom->tag;
-  int **mol_shake_atom = onemol->shake_atom;
+  tagint *tag = atom->tag;
+  tagint **mol_shake_atom = onemol->shake_atom;
   int **mol_shake_type = onemol->shake_type;
 
   for (int i = nlocalprev; i < nlocal; i++) {
@@ -2472,27 +2549,27 @@ int FixShake::unpack_exchange(int nlocal, double *buf)
   int m = 0;
   int flag = shake_flag[nlocal] = static_cast<int> (buf[m++]);
   if (flag == 1) {
-    shake_atom[nlocal][0] = static_cast<int> (buf[m++]);
-    shake_atom[nlocal][1] = static_cast<int> (buf[m++]);
-    shake_atom[nlocal][2] = static_cast<int> (buf[m++]);
+    shake_atom[nlocal][0] = static_cast<tagint> (buf[m++]);
+    shake_atom[nlocal][1] = static_cast<tagint> (buf[m++]);
+    shake_atom[nlocal][2] = static_cast<tagint> (buf[m++]);
     shake_type[nlocal][0] = static_cast<int> (buf[m++]);
     shake_type[nlocal][1] = static_cast<int> (buf[m++]);
     shake_type[nlocal][2] = static_cast<int> (buf[m++]);
   } else if (flag == 2) {
-    shake_atom[nlocal][0] = static_cast<int> (buf[m++]);
-    shake_atom[nlocal][1] = static_cast<int> (buf[m++]);
+    shake_atom[nlocal][0] = static_cast<tagint> (buf[m++]);
+    shake_atom[nlocal][1] = static_cast<tagint> (buf[m++]);
     shake_type[nlocal][0] = static_cast<int> (buf[m++]);
   } else if (flag == 3) {
-    shake_atom[nlocal][0] = static_cast<int> (buf[m++]);
-    shake_atom[nlocal][1] = static_cast<int> (buf[m++]);
-    shake_atom[nlocal][2] = static_cast<int> (buf[m++]);
+    shake_atom[nlocal][0] = static_cast<tagint> (buf[m++]);
+    shake_atom[nlocal][1] = static_cast<tagint> (buf[m++]);
+    shake_atom[nlocal][2] = static_cast<tagint> (buf[m++]);
     shake_type[nlocal][0] = static_cast<int> (buf[m++]);
     shake_type[nlocal][1] = static_cast<int> (buf[m++]);
   } else if (flag == 4) {
-    shake_atom[nlocal][0] = static_cast<int> (buf[m++]);
-    shake_atom[nlocal][1] = static_cast<int> (buf[m++]);
-    shake_atom[nlocal][2] = static_cast<int> (buf[m++]);
-    shake_atom[nlocal][3] = static_cast<int> (buf[m++]);
+    shake_atom[nlocal][0] = static_cast<tagint> (buf[m++]);
+    shake_atom[nlocal][1] = static_cast<tagint> (buf[m++]);
+    shake_atom[nlocal][2] = static_cast<tagint> (buf[m++]);
+    shake_atom[nlocal][3] = static_cast<tagint> (buf[m++]);
     shake_type[nlocal][0] = static_cast<int> (buf[m++]);
     shake_type[nlocal][1] = static_cast<int> (buf[m++]);
     shake_type[nlocal][2] = static_cast<int> (buf[m++]);

@@ -83,10 +83,6 @@ E: Pair peri requires an atom map, see atom_modify
 Even for atomic systems, an atom map is required to find Peridynamic
 bonds.  Use the atom_modify command to define one.
 
-E: Pair peri requires a lattice be defined
-
-Use the lattice command for this purpose.
-
 E: Pair peri lattice is not identical in x, y, and z
 
 The lattice defined by the lattice command must be cubic.

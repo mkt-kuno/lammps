@@ -50,7 +50,7 @@ class AtomVecDipole : public AtomVec {
   int pack_restart(int, double *);
   int unpack_restart(double *);
   void create_atom(int, double *);
-  void data_atom(double *, tagint, char **);
+  void data_atom(double *, imageint, char **);
   int data_atom_hybrid(int, char **);
   void pack_data(double **);
   int pack_data_hybrid(int, double *);
@@ -59,8 +59,9 @@ class AtomVecDipole : public AtomVec {
   bigint memory_usage();
 
  private:
-  int *tag,*type,*mask;
-  tagint *image;
+  tagint *tag;
+  int *type,*mask;
+  imageint *image;
   double **x,**v,**f;
   double *q,**mu,**omega,**torque;
 };
@@ -76,10 +77,6 @@ E: Per-processor system is too big
 
 The number of owned atoms plus ghost atoms on a single
 processor must fit in 32-bit integer.
-
-E: Invalid atom ID in Atoms section of data file
-
-Atom IDs must be positive integers.
 
 E: Invalid atom type in Atoms section of data file
 

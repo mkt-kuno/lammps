@@ -41,8 +41,8 @@ using namespace LAMMPS_NS;
 using namespace FixConst;
 
 #define EV_TO_KCAL_PER_MOL 14.4
-#define DANGER_ZONE     0.95
-#define LOOSE_ZONE      0.7
+//#define DANGER_ZONE     0.95
+//#define LOOSE_ZONE      0.7
 #define SQR(x) ((x)*(x))
 #define CUBE(x) ((x)*(x)*(x))
 #define MIN_NBRS 100
@@ -516,12 +516,11 @@ void FixQEqReax::compute_H()
 {
   int inum, jnum, *ilist, *jlist, *numneigh, **firstneigh;
   int i, j, ii, jj, temp, newnbr, flag;
-  int *type, *tag;
   double **x, SMALL = 0.0001;
   double dx, dy, dz, r_sqr;
 
-  type = atom->type;
-  tag = atom->tag;
+  int *type = atom->type;
+  tagint *tag = atom->tag;
   x = atom->x;
 
   inum = list->inum;
@@ -647,7 +646,8 @@ int FixQEqReax::CG( double *b, double *x )
 
   if (i >= imax && comm->me == 0) {
     char str[128];
-    sprintf(str,"Fix qeq/reax CG convergence failed after %d iterations at %d step",i,update->ntimestep);
+    sprintf(str,"Fix qeq/reax CG convergence failed after %d iterations "
+            "at " BIGINT_FORMAT " step",i,update->ntimestep);
     error->warning(FLERR,str);
   }
 

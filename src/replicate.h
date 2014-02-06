@@ -66,10 +66,9 @@ The replicate command cannot duplicate that information for new atoms.
 You should use the replicate command before fixes are applied to the
 system.
 
-E: Replicated molecular system atom IDs are too big
+E: Replicated system atom IDs are too big
 
-See the setting for the allowed atom ID size in the src/lmptype.h
-file.
+See the setting for tagint in the src/lmptype.h file.
 
 E: Replicated system is too big
 

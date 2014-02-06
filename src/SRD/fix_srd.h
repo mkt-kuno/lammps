@@ -131,6 +131,7 @@ class FixSRD : public Fix {
     double xctr[3];      // center point of bin, only used for triclinic
     double vsum[3];      // sum of v components for SRD particles in bin
     double random;       // random value if I am owner
+    double value[12];    // extra per-bin values
   };
 
   struct BinComm {
@@ -188,6 +189,10 @@ class FixSRD : public Fix {
   void vbin_comm(int);
   void vbin_pack(BinAve *, int, int *, double *);
   void vbin_unpack(double *, BinAve *, int, int *);
+
+  void xbin_comm(int, int);
+  void xbin_pack(BinAve *, int, int *, double *, int);
+  void xbin_unpack(double *, BinAve *, int, int *, int);
 
   void collisions_single();
   void collisions_multi();
@@ -339,10 +344,6 @@ W: SRD particle %d started inside big particle %d on step %ld bounce %d
 
 See the inside keyword if you want this message to be an error vs
 warning.
-
-W: SRD particle %d started inside big particle %d on step %ld bounce %d
-
-UNDOCUMENTED
 
 E: Bad quadratic solve for particle/line collision
 

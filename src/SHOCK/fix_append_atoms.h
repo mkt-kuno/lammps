@@ -84,7 +84,9 @@ f_.
 
 E: Invalid basis setting in fix append/atoms command
 
-UNDOCUMENTED
+The basis index must be between 1 to N where N is the number of basis
+atoms in the lattice.  The type index must be between 1 to N where N
+is the number of atom types.
 
 E: Cannot use append/atoms in periodic dimension
 
@@ -100,8 +102,8 @@ E: Fix ID for fix ave/spatial does not exist
 
 Self-explanatory.
 
-U: Use of fix append/atoms with undefined lattice
+E: Too many total atoms
 
-A lattice must be defined before using this fix.
+See the setting for bigint in the src/lmptype.h file.
 
 */

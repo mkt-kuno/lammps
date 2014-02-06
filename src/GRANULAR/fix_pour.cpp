@@ -100,7 +100,7 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
     zlo = ((RegCylinder *) domain->regions[iregion])->lo;
     zhi = ((RegCylinder *) domain->regions[iregion])->hi;
     if (axis != 'z')
-      error->all(FLERR,"Must use a z-axis cylinder with fix pour");
+      error->all(FLERR,"Must use a z-axis cylinder region with fix pour");
     if (xc-rc < domain->boxlo[0] || xc+rc > domain->boxhi[0] ||
         yc-rc < domain->boxlo[1] || yc+rc > domain->boxhi[1] ||
         zlo < domain->boxlo[2] || zhi > domain->boxhi[2])
@@ -117,14 +117,17 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"Cannot use fix_pour unless atoms have IDs");
 
   if (mode == MOLECULE) {
-    if (atom->molecule_flag == 0)
-      error->all(FLERR,"Fix pour mol requires atom attribute molecule");
     if (onemol->xflag == 0)
       error->all(FLERR,"Fix pour molecule must have coordinates");
     if (onemol->typeflag == 0)
       error->all(FLERR,"Fix pour molecule must have atom types");
-    if (ntype+onemol->maxtype <= 0 || ntype+onemol->maxtype > atom->ntypes)
+    if (ntype+onemol->ntypes <= 0 || ntype+onemol->ntypes > atom->ntypes)
       error->all(FLERR,"Invalid atom type in fix pour mol command");
+
+    if (atom->molecular == 2 && onemol != atom->avec->onemols[0])
+      error->all(FLERR,"Fix pour molecule template ID must be same "
+                 "as atom style template ID");
+    onemol->check_attributes(0);
 
     // fix pour uses geoemetric center of molecule for insertion
 
@@ -327,7 +330,8 @@ void FixPour::init()
     int tmp;
     if (onemol != (Molecule *) fixrigid->extract("onemol",tmp))
       error->all(FLERR,
-                 "Fix pour and fix rigid/small not using same molecule ID");
+                 "Fix pour and fix rigid/small not using "
+                 "same molecule template ID");
   }
 
   // if shakeflag defined, check for SHAKE fix
@@ -340,7 +344,8 @@ void FixPour::init()
     fixshake = modify->fix[ifix];
     int tmp;
     if (onemol != (Molecule *) fixshake->extract("onemol",tmp))
-      error->all(FLERR,"Fix pour and fix shake not using same molecule ID");
+      error->all(FLERR,"Fix pour and fix shake not using "
+                 "same molecule template ID");
   }
 }
 
@@ -470,8 +475,8 @@ void FixPour::pre_exchange()
         coords[0][1] = coord[1];
         coords[0][2] = coord[2];
         coords[0][3] = radtmp;
-        imageflags[0] = ((tagint) IMGMAX << IMG2BITS) |
-            ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+        imageflags[0] = ((imageint) IMGMAX << IMG2BITS) |
+            ((imageint) IMGMAX << IMGBITS) | IMGMAX;
       } else {
         if (dimension == 3) {
           r[0] = random->uniform() - 0.5;
@@ -498,8 +503,8 @@ void FixPour::pre_exchange()
           if (onemol->radiusflag) coords[i][3] = onemol->radius[i];
           else coords[i][3] = 0.5;
 
-          imageflags[i] = ((tagint) IMGMAX << IMG2BITS) |
-            ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+          imageflags[i] = ((imageint) IMGMAX << IMG2BITS) |
+            ((imageint) IMGMAX << IMGBITS) | IMGMAX;
           domain->remap(coords[i],imageflags[i]);
         }
       }
@@ -587,7 +592,13 @@ void FixPour::pre_exchange()
         else atom->avec->create_atom(ntype+onemol->type[m],coords[m]);
         int n = atom->nlocal - 1;
         atom->tag[n] = maxtag_all + m+1;
-        if (mode == MOLECULE) atom->molecule[n] = maxmol_all+1;
+        if (mode == MOLECULE) {
+          if (atom->molecular) atom->molecule[n] = maxmol_all+1;
+          if (atom->molecular == 2) {
+            atom->molindex[n] = 0;
+            atom->molatom[n] = m;
+          }
+        }
         atom->mask[n] = 1 | groupbit;
         atom->image[n] = imageflags[m];
         atom->v[n][0] = vnew[0];
@@ -613,7 +624,7 @@ void FixPour::pre_exchange()
       fixshake->set_molecule(nlocalprev,maxtag_all,coord,vnew,quat);
 
     maxtag_all += natom;
-    if (mode == MOLECULE) maxmol_all++;
+    if (mode == MOLECULE && atom->molecule_flag) maxmol_all++;
   }
 
   // warn if not successful with all insertions b/c too many attempts
@@ -631,16 +642,16 @@ void FixPour::pre_exchange()
 
   if (ninserted_atoms) {
     atom->natoms += ninserted_atoms;
+    if (atom->natoms < 0 || atom->natoms > MAXBIGINT)
+      error->all(FLERR,"Too many total atoms");
     if (mode == MOLECULE) {
       atom->nbonds += onemol->nbonds * ninserted_mols;
       atom->nangles += onemol->nangles * ninserted_mols;
       atom->ndihedrals += onemol->ndihedrals * ninserted_mols;
       atom->nimpropers += onemol->nimpropers * ninserted_mols;
     }
-    //if (idnext) {
-    //  maxtag_all += ninserted_atoms;
-    //  if (mode == MOLECULE) maxmol_all += ninserted_mols;
-    // }
+    if (maxtag_all >= MAXTAGINT)
+      error->all(FLERR,"New atom IDs exceed maximum allowed ID");
     if (atom->map_style) {
       atom->nghost = 0;
       atom->map_init();
@@ -666,18 +677,18 @@ void FixPour::pre_exchange()
 
 void FixPour::find_maxid()
 {
-  int *tag = atom->tag;
-  int *molecule = atom->molecule;
+  tagint *tag = atom->tag;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
 
-  int max = 0;
+  tagint max = 0;
   for (int i = 0; i < nlocal; i++) max = MAX(max,tag[i]);
-  MPI_Allreduce(&max,&maxtag_all,1,MPI_INT,MPI_MAX,world);
+  MPI_Allreduce(&max,&maxtag_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
 
-  if (mode == MOLECULE) {
+  if (mode == MOLECULE && molecule) {
     max = 0;
     for (int i = 0; i < nlocal; i++) max = MAX(max,molecule[i]);
-    MPI_Allreduce(&max,&maxmol_all,1,MPI_INT,MPI_MAX,world);
+    MPI_Allreduce(&max,&maxmol_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
   }
 }
 
@@ -834,7 +845,10 @@ void FixPour::options(int narg, char **arg)
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix pour command");
       int imol = atom->find_molecule(arg[iarg+1]);
       if (imol == -1)
-        error->all(FLERR,"Molecule ID for fix pour does not exist");
+        error->all(FLERR,"Molecule template ID for fix pour does not exist");
+      if (atom->molecules[imol]->nset > 1 && comm->me == 0)
+        error->warning(FLERR,"Molecule template for "
+                       "fix pour has multiple molecules");
       mode = MOLECULE;
       onemol = atom->molecules[imol];
       iarg += 2;

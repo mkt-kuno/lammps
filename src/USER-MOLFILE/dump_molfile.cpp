@@ -301,14 +301,14 @@ void DumpMolfile::openfile()
 
 /* ---------------------------------------------------------------------- */
 
-void DumpMolfile::pack(int *ids)
+void DumpMolfile::pack(tagint *ids)
 {
   int m,n;
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
 

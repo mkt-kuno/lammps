@@ -134,7 +134,7 @@ class Compute : protected Pointers {
 
   int *molmap;                 // convert molecule ID to local index
 
-  int molecules_in_group(int &, int &);
+  int molecules_in_group(tagint &, tagint &);
 
   inline int sbmask(int j) {
     return j >> SBBITS & 3;
@@ -171,6 +171,10 @@ W: Atom with molecule ID = 0 included in compute molecule group
 The group used in a compute command that operates on moleclues
 includes atoms with no molecule ID.  This is probably not what you
 want.
+
+E: Too many molecules for compute
+
+The limit is 2^31 = ~2 billion molecules.
 
 W: One or more compute molecules has atoms not in group
 

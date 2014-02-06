@@ -152,11 +152,11 @@ void WriteData::write(char *file)
   // sum up bond,angle counts
   // may be different than atom->nbonds,nangles if broken/turned-off
 
-  if (atom->nbonds || atom->nbondtypes) {
+  if (atom->molecular == 1 && atom->nbonds || atom->nbondtypes) {
     nbonds_local = atom->avec->pack_bond(NULL);
     MPI_Allreduce(&nbonds_local,&nbonds,1,MPI_LMP_BIGINT,MPI_SUM,world);
   }
-  if (atom->nangles || atom->nangletypes) {
+  if (atom->molecular == 1 && atom->nangles || atom->nangletypes) {
     nangles_local = atom->avec->pack_angle(NULL);
     MPI_Allreduce(&nangles_local,&nangles,1,MPI_LMP_BIGINT,MPI_SUM,world);
   }
@@ -181,13 +181,16 @@ void WriteData::write(char *file)
   }
 
   // per atom info
+  // do not write molecular topology for atom_style template
 
   if (natoms) atoms();
   if (natoms) velocities();
-  if (atom->nbonds && nbonds) bonds();
-  if (atom->nangles && nangles) angles();
-  if (atom->ndihedrals) dihedrals();
-  if (atom->nimpropers) impropers();
+  if (atom->molecular == 1) {
+    if (atom->nbonds && nbonds) bonds();
+    if (atom->nangles && nangles) angles();
+    if (atom->ndihedrals) dihedrals();
+    if (atom->nimpropers) impropers();
+  }
 
   // extra sections managed by fixes
 
@@ -276,21 +279,19 @@ void WriteData::force_fields()
       force->pair->write_data_all(fp);
     }
   }
-  if (atom->avec->bonds_allow && force->bond && force->bond->writedata) {
+  if (force->bond && force->bond->writedata) {
     fprintf(fp,"\nBond Coeffs\n\n");
     force->bond->write_data(fp);
   }
-  if (atom->avec->angles_allow && force->angle && force->angle->writedata) {
+  if (force->angle && force->angle->writedata) {
     fprintf(fp,"\nAngle Coeffs\n\n");
     force->angle->write_data(fp);
   }
-  if (atom->avec->dihedrals_allow && force->dihedral && 
-      force->dihedral->writedata) {
+  if (force->dihedral && force->dihedral->writedata) {
     fprintf(fp,"\nDihedral Coeffs\n\n");
     force->dihedral->write_data(fp);
   }
-  if (atom->avec->impropers_allow && force->improper && 
-      force->improper->writedata) {
+  if (force->improper && force->improper->writedata) {
     fprintf(fp,"\nImproper Coeffs\n\n");
     force->improper->write_data(fp);
   }
@@ -415,7 +416,7 @@ void WriteData::bonds()
   int maxrow;
   MPI_Allreduce(&sendrow,&maxrow,1,MPI_INT,MPI_MAX,world);
 
-  int **buf;
+  tagint **buf;
   if (me == 0) memory->create(buf,MAX(1,maxrow),ncol,"write_data:buf");
   else memory->create(buf,MAX(1,sendrow),ncol,"write_data:buf");
 
@@ -436,10 +437,10 @@ void WriteData::bonds()
     fprintf(fp,"\nBonds\n\n");
     for (int iproc = 0; iproc < nprocs; iproc++) {
       if (iproc) {
-        MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_INT,iproc,0,world,&request);
+        MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_LMP_TAGINT,iproc,0,world,&request);
         MPI_Send(&tmp,0,MPI_INT,iproc,0,world);
         MPI_Wait(&request,&status);
-        MPI_Get_count(&status,MPI_INT,&recvrow);
+        MPI_Get_count(&status,MPI_LMP_TAGINT,&recvrow);
         recvrow /= ncol;
       } else recvrow = sendrow;
 
@@ -449,7 +450,7 @@ void WriteData::bonds()
     
   } else {
     MPI_Recv(&tmp,0,MPI_INT,0,0,world,&status);
-    MPI_Rsend(&buf[0][0],sendrow*ncol,MPI_INT,0,0,world);
+    MPI_Rsend(&buf[0][0],sendrow*ncol,MPI_LMP_TAGINT,0,0,world);
   }
 
   memory->destroy(buf);
@@ -468,7 +469,7 @@ void WriteData::angles()
   int maxrow;
   MPI_Allreduce(&sendrow,&maxrow,1,MPI_INT,MPI_MAX,world);
 
-  int **buf;
+  tagint **buf;
   if (me == 0) memory->create(buf,MAX(1,maxrow),ncol,"write_data:buf");
   else memory->create(buf,MAX(1,sendrow),ncol,"write_data:buf");
 
@@ -489,10 +490,10 @@ void WriteData::angles()
     fprintf(fp,"\nAngles\n\n");
     for (int iproc = 0; iproc < nprocs; iproc++) {
       if (iproc) {
-        MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_INT,iproc,0,world,&request);
+        MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_LMP_TAGINT,iproc,0,world,&request);
         MPI_Send(&tmp,0,MPI_INT,iproc,0,world);
         MPI_Wait(&request,&status);
-        MPI_Get_count(&status,MPI_INT,&recvrow);
+        MPI_Get_count(&status,MPI_LMP_TAGINT,&recvrow);
         recvrow /= ncol;
       } else recvrow = sendrow;
       
@@ -502,7 +503,7 @@ void WriteData::angles()
     
   } else {
     MPI_Recv(&tmp,0,MPI_INT,0,0,world,&status);
-    MPI_Rsend(&buf[0][0],sendrow*ncol,MPI_INT,0,0,world);
+    MPI_Rsend(&buf[0][0],sendrow*ncol,MPI_LMP_TAGINT,0,0,world);
   }
 
   memory->destroy(buf);
@@ -519,9 +520,9 @@ void WriteData::dihedrals()
 
   int ncol = 5;
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *num_dihedral = atom->num_dihedral;
-  int **dihedral_atom2 = atom->dihedral_atom2;
+  tagint **dihedral_atom2 = atom->dihedral_atom2;
   int nlocal = atom->nlocal;
   int newton_bond = force->newton_bond;
 
@@ -539,7 +540,7 @@ void WriteData::dihedrals()
   int maxrow;
   MPI_Allreduce(&sendrow,&maxrow,1,MPI_INT,MPI_MAX,world);
 
-  int **buf;
+  tagint **buf;
   if (me == 0) memory->create(buf,MAX(1,maxrow),ncol,"write_data:buf");
   else memory->create(buf,MAX(1,sendrow),ncol,"write_data:buf");
 
@@ -560,10 +561,10 @@ void WriteData::dihedrals()
     fprintf(fp,"\nDihedrals\n\n");
     for (int iproc = 0; iproc < nprocs; iproc++) {
       if (iproc) {
-        MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_INT,iproc,0,world,&request);
+        MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_LMP_TAGINT,iproc,0,world,&request);
         MPI_Send(&tmp,0,MPI_INT,iproc,0,world);
         MPI_Wait(&request,&status);
-        MPI_Get_count(&status,MPI_INT,&recvrow);
+        MPI_Get_count(&status,MPI_LMP_TAGINT,&recvrow);
         recvrow /= ncol;
       } else recvrow = sendrow;
       
@@ -573,7 +574,7 @@ void WriteData::dihedrals()
     
   } else {
     MPI_Recv(&tmp,0,MPI_INT,0,0,world,&status);
-    MPI_Rsend(&buf[0][0],sendrow*ncol,MPI_INT,0,0,world);
+    MPI_Rsend(&buf[0][0],sendrow*ncol,MPI_LMP_TAGINT,0,0,world);
   }
 
   memory->destroy(buf);
@@ -590,9 +591,9 @@ void WriteData::impropers()
 
   int ncol = 5;
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *num_improper = atom->num_improper;
-  int **improper_atom2 = atom->improper_atom2;
+  tagint **improper_atom2 = atom->improper_atom2;
   int nlocal = atom->nlocal;
   int newton_bond = force->newton_bond;
 
@@ -610,7 +611,7 @@ void WriteData::impropers()
   int maxrow;
   MPI_Allreduce(&sendrow,&maxrow,1,MPI_INT,MPI_MAX,world);
 
-  int **buf;
+  tagint **buf;
   if (me == 0) memory->create(buf,MAX(1,maxrow),ncol,"write_data:buf");
   else memory->create(buf,MAX(1,sendrow),ncol,"write_data:buf");
 
@@ -631,10 +632,10 @@ void WriteData::impropers()
     fprintf(fp,"\nImpropers\n\n");
     for (int iproc = 0; iproc < nprocs; iproc++) {
       if (iproc) {
-        MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_INT,iproc,0,world,&request);
+        MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_LMP_TAGINT,iproc,0,world,&request);
         MPI_Send(&tmp,0,MPI_INT,iproc,0,world);
         MPI_Wait(&request,&status);
-        MPI_Get_count(&status,MPI_INT,&recvrow);
+        MPI_Get_count(&status,MPI_LMP_TAGINT,&recvrow);
         recvrow /= ncol;
       } else recvrow = sendrow;
       
@@ -644,7 +645,7 @@ void WriteData::impropers()
     
   } else {
     MPI_Recv(&tmp,0,MPI_INT,0,0,world,&status);
-    MPI_Rsend(&buf[0][0],sendrow*ncol,MPI_INT,0,0,world);
+    MPI_Rsend(&buf[0][0],sendrow*ncol,MPI_LMP_TAGINT,0,0,world);
   }
 
   memory->destroy(buf);

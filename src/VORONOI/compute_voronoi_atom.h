@@ -62,12 +62,21 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-E: Compute voronoi/atom not allowed for triclinic boxes
+E: Could not find compute/voronoi surface group ID
 
-This is a current restriction of this command.
+Self-explanatory.
 
 W: More than one compute voronoi/atom command
 
 It is not efficient to use compute voronoi/atom more than once.
+
+E: Variable name for voronoi radius does not exist
+
+Self-explanatory.
+
+E: Variable for voronoi radius is not atom style
+
+The variable used for this command must be an atom-style variable.
+See the variable command for details.
 
 */

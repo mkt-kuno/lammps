@@ -100,8 +100,10 @@ class Force : protected Pointers {
 
   void set_special(int, char **);
   void bounds(char *, int, int &, int &, int nmin=1);
+  void boundsbig(char *, bigint, bigint &, bigint &, bigint nmin=1);
   double numeric(const char *, int, char *);
   int inumeric(const char *, int, char *);
+  bigint bnumeric(const char *, int, char *);
   bigint memory_usage();
 
  private:
@@ -149,13 +151,5 @@ E: Numeric index is out of bounds
 A command with an argument that specifies an integer or range of
 integers is using a value that is less than 1 or greater than the
 maximum allowed limit.
-
-U: Expected floating point parameter in input script or data file
-
-The quantity being read is an integer on non-numeric value.
-
-U: Expected integer parameter in input script or data file
-
-The quantity being read is a floating point or non-numeric value.
 
 */

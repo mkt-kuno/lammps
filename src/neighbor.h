@@ -171,7 +171,7 @@ class Neighbor : protected Pointers {
   int coord2bin(double *, int &, int &, int&); // ditto
 
   int exclusion(int, int, int,
-                int, int *, int *) const;  // test for pair exclusion
+                int, int *, tagint *) const;    // test for pair exclusion
 
   virtual void choose_build(int, class NeighRequest *);
   void choose_stencil(int, class NeighRequest *);
@@ -260,21 +260,25 @@ class Neighbor : protected Pointers {
 
   BondPtr bond_build;                 // ptr to bond list functions
   void bond_all();                    // bond list with all bonds
+  void bond_template();               // bond list with templated bonds
   void bond_partial();                // exclude certain bonds
   void bond_check();
 
   BondPtr angle_build;                // ptr to angle list functions
   void angle_all();                   // angle list with all angles
+  void angle_template();              // angle list with templated bonds
   void angle_partial();               // exclude certain angles
   void angle_check();
 
   BondPtr dihedral_build;             // ptr to dihedral list functions
   void dihedral_all();                // dihedral list with all dihedrals
+  void dihedral_template();           // dihedral list with templated bonds
   void dihedral_partial();            // exclude certain dihedrals
   void dihedral_check(int, int **);
 
   BondPtr improper_build;             // ptr to improper list functions
   void improper_all();                // improper list with all impropers
+  void improper_template();           // improper list with templated bonds
   void improper_partial();            // exclude certain impropers
 
   // find_special: determine if atom j is in special list of atom i
@@ -284,8 +288,8 @@ class Neighbor : protected Pointers {
   // if it is and special flag is 2 (otherwise), return 1,2,3
   //   for which level of neighbor it is (and which coeff it maps to)
 
-  inline int find_special(const int *list, const int *nspecial,
-                          const int tag) const {
+  inline int find_special(const tagint *list, const int *nspecial,
+                          const tagint tag) const {
     const int n1 = nspecial[0];
     const int n2 = nspecial[1];
     const int n3 = nspecial[2];

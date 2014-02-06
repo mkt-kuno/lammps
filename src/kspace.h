@@ -45,14 +45,19 @@ class KSpace : protected Pointers {
   int tip4pflag;                 // 1 if a TIP4P solver
   int dipoleflag;                // 1 if a dipole solver
   int differentiation_flag;
+  int neighrequest_flag;         // used to avoid obsolete construction of neighbor lists
+  int mixflag;                   // 1 if geometric mixing rules are enforced for LJ coefficients
   int slabflag;
   double slab_volfactor;
+
 
   int order,order_6,order_allocated;
   double accuracy;                  // accuracy of KSpace solver (force units)
   double accuracy_absolute;         // user-specifed accuracy in force units
   double accuracy_relative;         // user-specified dimensionless accuracy
                                     // accurary = acc_rel * two_charge_force
+  double accuracy_real_6;           // real space accuracy for dispersion solver (force units)
+  double accuracy_kspace_6;         // reciprocal space accuracy for dispersion solver (force units)
   double two_charge_force;          // force in user units of two point
                                     // charges separated by 1 Angstrom
 
@@ -70,6 +75,8 @@ class KSpace : protected Pointers {
   int fftbench;                   // 0 if skip FFT timing
 
   int stagger_flag;               // 1 if using staggered PPPM grids
+
+  double splittol;                // tolerance for when to truncate the splitting
 
   KSpace(class LAMMPS *, int, char **);
   virtual ~KSpace();
@@ -176,7 +183,8 @@ class KSpace : protected Pointers {
 
 E: KSpace style does not yet support triclinic geometries
 
-UNDOCUMENTED
+The specified kspace style does not allow for non-orthogonal
+simulation boxes.
 
 E: KSpace solver requires a pair style
 
@@ -202,13 +210,17 @@ E: Bad kspace_modify slab parameter
 
 Kspace_modify value for the slab/volume keyword must be >= 2.0.
 
-E: Bad kspace_modify kmax/ewald parameter
-
-Kspace_modify values for the kmax/ewald keyword must be integers > 0
-
 W: Kspace_modify slab param < 2.0 may cause unphysical behavior
 
 The kspace_modify slab parameter should be larger to insure periodic
 grids padded with empty space do not overlap.
+
+E: Bad kspace_modify kmax/ewald parameter
+
+Kspace_modify values for the kmax/ewald keyword must be integers > 0
+
+E: Kspace_modify eigtol must be smaller than one
+
+Self-explanatory.
 
 */

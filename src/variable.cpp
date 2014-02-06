@@ -60,11 +60,11 @@ enum{DONE,ADD,SUBTRACT,MULTIPLY,DIVIDE,CARAT,MODULO,UNARY,
      SQRT,EXP,LN,LOG,ABS,SIN,COS,TAN,ASIN,ACOS,ATAN,ATAN2,
      RANDOM,NORMAL,CEIL,FLOOR,ROUND,RAMP,STAGGER,LOGFREQ,STRIDE,
      VDISPLACE,SWIGGLE,CWIGGLE,GMASK,RMASK,GRMASK,
-     VALUE,ATOMARRAY,TYPEARRAY,INTARRAY};
+     VALUE,ATOMARRAY,TYPEARRAY,INTARRAY,BIGINTARRAY};
 
 // customize by adding a special function
 
-enum{SUM,XMIN,XMAX,AVE,TRAP,NEXT};
+enum{SUM,XMIN,XMAX,AVE,TRAP,SLOPE,NEXT};
 
 #define INVOKED_SCALAR 1
 #define INVOKED_VECTOR 2
@@ -460,6 +460,19 @@ int Variable::next(int narg, char **arg)
       || istyle == GETENV || istyle == ATOM || istyle == FORMAT)
     error->all(FLERR,"Invalid variable style with next command");
 
+  // if istyle = UNIVERSE or ULOOP, insure all such variables are incremented
+
+  if (istyle == UNIVERSE || istyle == ULOOP)
+    for (int i = 0; i < nvar; i++) {
+      if (style[i] != UNIVERSE && style[i] != ULOOP) continue;
+      int iarg = 0;
+      for (iarg = 0; iarg < narg; iarg++)
+        if (strcmp(arg[iarg],names[i]) == 0) break;
+      if (iarg == narg) 
+        error->universe_one(FLERR,"Next command must list all "
+                            "universe and uloop variables");
+    }
+
   // increment all variables in list
   // if any variable is exhausted, set flag = 1 and remove var to allow re-use
 
@@ -500,20 +513,33 @@ int Variable::next(int narg, char **arg)
   } else if (istyle == UNIVERSE || istyle == ULOOP) {
 
     // wait until lock file can be created and owned by proc 0 of this world
-    // read next available index and Bcast it within my world
-    // set all variables in list to nextindex
+    // rename() is not atomic in practice, but no known simple fix
+    //   means multiple procs can read/write file at the same time (bad!)
+    // random delays help
+    // delay for random fraction of 1 second before first rename() call
+    // delay for random fraction of 1 second before subsequent tries
+    // when successful, read next available index and Bcast it within my world
 
     int nextindex;
     if (me == 0) {
+      int seed = 12345 + universe->me + which[find(arg[0])];
+      RanMars *random = new RanMars(lmp,seed);
+      int delay = (int) (1000000*random->uniform());
+      usleep(delay);
       while (1) {
         if (!rename("tmp.lammps.variable","tmp.lammps.variable.lock")) break;
-        usleep(100000);
+        delay = (int) (1000000*random->uniform());
+        usleep(delay);
       }
+      delete random;
+
       FILE *fp = fopen("tmp.lammps.variable.lock","r");
       fscanf(fp,"%d",&nextindex);
+      //printf("READ %d %d\n",universe->me,nextindex);
       fclose(fp);
       fp = fopen("tmp.lammps.variable.lock","w");
       fprintf(fp,"%d\n",nextindex+1);
+      //printf("WRITE %d %d\n",universe->me,nextindex+1);
       fclose(fp);
       rename("tmp.lammps.variable.lock","tmp.lammps.variable");
       if (universe->uscreen)
@@ -526,6 +552,10 @@ int Variable::next(int narg, char **arg)
                 nextindex+1,universe->iworld);
     }
     MPI_Bcast(&nextindex,1,MPI_INT,0,world);
+
+    // set all variables in list to nextindex
+    // must increment all UNIVERSE and ULOOP variables here
+    // error check above tested for this
 
     for (int iarg = 0; iarg < narg; iarg++) {
       ivar = find(arg[iarg]);
@@ -1655,7 +1685,8 @@ double Variable::evaluate(char *str, Tree **tree)
 /* ----------------------------------------------------------------------
    one-time collapse of an atom-style variable parse tree
    tree was created by one-time parsing of formula string via evaulate()
-   only keep tree nodes that depend on ATOMARRAY, TYPEARRAY, INTARRAY
+   only keep tree nodes that depend on 
+     ATOMARRAY, TYPEARRAY, INTARRAY, BIGINTARRAY
    remainder is converted to single VALUE
    this enables optimal eval_tree loop over atoms
    customize by adding a function:
@@ -1674,6 +1705,7 @@ double Variable::collapse_tree(Tree *tree)
   if (tree->type == ATOMARRAY) return 0.0;
   if (tree->type == TYPEARRAY) return 0.0;
   if (tree->type == INTARRAY) return 0.0;
+  if (tree->type == BIGINTARRAY) return 0.0;
 
   if (tree->type == ADD) {
     arg1 = collapse_tree(tree->left);
@@ -2119,6 +2151,7 @@ double Variable::eval_tree(Tree *tree, int i)
   if (tree->type == ATOMARRAY) return tree->array[i*tree->nstride];
   if (tree->type == TYPEARRAY) return tree->array[atom->type[i]];
   if (tree->type == INTARRAY) return (double) tree->iarray[i*tree->nstride];
+  if (tree->type == BIGINTARRAY) return (double) tree->barray[i*tree->nstride];
 
   if (tree->type == ADD)
     return eval_tree(tree->left,i) + eval_tree(tree->right,i);
@@ -3076,18 +3109,22 @@ int Variable::region_function(char *id)
    contents = str between parentheses with one,two,three args
    return 0 if not a match, 1 if successfully processed
    customize by adding a special function:
-     sum(x),min(x),max(x),ave(x),trap(x),gmask(x),rmask(x),grmask(x,y),next(x)
+     sum(x),min(x),max(x),ave(x),trap(x),slope(x),
+     gmask(x),rmask(x),grmask(x,y),next(x)
 ------------------------------------------------------------------------- */
 
 int Variable::special_function(char *word, char *contents, Tree **tree,
                                Tree **treestack, int &ntreestack,
                                double *argstack, int &nargstack)
 {
+  double value,xvalue,sx,sy,sxx,sxy;
+
   // word not a match to any special function
 
   if (strcmp(word,"sum") && strcmp(word,"min") && strcmp(word,"max") &&
-      strcmp(word,"ave") && strcmp(word,"trap") && strcmp(word,"gmask") &&
-      strcmp(word,"rmask") && strcmp(word,"grmask") && strcmp(word,"next"))
+      strcmp(word,"ave") && strcmp(word,"trap") && strcmp(word,"slope") &&
+      strcmp(word,"gmask") && strcmp(word,"rmask") && 
+      strcmp(word,"grmask") && strcmp(word,"next"))
     return 0;
 
   // parse contents for arg1,arg2,arg3 separated by commas
@@ -3124,7 +3161,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
 
   if (strcmp(word,"sum") == 0 || strcmp(word,"min") == 0 ||
       strcmp(word,"max") == 0 || strcmp(word,"ave") == 0 ||
-      strcmp(word,"trap") == 0) {
+      strcmp(word,"trap") == 0 || strcmp(word,"slope") == 0) {
 
     int method;
     if (strcmp(word,"sum") == 0) method = SUM;
@@ -3132,6 +3169,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
     else if (strcmp(word,"max") == 0) method = XMAX;
     else if (strcmp(word,"ave") == 0) method = AVE;
     else if (strcmp(word,"trap") == 0) method = TRAP;
+    else if (strcmp(word,"slope") == 0) method = SLOPE;
 
     if (narg != 1) 
       error->all(FLERR,"Invalid special function in variable formula");
@@ -3207,7 +3245,8 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
 
     } else error->all(FLERR,"Invalid special function in variable formula");
 
-    double value = 0.0;
+    value = 0.0;
+    if (method == SLOPE) sx = sy = sxx = sxy = 0.0;
     if (method == XMIN) value = BIG;
     if (method == XMAX) value = -BIG;
 
@@ -3224,12 +3263,18 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
         else if (method == XMIN) value = MIN(value,vec[j]);
         else if (method == XMAX) value = MAX(value,vec[j]);
         else if (method == AVE) value += vec[j];
-        else if (method == TRAP) {
-          if (i > 0 && i < nvec-1) value += vec[j];
-          else value += 0.5*vec[j];
+        else if (method == TRAP) value += vec[j];
+        else if (method == SLOPE) {
+          if (nvec > 1) xvalue = (double) i / (nvec-1);
+          else xvalue = 0.0;
+          sx += xvalue;
+          sy += vec[j];
+          sxx += xvalue*xvalue;
+          sxy += xvalue*vec[j];
         }
         j += nstride;
       }
+      if (method == TRAP) value -= 0.5*vec[0] + 0.5*vec[nvec-1];
     }
 
     if (fix) {
@@ -3241,14 +3286,32 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
         else if (method == XMIN) value = MIN(value,one);
         else if (method == XMAX) value = MAX(value,one);
         else if (method == AVE) value += one;
-        else if (method == TRAP) {
-          if (i > 0 && i < nvec-1) value += one;
-          else value += 0.5*one;
+        else if (method == TRAP) value += one;
+        else if (method == SLOPE) {
+          if (nvec > 1) xvalue = (double) i / (nvec-1);
+          else xvalue = 0.0;
+          sx += xvalue;
+          sy += one;
+          sxx += xvalue*xvalue;
+          sxy += xvalue*one;
         }
+      }
+      if (method == TRAP) {
+        if (index) value -= 0.5*fix->compute_array(0,index-1) + 
+                     0.5*fix->compute_array(nvec-1,index-1);
+        else value -= 0.5*fix->compute_vector(0) + 
+               0.5*fix->compute_vector(nvec-1);
       }
     }
 
     if (method == AVE) value /= nvec;
+
+    if (method == SLOPE) {
+      double numerator = sxy - sx*sy;
+      double denominator = sxx - sx*sx;
+      if (denominator != 0.0) value = numerator/denominator / nvec;
+      else value = BIG;
+    }
 
     // save value in tree or on argstack
 
@@ -3376,7 +3439,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
    id = positive global ID of atom, converted to local index
    push result onto tree or arg stack
    customize by adding an atom vector:
-     id, mass,type,radius,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
+     id, mass,type,mol,radius,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
 ------------------------------------------------------------------------- */
 
 void Variable::peratom2global(int flag, char *word,
@@ -3401,6 +3464,11 @@ void Variable::peratom2global(int flag, char *word,
       }
       else if (strcmp(word,"type") == 0) mine = atom->type[index];
       else if (strcmp(word,"radius") == 0) mine = atom->radius[index];
+      else if (strcmp(word,"mol") == 0) {
+        if (!atom->molecule_flag) 
+          error->one(FLERR,"Variable uses atom property that isn't allocated");
+        mine = atom->molecule[index];
+      }
       else if (strcmp(word,"x") == 0) mine = atom->x[index][0];
       else if (strcmp(word,"y") == 0) mine = atom->x[index][1];
       else if (strcmp(word,"z") == 0) mine = atom->x[index][2];
@@ -3437,7 +3505,7 @@ void Variable::peratom2global(int flag, char *word,
    check if word matches an atom vector
    return 1 if yes, else 0
    customize by adding an atom vector:
-     id,mass,radius,type,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
+     id,mass,radius,type,mol,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
 ------------------------------------------------------------------------- */
 
 int Variable::is_atom_vector(char *word)
@@ -3446,6 +3514,7 @@ int Variable::is_atom_vector(char *word)
   if (strcmp(word,"mass") == 0) return 1;
   if (strcmp(word,"radius") == 0) return 1;
   if (strcmp(word,"type") == 0) return 1;
+  if (strcmp(word,"mol") == 0) return 1;
   if (strcmp(word,"x") == 0) return 1;
   if (strcmp(word,"y") == 0) return 1;
   if (strcmp(word,"z") == 0) return 1;
@@ -3466,7 +3535,7 @@ int Variable::is_atom_vector(char *word)
    push result onto tree
    word = atom vector
    customize by adding an atom vector:
-     id,mass,radius,type,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
+     id,mass,radius,type,mol,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
 ------------------------------------------------------------------------- */
 
 void Variable::atom_vector(char *word, Tree **tree,
@@ -3483,9 +3552,15 @@ void Variable::atom_vector(char *word, Tree **tree,
   treestack[ntreestack++] = newtree;
 
   if (strcmp(word,"id") == 0) {
-    newtree->type = INTARRAY;
+    if (sizeof(tagint) == sizeof(smallint)) {
+      newtree->type = INTARRAY;
+      newtree->iarray = (int *) atom->tag;
+    } else {
+      newtree->type = BIGINTARRAY;
+      newtree->barray = (bigint *) atom->tag;
+    }
     newtree->nstride = 1;
-    newtree->iarray = atom->tag;
+
   } else if (strcmp(word,"mass") == 0) {
     if (atom->rmass) {
       newtree->nstride = 1;
@@ -3494,15 +3569,28 @@ void Variable::atom_vector(char *word, Tree **tree,
       newtree->type = TYPEARRAY;
       newtree->array = atom->mass;
     }
+
   } else if (strcmp(word,"type") == 0) {
     newtree->type = INTARRAY;
     newtree->nstride = 1;
     newtree->iarray = atom->type;
-  }
-  else if (strcmp(word,"radius") == 0) {
+
+  } else if (strcmp(word,"mol") == 0) {
+    if (!atom->molecule_flag) 
+      error->one(FLERR,"Variable uses atom property that isn't allocated");
+    if (sizeof(tagint) == sizeof(smallint)) {
+      newtree->type = INTARRAY;
+      newtree->iarray = (int *) atom->molecule;
+    } else {
+      newtree->type = BIGINTARRAY;
+      newtree->barray = (bigint *) atom->molecule;
+    }
+    newtree->nstride = 1;
+  } else if (strcmp(word,"radius") == 0) {
     newtree->nstride = 1; // should nstride be set?
     newtree->array = atom->radius;
   }
+
   else if (strcmp(word,"x") == 0) newtree->array = &atom->x[0][0];
   else if (strcmp(word,"y") == 0) newtree->array = &atom->x[0][1];
   else if (strcmp(word,"z") == 0) newtree->array = &atom->x[0][2];
@@ -3615,11 +3703,18 @@ void Variable::print_tree(Tree *tree, int level)
 
 double Variable::evaluate_boolean(char *str)
 {
-  int op,opprevious;
+  int op,opprevious,flag1,flag2;
   double value1,value2;
   char onechar;
+  char *str1,*str2;
 
-  double argstack[MAXLEVEL];
+  struct Arg {
+    int flag;          // 0 for numeric value, 1 for string
+    double value;      // stored numeric value
+    char *str;         // stored string
+  };
+
+  Arg argstack[MAXLEVEL];
   int opstack[MAXLEVEL];
   int nargstack = 0;
   int nopstack = 0;
@@ -3649,7 +3744,9 @@ double Variable::evaluate_boolean(char *str)
 
       // evaluate contents and push on stack
 
-      argstack[nargstack++] = evaluate_boolean(contents);
+      argstack[nargstack].value = evaluate_boolean(contents);
+      argstack[nargstack].flag = 0;
+      nargstack++;
 
       delete [] contents;
 
@@ -3662,7 +3759,7 @@ double Variable::evaluate_boolean(char *str)
         error->all(FLERR,"Invalid Boolean syntax in if command");
       expect = OP;
 
-      // istop = end of number, including scientific notation
+      // set I to end of number, including scientific notation
 
       int istart = i++;
       while (isdigit(str[i]) || str[i] == '.') i++;
@@ -3671,16 +3768,36 @@ double Variable::evaluate_boolean(char *str)
         if (str[i] == '+' || str[i] == '-') i++;
         while (isdigit(str[i])) i++;
       }
-      int istop = i - 1;
 
-      int n = istop - istart + 1;
-      char *number = new char[n+1];
-      strncpy(number,&str[istart],n);
-      number[n] = '\0';
+      onechar = str[i];
+      str[i] = '\0';
+      argstack[nargstack].value = atof(&str[istart]);
+      str[i] = onechar;
 
-      argstack[nargstack++] = atof(number);
+      argstack[nargstack++].flag = 0;
 
-      delete [] number;
+    // ----------------
+    // string: push string onto stack
+    // ----------------
+
+    } else if (isalpha(onechar)) {
+      if (expect == OP) 
+        error->all(FLERR,"Invalid Boolean syntax in if command");
+      expect = OP;
+
+      // set I to end of string
+
+      int istart = i++;
+      while (isalnum(str[i]) || str[i] == '_') i++;
+
+      int n = i - istart + 1;
+      argstack[nargstack].str = new char[n];
+      onechar = str[i];
+      str[i] = '\0';
+      strcpy(argstack[nargstack].str,&str[istart]);
+      str[i] = onechar;
+
+      argstack[nargstack++].flag = 1;
 
     // ----------------
     // Boolean operator, including end-of-string
@@ -3738,37 +3855,72 @@ double Variable::evaluate_boolean(char *str)
       while (nopstack && precedence[opstack[nopstack-1]] >= precedence[op]) {
         opprevious = opstack[--nopstack];
 
-        value2 = argstack[--nargstack];
-        if (opprevious != NOT) value1 = argstack[--nargstack];
+        nargstack--;
+        flag2 = argstack[nargstack].flag;
+        value2 = argstack[nargstack].value;
+        str2 = argstack[nargstack].str;
+        if (opprevious != NOT) {
+          nargstack--;
+          flag1 = argstack[nargstack].flag;
+          value1 = argstack[nargstack].value;
+          str1 = argstack[nargstack].str;
+        }
 
         if (opprevious == NOT) {
-          if (value2 == 0.0) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (value2 == 0.0) argstack[nargstack].value = 1.0;
+          else argstack[nargstack].value = 0.0;
         } else if (opprevious == EQ) {
-          if (value1 == value2) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag1 != flag2)
+            error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (flag2 == 0) {
+            if (value1 == value2) argstack[nargstack].value = 1.0;
+            else argstack[nargstack].value = 0.0;
+          } else {
+            if (strcmp(str1,str2) == 0) argstack[nargstack].value = 1.0;
+            else argstack[nargstack].value = 0.0;
+            delete [] str1;
+            delete [] str2;
+          }
         } else if (opprevious == NE) {
-          if (value1 != value2) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag1 != flag2)
+            error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (flag2 == 0) {
+            if (value1 != value2) argstack[nargstack].value = 1.0;
+            else argstack[nargstack].value = 0.0;
+          } else {
+            if (strcmp(str1,str2) != 0) argstack[nargstack].value = 1.0;
+            else argstack[nargstack].value = 0.0;
+            delete [] str1;
+            delete [] str2;
+          }
         } else if (opprevious == LT) {
-          if (value1 < value2) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (value1 < value2) argstack[nargstack].value = 1.0;
+          else argstack[nargstack].value = 0.0;
         } else if (opprevious == LE) {
-          if (value1 <= value2) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (value1 <= value2) argstack[nargstack].value = 1.0;
+          else argstack[nargstack].value = 0.0;
         } else if (opprevious == GT) {
-          if (value1 > value2) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (value1 > value2) argstack[nargstack].value = 1.0;
+          else argstack[nargstack].value = 0.0;
         } else if (opprevious == GE) {
-          if (value1 >= value2) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (value1 >= value2) argstack[nargstack].value = 1.0;
+          else argstack[nargstack].value = 0.0;
         } else if (opprevious == AND) {
-          if (value1 != 0.0 && value2 != 0.0) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (value1 != 0.0 && value2 != 0.0) argstack[nargstack].value = 1.0;
+          else argstack[nargstack].value = 0.0;
         } else if (opprevious == OR) {
-          if (value1 != 0.0 || value2 != 0.0) argstack[nargstack++] = 1.0;
-          else argstack[nargstack++] = 0.0;
+          if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
+          if (value1 != 0.0 || value2 != 0.0) argstack[nargstack].value = 1.0;
+          else argstack[nargstack].value = 0.0;
         }
+
+        argstack[nargstack++].flag = 0;
       }
 
       // if end-of-string, break out of entire formula evaluation loop
@@ -3784,7 +3936,7 @@ double Variable::evaluate_boolean(char *str)
 
   if (nopstack) error->all(FLERR,"Invalid Boolean syntax in if command");
   if (nargstack != 1) error->all(FLERR,"Invalid Boolean syntax in if command");
-  return argstack[0];
+  return argstack[0].value;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -3972,7 +4124,8 @@ int VarReader::read_scalar(char *str)
 
 int VarReader::read_peratom()
 {
-  int i,m,n,tagdata,nchunk,eof;
+  int i,m,n,nchunk,eof;
+  tagint tag;
   char *ptr,*next;
   double value;
 
@@ -4005,7 +4158,7 @@ int VarReader::read_peratom()
 
   MPI_Bcast(str,n,MPI_CHAR,0,world);
   bigint nlines = ATOBIGINT(str);
-  int map_tag_max = atom->map_tag_max;
+  tagint map_tag_max = atom->map_tag_max;
 
   bigint nread = 0;
   while (nread < nlines) {
@@ -4017,10 +4170,10 @@ int VarReader::read_peratom()
     for (i = 0; i < nchunk; i++) {
       next = strchr(buf,'\n');
       *next = '\0';
-      sscanf(buf,"%d %lg",&tagdata,&value);
-      if (tagdata <= 0 || tagdata > map_tag_max)
+      sscanf(buf,TAGINT_FORMAT " %lg",&tag,&value);
+      if (tag <= 0 || tag > map_tag_max)
         error->one(FLERR,"Invalid atom ID in variable file");
-      if ((m = atom->map(tagdata)) >= 0) vstore[m] = value;
+      if ((m = atom->map(tag)) >= 0) vstore[m] = value;
       buf = next + 1;
     }
 

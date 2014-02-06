@@ -76,4 +76,32 @@ class PairTersoffMOD : public PairTersoff {
 }
 
 #endif
-#endif 
+#endif
+
+/* ERROR/WARNING messages:
+
+E: Cannot open Tersoff potential file %s
+
+The specified potential file cannot be opened.  Check that the path
+and name are correct.
+
+E: Incorrect format in Tersoff potential file
+
+Incorrect number of words per line in the potential file.
+
+E: Illegal Tersoff parameter
+
+One or more of the coefficients defined in the potential file is
+invalid.
+
+E: Potential file has duplicate entry
+
+The potential file for a SW or Tersoff potential has more than
+one entry for the same 3 ordered elements.
+
+E: Potential file is missing an entry
+
+The potential file for a SW or Tersoff potential does not have a
+needed entry.
+
+*/

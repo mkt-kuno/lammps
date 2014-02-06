@@ -157,9 +157,8 @@ E: Epsilon or sigma reference not set by pair style in ewald/n
 
 The pair style is not providing the needed epsilon or sigma values.
 
-U: KSpace accuracy too large to estimate G vector
+E: Cannot (yet) use kspace slab correction with long-range dipoles and non-neutral systems or per-atom energy
 
-Reduce the accuracy request or specify gwald explicitly
-via the kspace_modify command.
+This feature is not yet supported.
 
 */

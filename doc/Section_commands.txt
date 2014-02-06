@@ -96,19 +96,27 @@ single leading "#" will comment out the entire command.
 
 (3) The line is searched repeatedly for $ characters, which indicate
 variables that are replaced with a text string.  See an exception in
-(6).
+(6).  
 
 If the $ is followed by curly brackets, then the variable name is the
 text inside the curly brackets.  If no curly brackets follow the $,
 then the variable name is the single character immediately following
 the $.  Thus $\{myTemp\} and $x refer to variable names "myTemp" and
-"x". 
+"x".
 
-If the $ is followed by parenthesis, then the text inside the
-parenthesis is treated as an "immediate" variable and evaluated as an
-"equal-style variable"_variable.html.  This is a way to use numeric
-formulas in an input script without having to assign them to variable
-names.  For example, these 3 input script lines:
+How the variable is converted to a text string depends on what style
+of variable it is; see the "variable"_variable doc page for details.
+It can be a variable that stores multiple text strings, and return one
+of them.  The returned text string can be multiple "words" (space
+separated) which will then be interpreted as multiple arguments in the
+input command.  The variable can also store a numeric formula which
+will be evaluated and its numeric result returned as a string.
+
+As a special case, if the $ is followed by parenthesis, then the text
+inside the parenthesis is treated as an "immediate" variable and
+evaluated as an "equal-style variable"_variable.html.  This is a way
+to use numeric formulas in an input script without having to assign
+them to variable names.  For example, these 3 input script lines:
 
 variable X equal (xlo+xhi)/2+sqrt(v_area)
 region 1 block $X 2 INF INF EDGE EDGE
@@ -144,13 +152,18 @@ underscores, or punctuation characters.
 line are arguments.
 
 (6) If you want text with spaces to be treated as a single argument,
-it can be enclosed in either double or single quotes.  E.g.
+it can be enclosed in either double or single quotes.  A long single
+argument enclosed in quotes can even span multiple lines if the "&"
+character is used, as described above.  E.g.
 
 print "Volume = $v"
-print 'Volume = $v' 
+print 'Volume = $v'
+variable a string "red green blue &
+                   purple orange cyan"
 if "${steps} > 1000" then quit :pre
 
 The quotes are removed when the single argument is stored internally.
+
 See the "dump modify format"_dump_modify.html or "print"_print.html or
 "if"_if.html commands for examples.  A "#" or "$" character that is
 between quotes will not be treated as a comment indicator in (2) or
@@ -531,6 +544,7 @@ of each style or click on the style itself for a full description:
 "tmd"_fix_tmd.html,
 "ttm"_fix_ttm.html,
 "tune/kspace"_fix_tune_kspace.html,
+"vector"_fix_vector.html,
 "viscosity"_fix_viscosity.html,
 "viscous"_fix_viscous.html,
 "wall/colloid"_fix_wall.html,
@@ -634,6 +648,7 @@ each style or click on the style itself for a full description:
 "coord/atom"_compute_coord_atom.html,
 "damage/atom"_compute_damage_atom.html,
 "dihedral/local"_compute_dihedral_local.html,
+"dilatation/atom"_compute_dilatation_atom.html,
 "displace/atom"_compute_displace_atom.html,
 "erotate/asphere"_compute_erotate_asphere.html,
 "erotate/rigid"_compute_erotate_rigid.html,
@@ -656,6 +671,7 @@ each style or click on the style itself for a full description:
 "pair/local"_compute_pair_local.html,
 "pe"_compute_pe.html,
 "pe/atom"_compute_pe_atom.html,
+"plasticity/atom"_compute_plasticity_atom.html,
 "pressure"_compute_pressure.html,
 "property/atom"_compute_property_atom.html,
 "property/local"_compute_property_local.html,
@@ -792,6 +808,7 @@ potentials.  Click on the style itself for a full description:
 "nm/cut"_pair_nm.html,
 "nm/cut/coul/cut"_pair_nm.html,
 "nm/cut/coul/long"_pair_nm.html,
+"peri/eps"_pair_peri.html,
 "peri/lps"_pair_peri.html,
 "peri/pmb"_pair_peri.html,
 "peri/ves"_pair_peri.html,
@@ -956,6 +973,7 @@ package"_Section_accelerate.html.
 "lj/gromacs/coul/gromacs/cuda"_pair_gromacs.html,
 "lj/gromacs/coul/gromacs/omp"_pair_gromacs.html,
 "lj/gromacs/cuda"_pair_gromacs.html,
+"lj/gromacs/gpu"_pair_gromacs.html,
 "lj/gromacs/omp"_pair_gromacs.html,
 "lj/long/coul/long/opt"_pair_lj_long.html,
 "lj/sdk/gpu"_pair_sdk.html,

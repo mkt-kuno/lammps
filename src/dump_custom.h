@@ -77,7 +77,7 @@ class DumpCustom : public Dump {
   virtual void init_style();
   virtual void write_header(bigint);
   int count();
-  void pack(int *);
+  void pack(tagint *);
   virtual int convert_string(int, double *);
   virtual void write_data(int, double *);
   bigint memory_usage();
@@ -192,13 +192,12 @@ Self-explantory.
 
 E: Dump_modify format string is too short
 
-There are more fields to be dumped in a line of output than
-your format string specifies.
+There are more fields to be dumped in a line of output than your
+format string specifies.
 
 E: Could not find dump custom compute ID
 
-The compute ID needed by dump custom to compute a per-atom quantity
-does not exist.
+Self-explanatory.
 
 E: Could not find dump custom fix ID
 

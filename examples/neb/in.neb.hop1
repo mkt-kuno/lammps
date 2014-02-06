@@ -37,7 +37,7 @@ group		lower region 1
 group		mobile subtract all lower
 set		group lower type 2
 
-timestep	0.005
+timestep	0.05
 
 # group of NEB atoms - either block or single atom ID 412
 
@@ -60,4 +60,4 @@ thermo		100
 
 min_style	quickmin
 
-neb		0.0 0.1 1000 1000 100 final.hop1
+neb		0.0 0.1 1000 1000 100 final final.hop1

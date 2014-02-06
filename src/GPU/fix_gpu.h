@@ -75,22 +75,21 @@ E: No OpenMP support compiled in
 An OpenMP flag is set, but LAMMPS was not built with
 OpenMP support.
 
-E: Cannot use pair hybrid with GPU neighbor builds
-
-See documentation for fix gpu.
-
-E: Fix GPU split must be positive for hybrid pair styles
+E: GPU package does not (yet) work with atom_style template
 
 Self-explanatory.
+
+E: Cannot use pair hybrid with GPU neighbor list builds
+
+Neighbor list builds must be done on the CPU for this pair style.
+
+E: GPU split param must be positive for hybrid pair styles
+
+See the package gpu command.
 
 E: Cannot use neigh_modify exclude with GPU neighbor builds
 
 This is a current limitation of the GPU implementation
 in LAMMPS.
-
-E: GPU styles must be on the outmost r-RESPA level
-
-Self-explanatory.
-
 
 */

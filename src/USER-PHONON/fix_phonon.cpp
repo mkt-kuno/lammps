@@ -112,9 +112,12 @@ FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
   if (sdim < sysdim) sysdim = sdim;
   nasr = MAX(0, nasr);
 
-  // get the total number of atoms in group
-  ngroup = static_cast<int>(group->count(igroup));
-  if (ngroup < 1) error->all(FLERR,"No atom found for fix phonon!");
+  // get the total number of atoms in group and run min/max checks
+  bigint ng = group->count(igroup);
+  if (ng > MAXSMALLINT) error->all(FLERR,"Too many atoms for fix phonon");
+  if (ng < 1) error->all(FLERR,"No atom found for fix phonon!");
+  ngroup = static_cast<int>(ng);
+
 
   // MPI gatherv related variables
   recvcnts = new int[nprocs];
@@ -207,7 +210,7 @@ FixPhonon::FixPhonon(LAMMPS *lmp,  int narg, char **arg) : Fix(lmp, narg, arg)
       iz   = (idx/nucell)%nz;
       iy   = (idx/(nucell*nz))%ny;
       ix   = (idx/(nucell*nz*ny))%nx;
-      fprintf(flog,"%d %d %d %d %d\n", ix, iy, iz, iu, itag);
+      fprintf(flog,"%d %d %d %d " TAGINT_FORMAT "\n", ix, iy, iz, iu, itag);
     }
     for (int i = 0; i < 60; ++i) fprintf(flog,"#"); fprintf(flog,"\n");
     fflush(flog);
@@ -327,15 +330,11 @@ void FixPhonon::end_of_step()
 
   double **x = atom->x;
   int *mask  = atom->mask;
-  int *tag   = atom->tag;
-  int *image = atom->image;
+  tagint *tag   = atom->tag;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
-  double xprd = domain->xprd;
-  double yprd = domain->yprd;
-  double zprd = domain->zprd;
   double *h   = domain->h;
-  double xbox, ybox, zbox;
 
   int i,idim,jdim,ndim;
   double xcur[3];
@@ -471,7 +470,7 @@ void FixPhonon::getmass()
 {
   int nlocal = atom->nlocal;
   int *mask  = atom->mask;
-  int *tag   = atom->tag;
+  tagint *tag   = atom->tag;
   int *type  = atom->type;
   double *rmass = atom->rmass;
   double *mass = atom->mass;
@@ -541,7 +540,7 @@ void FixPhonon::readmap()
     nx = ny = nz = ntotal = 1;
     nucell = ngroup;
 
-    int *tag_loc, *tag_all;
+    tagint *tag_loc, *tag_all;
     memory->create(tag_loc,ngroup,"fix_phonon:tag_loc");
     memory->create(tag_all,ngroup,"fix_phonon:tag_all");
 
@@ -557,7 +556,7 @@ void FixPhonon::readmap()
     MPI_Allgather(&nfind,1,MPI_INT,recvcnts,1,MPI_INT,world);
     for (int i = 1; i < nprocs; ++i) displs[i] = displs[i-1] + recvcnts[i-1];
    
-    MPI_Allgatherv(tag_loc,nfind,MPI_INT,tag_all,recvcnts,displs,MPI_INT,world);
+    MPI_Allgatherv(tag_loc,nfind,MPI_LMP_TAGINT,tag_all,recvcnts,displs,MPI_INT,world);
     for (int i = 0; i < ngroup; ++i){
       itag = tag_all[i];
       tag2surf[itag] = i;
@@ -577,16 +576,19 @@ void FixPhonon::readmap()
     error->all(FLERR,line);
   }
 
-  if (fgets(line,MAXLINE,fp) == NULL) error->all(FLERR,"Error while reading header of mapping file!");
+  if (fgets(line,MAXLINE,fp) == NULL) 
+    error->all(FLERR,"Error while reading header of mapping file!");
   nx     = force->inumeric(FLERR, strtok(line, " \n\t\r\f"));
   ny     = force->inumeric(FLERR, strtok(NULL, " \n\t\r\f"));
   nz     = force->inumeric(FLERR, strtok(NULL, " \n\t\r\f"));
   nucell = force->inumeric(FLERR, strtok(NULL, " \n\t\r\f"));
   ntotal = nx*ny*nz;
-  if (ntotal*nucell != ngroup) error->all(FLERR,"FFT mesh and number of atoms in group mismatch!");
+  if (ntotal*nucell != ngroup) 
+    error->all(FLERR,"FFT mesh and number of atoms in group mismatch!");
   
   // second line of mapfile is comment
-  if (fgets(line,MAXLINE,fp) == NULL) error->all(FLERR,"Error while reading comment of mapping file!");
+  if (fgets(line,MAXLINE,fp) == NULL) 
+    error->all(FLERR,"Error while reading comment of mapping file!");
 
   int ix, iy, iz, iu;
   // the remaining lines carry the mapping info
@@ -599,7 +601,8 @@ void FixPhonon::readmap()
     itag = force->inumeric(FLERR, strtok(NULL, " \n\t\r\f"));
 
     // check if index is in correct range
-    if (ix < 0 || ix >= nx || iy < 0 || iy >= ny || iz < 0 || iz >= nz|| iu < 0 || iu >= nucell) {info = 2; break;}
+    if (ix < 0 || ix >= nx || iy < 0 || iy >= ny || 
+        iz < 0 || iz >= nz || iu < 0 || iu >= nucell) {info = 2; break;}
     // 1 <= itag <= natoms
     if (itag < 1 || itag > static_cast<int>(atom->natoms)) {info = 3; break;}
     idx = ((ix*ny+iy)*nz+iz)*nucell + iu;
@@ -608,20 +611,22 @@ void FixPhonon::readmap()
   }
   fclose(fp);
 
-  if (tag2surf.size() != surf2tag.size() || tag2surf.size() != static_cast<std::size_t>(ngroup) )
+  if (tag2surf.size() != surf2tag.size() || 
+      tag2surf.size() != static_cast<std::size_t>(ngroup) )
     error->all(FLERR,"The mapping is incomplete!");
   if (info) error->all(FLERR,"Error while reading mapping file!");
   
   // check the correctness of mapping
   int *mask  = atom->mask;
-  int *tag   = atom->tag;
+  tagint *tag   = atom->tag;
   int nlocal = atom->nlocal;
 
   for (int i = 0; i < nlocal; ++i) {
     if (mask[i] & groupbit){
       itag = tag[i];
       idx  = tag2surf[itag];
-      if (itag != surf2tag[idx]) error->one(FLERR,"The mapping info read is incorrect!");
+      if (itag != surf2tag[idx]) 
+        error->one(FLERR,"The mapping info read is incorrect!");
     }
   }
 

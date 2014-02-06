@@ -53,7 +53,7 @@ class FixShearHistory : public Fix {
 
  protected:
   int *npartner;                // # of touching partners of each atom
-  int **partner;                // tags for the partners
+  tagint **partner;             // global atom IDs for the partners
 
   /*~ The number of shear quantities is not necessarily 3, but can
     be several different values. In here, define arrays with differing
@@ -72,7 +72,7 @@ class FixShearHistory : public Fix {
   int *computeflag;             // computeflag in PairGranHookeHistory
 
   int pgsize,oneatom;           // copy of settings in Neighbor
-  MyPage<int> *ipage;           // pages of partner atom IDs
+  MyPage<tagint> *ipage;        // pages of partner atom IDs
 
   /*~ As before, the number of shear quantities can vary [KH - 9 January 
     2014]*/
@@ -96,10 +96,10 @@ E: Pair style granular with history requires atoms have IDs
 Atoms in the simulation do not have IDs, so history effects
 cannot be tracked by the granular pair potential.
 
-E: Too many touching neighbors - boost MAXTOUCH
+E: Shear history overflow, boost neigh_modify one
 
-A granular simulation has too many neighbors touching one atom.  The
-MAXTOUCH parameter in fix_shear_history.cpp must be set larger and
-LAMMPS must be re-built.
+There are too many neighbors of a single atom.  Use the neigh_modify
+command to increase the max number of neighbors allowed for one atom.
+You may also want to boost the page size.
 
 */

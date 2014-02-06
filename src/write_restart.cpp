@@ -59,7 +59,8 @@ enum{VERSION,SMALLINT,TAGINT,BIGINT,
      TRICLINIC,BOXLO,BOXHI,XY,XZ,YZ,
      SPECIAL_LJ,SPECIAL_COUL,
      MASS,PAIR,BOND,ANGLE,DIHEDRAL,IMPROPER,
-     MULTIPROC,MPIIO,PROCSPERFILE,PERPROC};
+     MULTIPROC,MPIIO,PROCSPERFILE,PERPROC,
+     IMAGEINT};
 
 enum{IGNORE,WARN,ERROR};                    // same as thermo.cpp
 
@@ -97,7 +98,7 @@ void WriteRestart::command(int narg, char **arg)
 
   if (strchr(arg[0],'%')) multiproc = nprocs;
   else multiproc = 0;
-  if (strstr(arg[0],".mpi")) mpiioflag = 1;
+  if (strstr(arg[0],".mpiio")) mpiioflag = 1;
   else mpiioflag = 0;
 
   // setup output style and process optional args
@@ -143,7 +144,7 @@ void WriteRestart::multiproc_options(int multiproc_caller, int mpiioflag_caller,
 
   if (multiproc && mpiioflag) 
     error->all(FLERR,
-               "Restart file MPI-IO output not allowed with '%' in filename");
+               "Restart file MPI-IO output not allowed with % in filename");
 
   if (mpiioflag) {
     mpiio = new RestartMPIIO(lmp);
@@ -306,6 +307,7 @@ void WriteRestart::write(char *file)
     char *ptr = strchr(file,'%');
     *ptr = '\0';
     sprintf(multiname,"%s%d%s",file,icluster,ptr+1);
+    *ptr = '%';
 
     if (filewriter) {
       fp = fopen(multiname,"wb");
@@ -378,13 +380,10 @@ void WriteRestart::write(char *file)
   // MPI-IO output to single file
 
   if (mpiioflag) {
-    // add calls to RestartMPIIO class
-    // reopen header file in append mode
-    // perform writes
-
-    // mpiio->open(file);
-    // mpiio->write(send_size,buf);
-    // mpiio->close();
+    if (me == 0) fclose(fp);
+    mpiio->openForWrite(file);
+    mpiio->write(headerOffset,send_size,buf);
+    mpiio->close();
   }
 
   // output of one or more native files
@@ -435,6 +434,7 @@ void WriteRestart::header()
 {
   write_string(VERSION,universe->version);
   write_int(SMALLINT,sizeof(smallint));
+  write_int(IMAGEINT,sizeof(imageint));
   write_int(TAGINT,sizeof(tagint));
   write_int(BIGINT,sizeof(bigint));
   write_string(UNITS,update->unit_style);
@@ -449,25 +449,15 @@ void WriteRestart::header()
   write_int(ZPERIODIC,domain->zperiodic);
   write_int_vec(BOUNDARY,6,&domain->boundary[0][0]);
 
-  // atom_style must be written before atom class values
-  // so read_restart can create class before reading class values
-  // if style = hybrid, also write sub-class styles
-  // avec->write_restart() writes atom_style specific info
+  // write atom_style and its args
 
   write_string(ATOM_STYLE,atom->atom_style);
-
-  if (strcmp(atom->atom_style,"hybrid") == 0) {
-    AtomVecHybrid *avec_hybrid = (AtomVecHybrid *) atom->avec;
-    int nstyles = avec_hybrid->nstyles;
-    char **keywords = avec_hybrid->keywords;
-    fwrite(&nstyles,sizeof(int),1,fp);
-    for (int i = 0; i < nstyles; i++) {
-      int n = strlen(keywords[i]) + 1;
-      fwrite(&n,sizeof(int),1,fp);
-      fwrite(keywords[i],sizeof(char),n,fp);
-    }
+  fwrite(&atom->avec->nargcopy,sizeof(int),1,fp);
+  for (int i = 0; i < atom->avec->nargcopy; i++) {
+    int n = strlen(atom->avec->argcopy[i]) + 1;
+    fwrite(&n,sizeof(int),1,fp);
+    fwrite(atom->avec->argcopy[i],sizeof(char),n,fp);
   }
-  atom->avec->write_restart_settings(fp);
 
   write_bigint(NATOMS,natoms);
   write_int(NTYPES,atom->ntypes);
@@ -559,14 +549,27 @@ void WriteRestart::file_layout(int send_size)
     write_int(MPIIO,mpiioflag);
   }
 
-  // NOTE: could add MPI-IO specific fields to header here
-  // e.g. gather send_size across all procs and call write_int_vec()
+  if (mpiioflag) {
+    int *all_send_sizes;
+    memory->create(all_send_sizes,nprocs,"write_restart:all_send_sizes");
+    MPI_Gather(&send_size, 1, MPI_INT, all_send_sizes, 1, MPI_INT, 0,world);
+    if (me == 0) fwrite(all_send_sizes,sizeof(int),nprocs,fp);
+    memory->destroy(all_send_sizes);
+  }
 
   // -1 flag signals end of file layout info
 
   if (me == 0) {
     int flag = -1;
     fwrite(&flag,sizeof(int),1,fp);
+  }
+
+  // if MPI-IO file, broadcast the end of the header offste
+  // this allows all ranks to compute offset to their data
+
+  if (mpiioflag) {
+    if (me == 0) headerOffset = ftell(fp);
+    MPI_Bcast(&headerOffset,1,MPI_LMP_BIGINT,0,world);
   }
 }
 

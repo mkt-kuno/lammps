@@ -384,8 +384,8 @@ void Respa::setup()
     copy_f_flevel(ilevel);
   }
 
-  modify->setup(vflag);
   sum_flevel_f();
+  modify->setup(vflag);
   output->setup();
   update->setupflag = 0;
 }
@@ -452,8 +452,8 @@ void Respa::setup_minimal(int flag)
     copy_f_flevel(ilevel);
   }
 
-  modify->setup(vflag);
   sum_flevel_f();
+  modify->setup(vflag);
   update->setupflag = 0;
 }
 
@@ -472,11 +472,14 @@ void Respa::run(int n)
 
     recurse(nlevels-1);
 
+    // needed in case end_of_step() or output() use total force
+
+    sum_flevel_f();
+
     if (modify->n_end_of_step) modify->end_of_step();
 
     if (ntimestep == output->next) {
       timer->stamp();
-      sum_flevel_f();
       output->write(update->ntimestep);
       timer->stamp(TIME_OUTPUT);
     }
@@ -516,8 +519,6 @@ void Respa::recurse(int ilevel)
     if (modify->n_post_integrate_respa)
       modify->post_integrate_respa(ilevel,iloop);
 
-    if (ilevel) recurse(ilevel-1);
-
     // at outermost level, check on rebuilding neighbor list
     // at innermost level, communicate
     // at middle levels, do nothing
@@ -554,6 +555,14 @@ void Respa::recurse(int ilevel)
       comm->forward_comm();
       timer->stamp(TIME_COMM);
     }
+
+    // rRESPA recursion thru all levels
+    // this used to be before neigh list build,
+    // which prevented per-atom energy/stress being tallied correctly
+    // b/c atoms migrated to new procs between short/long force calls
+    // now they migrate at very start of rRESPA timestep, before all forces
+
+    if (ilevel) recurse(ilevel-1);
 
     // force computations
     // important that ordering is same as Verlet

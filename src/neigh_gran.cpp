@@ -38,7 +38,8 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 
   NeighList *listgranhistory;
   int num_quants; // added in, modified GM
-  int *npartner,**partner;
+  int *npartner;
+  tagint **partner;
   
   /*~ The number of shear quantities is not necessarily 3, but can
     be several different values as discussed in fix_shear_history.h
@@ -55,10 +56,10 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 
   double **x = atom->x;
   double *radius = atom->radius;
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
   int nall = nlocal + atom->nghost;
   if (includegroup) {
@@ -261,10 +262,10 @@ void Neighbor::granular_nsq_newton(NeighList *list)
 
   double **x = atom->x;
   double *radius = atom->radius;
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
   int nall = nlocal + atom->nghost;
   if (includegroup) {
@@ -352,7 +353,8 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
 
   NeighList *listgranhistory;
   int num_quants; // added in, modified GM
-  int *npartner,**partner;
+  int *npartner;
+  tagint **partner;
   
   //~ As in granular_nsq_no_newton [KH - 9 January 2014]
   double (**shearpartner3)[3]; //~ hooke/history or hertz/history
@@ -373,10 +375,10 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
 
   double **x = atom->x;
   double *radius = atom->radius;
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
   if (includegroup) nlocal = atom->nfirst;
 
@@ -590,7 +592,7 @@ void Neighbor::granular_bin_newton(NeighList *list)
   double *radius = atom->radius;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
   if (includegroup) nlocal = atom->nfirst;
 
@@ -692,7 +694,7 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
   double *radius = atom->radius;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
   if (includegroup) nlocal = atom->nfirst;
 

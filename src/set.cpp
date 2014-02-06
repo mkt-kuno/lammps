@@ -482,21 +482,23 @@ void Set::selection(int n)
   if (style == ATOM_SELECT) {
     if (atom->tag_enable == 0)
       error->all(FLERR,"Cannot use set atom with no atom IDs defined");
-    force->bounds(id,BIG,nlo,nhi);
+    bigint nlobig,nhibig;
+    force->boundsbig(id,MAXTAGINT,nlobig,nhibig);
 
-    int *tag = atom->tag;
+    tagint *tag = atom->tag;
     for (int i = 0; i < n; i++)
-      if (tag[i] >= nlo && tag[i] <= nhi) select[i] = 1;
+      if (tag[i] >= nlobig && tag[i] <= nhibig) select[i] = 1;
       else select[i] = 0;
 
   } else if (style == MOL_SELECT) {
     if (atom->molecule_flag == 0)
       error->all(FLERR,"Cannot use set mol with no molecule IDs defined");
-    else force->bounds(id,BIG,nlo,nhi,0);
+    bigint nlobig,nhibig;
+    force->boundsbig(id,MAXTAGINT,nlobig,nhibig);
 
-    int *molecule = atom->molecule;
+    tagint *molecule = atom->molecule;
     for (int i = 0; i < n; i++)
-      if (molecule[i] >= nlo && molecule[i] <= nhi) select[i] = 1;
+      if (molecule[i] >= nlobig && molecule[i] <= nhibig) select[i] = 1;
       else select[i] = 0;
 
   } else if (style == TYPE_SELECT) {
@@ -731,9 +733,9 @@ void Set::set(int keyword)
       if (ximageflag) xbox = ximage;
       if (yimageflag) ybox = yimage;
       if (zimageflag) zbox = zimage;
-      atom->image[i] = ((tagint) (xbox + IMGMAX) & IMGMASK) | 
-        (((tagint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) | 
-        (((tagint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
+      atom->image[i] = ((imageint) (xbox + IMGMAX) & IMGMASK) | 
+        (((imageint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) | 
+        (((imageint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
     }
 
     // set value for custom integer or double vector
@@ -759,7 +761,7 @@ void Set::set(int keyword)
 
 /* ----------------------------------------------------------------------
    set an owned atom property randomly
-   set seed based on atom tag
+   set seed based on atom coordinates
    make atom result independent of what proc owns it
 ------------------------------------------------------------------------- */
 
@@ -890,6 +892,11 @@ void Set::setrandom(int keyword)
 void Set::topology(int keyword)
 {
   int m,atom1,atom2,atom3,atom4;
+
+  // error check
+
+  if (atom->molecular == 2)
+    error->all(FLERR,"Cannot set bond topology types for atom style template");
 
   // border swap to acquire ghost atom info
   // enforce PBC before in case atoms are outside box

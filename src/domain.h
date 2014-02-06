@@ -124,11 +124,11 @@ class Domain : protected Pointers {
   int closest_image(int, int);
   void closest_image(const double * const, const double * const,
                      double * const);
-  void remap(double *, tagint &);
+  void remap(double *, imageint &);
   void remap(double *);
   void remap_near(double *, double *);
-  void unmap(double *, tagint);
-  void unmap(double *, tagint, double *);
+  void unmap(double *, imageint);
+  void unmap(double *, imageint, double *);
   void image_flip(int, int, int);
   void set_lattice(int, char **);
   void add_region(int, char **);
@@ -149,8 +149,10 @@ class Domain : protected Pointers {
 
   // minimum image convention check
   // return 1 if any distance > 1/2 of box size
+  // indicates a special neighbor is actually not in a bond, 
+  //   but is a far-away image that should be treated as an unbonded neighbor
   // inline since called from neighbor build inner loop
-
+  // 
   inline int minimum_image_check(double dx, double dy, double dz) {
     if (xperiodic && fabs(dx) > xprd_half) return 1;
     if (yperiodic && fabs(dy) > yprd_half) return 1;
@@ -216,7 +218,19 @@ inconsistent image flags will not cause problems for dynamics or most
 LAMMPS simulations.  However they can cause problems when such atoms
 are used with the fix rigid or replicate commands.
 
+W: Bond atom missing in image check
+
+The 2nd atom in a particular bond is missing on this processor.
+Typically this is because the pairwise cutoff is set too short or the
+bond has blown apart and an atom is too far away.
+
 E: Bond atom missing in box size check
+
+The 2nd atoms needed to compute a particular bond is missing on this
+processor.  Typically this is because the pairwise cutoff is set too
+short or the bond has blown apart and an atom is too far away.
+
+W: Bond atom missing in box size check
 
 The 2nd atoms needed to compute a particular bond is missing on this
 processor.  Typically this is because the pairwise cutoff is set too

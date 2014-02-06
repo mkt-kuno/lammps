@@ -113,14 +113,17 @@ E: Velocity ramp in z for a 2d problem
 
 Self-explanatory.
 
+E: Velocity rigid used with non-rigid fix-ID
+
+Self-explanatory.
+
 E: Attempting to rescale a 0.0 temperature
 
 Cannot rescale a temperature that is already 0.0.
 
-E: Cannot zero momentum of 0 atoms
+E: Cannot zero momentum of no atoms
 
-The collection of atoms for which momentum is being computed has no
-atoms.
+Self-explanatory.
 
 E: Could not find velocity temperature ID
 
@@ -132,9 +135,8 @@ E: Velocity temperature ID does not compute temperature
 The compute ID given to the velocity command must compute
 temperature.
 
-U: Use of velocity with undefined lattice
+E: Fix ID for velocity does not exist
 
-If units = lattice (the default) for the velocity set or velocity ramp
-command, then a lattice must first be defined via the lattice command.
+Self-explanatory.
 
 */

@@ -33,7 +33,7 @@ class AtomVecHybrid : public AtomVec {
 
   AtomVecHybrid(class LAMMPS *);
   ~AtomVecHybrid();
-  void settings(int, char **);
+  void process_args(int, char **);
   void init();
   void grow(int);
   void grow_reset();
@@ -54,10 +54,8 @@ class AtomVecHybrid : public AtomVec {
   int size_restart();
   int pack_restart(int, double *);
   int unpack_restart(double *);
-  void write_restart_settings(FILE *);
-  void read_restart_settings(FILE *);
   void create_atom(int, double *);
-  void data_atom(double *, tagint, char **);
+  void data_atom(double *, imageint, char **);
   int data_atom_hybrid(int, char **) {return 0;}
   void data_vel(int, char **);
   void pack_data(double **);
@@ -67,8 +65,9 @@ class AtomVecHybrid : public AtomVec {
   bigint memory_usage();
 
  private:
-  int *tag,*type,*mask;
-  tagint *image;
+  tagint *tag;
+  int *type,*mask;
+  imageint *image;
   double **x,**v,**f;
   double **omega,**angmom;
 
@@ -94,14 +93,14 @@ E: Atom style hybrid cannot use same atom style twice
 
 Self-explanatory.
 
+E: Cannot mix molecular and molecule template atom styles
+
+Self-explanatory.
+
 E: Per-processor system is too big
 
 The number of owned atoms plus ghost atoms on a single
 processor must fit in 32-bit integer.
-
-E: Invalid atom ID in Atoms section of data file
-
-Atom IDs must be positive integers.
 
 E: Invalid atom type in Atoms section of data file
 

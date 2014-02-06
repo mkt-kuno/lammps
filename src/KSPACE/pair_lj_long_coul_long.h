@@ -78,13 +78,9 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-W: Mixing forced for lj coefficients
-
-UNDOCUMENTED
-
 W: Using largest cutoff for lj/long/coul/long
 
-UNDOCUMENTED
+Self-explanatory.
 
 E: Cutoffs missing in pair_style lj/long/coul/long
 
@@ -104,7 +100,7 @@ Self-explanatory.  Check the input script or data file.
 
 E: Invoking coulombic in pair style lj/coul requires atom attribute q
 
-UNDOCUMENTED
+The atom style defined does not have this attribute.
 
 E: Pair style requires a KSpace style
 
@@ -114,17 +110,5 @@ E: Pair cutoff < Respa interior cutoff
 
 One or more pairwise cutoffs are too short to use with the specified
 rRESPA cutoffs.
-
-U: Mixing forced for LJ coefficients
-
-Self-explanatory.
-
-U: Using largest cutoff for pair_style lj/long/coul/long
-
-Self-explanatory.
-
-U: Pair style lj/long/coul/long requires atom attribute q
-
-The atom style defined does not have this attribute.
 
 */

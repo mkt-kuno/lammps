@@ -144,7 +144,7 @@ void FixShearHistory::allocate_pages()
     pgsize = neighbor->pgsize;
     oneatom = neighbor->oneatom;
     int nmypage = comm->nthreads;
-    ipage = new MyPage<int>[nmypage];
+    ipage = new MyPage<tagint>[nmypage];
 
     for (int i = 0; i < nmypage; i++)
       ipage[i].init(oneatom,pgsize);
@@ -248,7 +248,7 @@ void FixShearHistory::pre_exchange()
   // calculate npartner for each owned atom
   // nlocal_neigh = nlocal when neigh list was built, may be smaller than nlocal
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   NeighList *list = pair->list;
   inum = list->inum;
   ilist = list->ilist;
@@ -519,9 +519,9 @@ double FixShearHistory::memory_usage()
 void FixShearHistory::grow_arrays(int nmax)
 {
   memory->grow(npartner,nmax,"shear_history:npartner");
-  partner = (int **) memory->srealloc(partner,nmax*sizeof(int *),
-                                      "shear_history:partner");
-
+  partner = (tagint **) memory->srealloc(partner,nmax*sizeof(tagint *),
+                                         "shear_history:partner");
+  
   //~  Added more typedefs [KH - 9 January 2014]
   typedef double (*sptype3)[3];
   typedef double (*sptype4)[4];
@@ -658,7 +658,7 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
   case 4: //~ 4 is the most likely num_quants
     shearpartner4[nlocal] = dpage4->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<int> (buf[m++]);
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
       for (int k = 0; k < 4; k++)
 	shearpartner4[nlocal][n][k] = buf[m++];
     }
@@ -666,7 +666,7 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
   case 3:
     shearpartner3[nlocal] = dpage3->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<int> (buf[m++]);
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
       for (int k = 0; k < 3; k++)
 	shearpartner3[nlocal][n][k] = buf[m++];
     }
@@ -674,7 +674,7 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
   case 16:
     shearpartner16[nlocal] = dpage16->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<int> (buf[m++]);
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
       for (int k = 0; k < 16; k++)
 	shearpartner16[nlocal][n][k] = buf[m++];
     }
@@ -682,7 +682,7 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
   case 17:
     shearpartner17[nlocal] = dpage17->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<int> (buf[m++]);
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
       for (int k = 0; k < 17; k++)
 	shearpartner17[nlocal][n][k] = buf[m++];
     }
@@ -764,7 +764,7 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
   case 4: //~ 4 is the most likely num_quants
     shearpartner4[nlocal] = dpage4->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<int> (extra[nlocal][m++]);
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
       for (int k = 0; k < 4; k++)
 	shearpartner4[nlocal][n][k] = extra[nlocal][m++];
     }
@@ -772,7 +772,7 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
   case 3:
     shearpartner3[nlocal] = dpage3->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<int> (extra[nlocal][m++]);
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
       for (int k = 0; k < 3; k++)
 	shearpartner3[nlocal][n][k] = extra[nlocal][m++];
     }
@@ -780,7 +780,7 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
   case 16:
     shearpartner16[nlocal] = dpage16->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<int> (extra[nlocal][m++]);
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
       for (int k = 0; k < 16; k++)
 	shearpartner16[nlocal][n][k] = extra[nlocal][m++];
     }
@@ -788,7 +788,7 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
   case 17:
     shearpartner17[nlocal] = dpage17->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<int> (extra[nlocal][m++]);
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
       for (int k = 0; k < 17; k++)
 	shearpartner17[nlocal][n][k] = extra[nlocal][m++];
     }

@@ -19,6 +19,12 @@ The 2nd atom needed to compute a particular bond is missing on this
 processor.  Typically this is because the pairwise cutoff is set too
 short or the bond has blown apart and an atom is too far away.
 
+W: Bond atoms missing at step %ld
+
+The 2nd atom needed to compute a particular bond is missing on this
+processor.  Typically this is because the pairwise cutoff is set too
+short or the bond has blown apart and an atom is too far away.
+
 E: Bond extent > half of periodic box length
 
 This error was detected by the neigh_modify check yes setting.  It is
@@ -26,6 +32,13 @@ an error because the bond atoms are so far apart it is ambiguous how
 it should be defined.
 
 E: Angle atoms %d %d %d missing on proc %d at step %ld
+
+One or more of 3 atoms needed to compute a particular angle are
+missing on this processor.  Typically this is because the pairwise
+cutoff is set too short or the angle has blown apart and an atom is
+too far away.
+
+W: Angle atoms missing at step %ld
 
 One or more of 3 atoms needed to compute a particular angle are
 missing on this processor.  Typically this is because the pairwise
@@ -45,6 +58,13 @@ missing on this processor.  Typically this is because the pairwise
 cutoff is set too short or the dihedral has blown apart and an atom is
 too far away.
 
+W: Dihedral atoms missing at step %ld
+
+One or more of 4 atoms needed to compute a particular dihedral are
+missing on this processor.  Typically this is because the pairwise
+cutoff is set too short or the dihedral has blown apart and an atom is
+too far away.
+
 E: Dihedral/improper extent > half of periodic box length
 
 This error was detected by the neigh_modify check yes setting.  It is
@@ -52,6 +72,13 @@ an error because the dihedral atoms are so far apart it is ambiguous
 how it should be defined.
 
 E: Improper atoms %d %d %d %d missing on proc %d at step %ld
+
+One or more of 4 atoms needed to compute a particular improper are
+missing on this processor.  Typically this is because the pairwise
+cutoff is set too short or the improper has blown apart and an atom is
+too far away.
+
+W: Improper atoms missing at step %ld
 
 One or more of 4 atoms needed to compute a particular improper are
 missing on this processor.  Typically this is because the pairwise

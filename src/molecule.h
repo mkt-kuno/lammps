@@ -20,16 +20,19 @@ namespace LAMMPS_NS {
 
 class Molecule : protected Pointers {
  public:
-  char *id;
+  char *id;   // template id of this molecule, same for all molecules in set
+  int nset;   // if first in set, # of molecules in this set
+              // else 0 if not first in set
 
   // number of atoms,bonds,etc in molecule
 
   int natoms;
   int nbonds,nangles,ndihedrals,nimpropers;
+  int ntypes;
+  int nbondtypes,nangletypes,ndihedraltypes,nimpropertypes;
 
   // max bond,angle,etc per atom
 
-  int maxtype;
   int bond_per_atom,angle_per_atom,dihedral_per_atom,improper_per_atom;
   int maxspecial;
 
@@ -44,6 +47,10 @@ class Molecule : protected Pointers {
 
   int centerflag,massflag,comflag,inertiaflag;
 
+  // 1 if molecule fields require atom IDs
+
+  int tag_require;
+
   // attributes
 
   double **x;          // displacement of each atom from origin
@@ -54,25 +61,25 @@ class Molecule : protected Pointers {
 
   int *num_bond;       // bonds, angles, dihedrals, impropers for each atom
   int **bond_type;
-  int **bond_atom;
+  tagint **bond_atom;
   
   int *num_angle;
   int **angle_type;
-  int **angle_atom1,**angle_atom2,**angle_atom3;
+  tagint **angle_atom1,**angle_atom2,**angle_atom3;
   
   int *num_dihedral;
   int **dihedral_type;
-  int **dihedral_atom1,**dihedral_atom2,**dihedral_atom3,**dihedral_atom4;
+  tagint **dihedral_atom1,**dihedral_atom2,**dihedral_atom3,**dihedral_atom4;
   
   int *num_improper;
   int **improper_type;
-  int **improper_atom1,**improper_atom2,**improper_atom3,**improper_atom4;
+  tagint **improper_atom1,**improper_atom2,**improper_atom3,**improper_atom4;
 
   int **nspecial;
-  int **special;
+  tagint **special;
 
   int *shake_flag;
-  int **shake_atom;
+  tagint **shake_atom;
   int **shake_type;
 
   double center[3];         // geometric center of molecule
@@ -93,12 +100,13 @@ class Molecule : protected Pointers {
   double **dxbody;     // displacement of each atom relative to COM
                        // in body frame (diagonalized interia tensor)
 
-  Molecule(class LAMMPS *, int, char **);
+  Molecule(class LAMMPS *, char *, char *);
   ~Molecule();
   void compute_center();
   void compute_mass();
   void compute_com();
   void compute_inertia();
+  void check_attributes(int);
 
  private:
   int me;
@@ -137,3 +145,166 @@ class Molecule : protected Pointers {
 }
 
 #endif
+
+/* ERROR/WARNING messages:
+
+E: Molecule template ID must be alphanumeric or underscore characters
+
+Self-explanatory.
+
+E: Insufficient Jacobi rotations for rigid molecule
+
+Eigensolve for rigid body was not sufficiently accurate.
+
+E: Unexpected end of molecule file
+
+Self-explanatory.
+
+E: Molecule file z center-of-mass must be 0.0 for 2d
+
+Self-explanatory.
+
+E: No atom count in molecule file
+
+Self-explanatory.
+
+E: Molecule file has bonds but no nbonds setting
+
+Self-explanatory.
+
+E: Molecule file has angles but no nangles setting
+
+Self-explanatory.
+
+E: Molecule file has dihedrals but no ndihedrals setting
+
+Self-explanatory.
+
+E: Molecule file has impropers but no nimpropers setting
+
+Self-explanatory.
+
+E: Molecule file shake flags not before shake atoms
+
+The order of the two sections is important.
+
+E: Molecule file shake flags not before shake bonds
+
+The order of the two sections is important.
+
+E: Unknown section in molecule file
+
+Self-explanatory.
+
+E: Molecule file needs both Special Bond sections
+
+Self-explanatory.
+
+E: Molecule file has special flags but no bonds
+
+Self-explanatory.
+
+E: Molecule file shake info is incomplete
+
+All 3 SHAKE sections are needed.
+
+E: Molecule file z coord must be 0.0 for 2d
+
+Self-explanatory.
+
+E: Invalid atom type in molecule file
+
+Atom types must range from 1 to specified # of types.
+
+E: Invalid atom diameter in molecule file
+
+Diameters must be >= 0.0.
+
+E: Invalid atom mass in molecule file
+
+Masses must be > 0.0.
+
+E: Invalid atom ID in Bonds section of molecule file
+
+Self-explanatory.
+
+E: Invalid bond type in Bonds section of molecule file
+
+Self-explanatory.
+
+E: Invalid atom ID in Angles section of molecule file
+
+Self-explanatory.
+
+E: Invalid angle type in Angles section of molecule file
+
+Self-explanatory.
+
+E: Invalid atom ID in dihedrals section of molecule file
+
+Self-explanatory.
+
+E: Invalid dihedral type in dihedrals section of molecule file
+
+Self-explanatory.
+
+E: Invalid atom ID in impropers section of molecule file
+
+Self-explanatory.
+
+E: Invalid improper type in impropers section of molecule file
+
+Self-explanatory.
+
+E: Molecule file special list does not match special count
+
+The number of values in an atom's special list does not match count.
+
+E: Invalid special atom index in molecule file
+
+Self-explanatory.
+
+E: Invalid shake flag in molecule file
+
+Self-explanatory.
+
+E: Invalid shake atom in molecule file
+
+Self-explanatory.
+
+E: Invalid shake bond type in molecule file
+
+Self-explanatory.
+
+E: Invalid shake angle type in molecule file
+
+Self-explanatory.
+
+W: Molecule attributes do not match system attributes
+
+An attribute is specified (e.g. diameter, charge) that is
+not defined for the specified atom style.
+
+E: Molecule topology type exceeds system topology type
+
+The number of bond, angle, etc types in the molecule exceeds the
+system setting.  See the create_box command for how to specify these
+values.
+
+E: Molecule toplogy/atom exceeds system topology/atom
+
+The number of bonds, angles, etc per-atom in the molecule exceeds the
+system setting.  See the create_box command for how to specify these
+values.
+
+W: Molecule has bond topology but no special bond settings
+
+This means the bonded atoms will not be excluded in pair-wise
+interactions.
+
+E: Cannot open molecule file %s
+
+The specified file cannot be opened.  Check that the path and name are
+correct.
+
+*/

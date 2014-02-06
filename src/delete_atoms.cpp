@@ -84,8 +84,9 @@ void DeleteAtoms::command(int narg, char **arg)
   // reset atom tags to be contiguous
   // set all atom IDs to 0, call tag_extend()
 
-  if (atom->molecular == 0 && compress_flag && force->pair_match("history",0)==NULL ) {
-    int *tag = atom->tag;
+  if (atom->molecular == 0 && compress_flag && force->pair_match("history",0)==NULL) {
+    tagint *tag = atom->tag;
+
     for (i = 0; i < nlocal; i++) tag[i] = 0;
     atom->tag_extend();
   }
@@ -172,23 +173,23 @@ void DeleteAtoms::delete_region(int narg, char **arg)
   // store list of molecule IDs I delete atoms from in list
   // pass list from proc to proc via ring communication
 
-  hash = new std::map<int,int>();
+  hash = new std::map<tagint,int>();
 
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   for (int i = 0; i < nlocal; i++)
     if (dlist[i] && hash->find(molecule[i]) == hash->end())
       (*hash)[molecule[i]] = 1;
 
   int n = hash->size();
-  int *list;
+  tagint *list;
   memory->create(list,n,"delete_atoms:list");
 
   n = 0;
-  std::map<int,int>::iterator pos;
+  std::map<tagint,int>::iterator pos;
   for (pos = hash->begin(); pos != hash->end(); ++pos) list[n++] = pos->first;
 
   cptr = this;
-  comm->ring(n,sizeof(int),list,1,molring,NULL);
+  comm->ring(n,sizeof(tagint),list,1,molring,NULL);
 
   delete hash;
   memory->destroy(list);
@@ -197,16 +198,16 @@ void DeleteAtoms::delete_region(int narg, char **arg)
 /* ----------------------------------------------------------------------
    callback from comm->ring()
    cbuf = list of N molecule IDs, put them in hash
-   loop over my atoms, if matches moleculed ID in hash, delete that atom
+   loop over my atoms, if matches molecule ID in hash, delete that atom
 ------------------------------------------------------------------------- */
 
 void DeleteAtoms::molring(int n, char *cbuf)
 {
-  int *list = (int *) cbuf;
+  tagint *list = (tagint *) cbuf;
   int *dlist = cptr->dlist;
-  std::map<int,int> *hash = cptr->hash;
+  std::map<tagint,int> *hash = cptr->hash;
   int nlocal = cptr->atom->nlocal;
-  int *molecule = cptr->atom->molecule;
+  tagint *molecule = cptr->atom->molecule;
 
   hash->clear();
   for (int i = 0; i < n; i++) (*hash)[list[i]] = 1;
@@ -292,7 +293,7 @@ void DeleteAtoms::delete_overlap(int narg, char **arg)
   // at end of loop, there are no more overlaps
   // only ever delete owned atom I, never J even if owned
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *mask = atom->mask;
   double **x = atom->x;
   double *special_coul = force->special_coul;

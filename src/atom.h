@@ -30,7 +30,8 @@ class Atom : protected Pointers {
   int nlocal,nghost;            // # of owned and ghost atoms on this proc
   int nmax;                     // max # of owned+ghost in arrays on this proc
   int tag_enable;               // 0/1 if atom ID tags are defined
-  int molecular;                // 0 = atomic, 1 = molecular system
+  int molecular;                // 0 = atomic, 1 = standard molecular system,
+                                // 2 = molecule template system
 
   bigint nbonds,nangles,ndihedrals,nimpropers;
   int ntypes,nbondtypes,nangletypes,ndihedraltypes,nimpropertypes;
@@ -45,11 +46,13 @@ class Atom : protected Pointers {
   // per-atom arrays
   // customize by adding new array
 
-  int *tag,*type,*mask;
-  tagint *image;
+  tagint *tag;
+  int *type,*mask;
+  imageint *image;
   double **x,**v,**f;
 
-  int *molecule;
+  tagint *molecule;
+  int *molindex,*molatom;
   double *q,**mu;
   double **omega,**angmom,**torque;
   double *radius,*rmass,*vfrac,*s0;
@@ -65,24 +68,24 @@ class Atom : protected Pointers {
   double *cv;
 
   int **nspecial;               // 0,1,2 = cummulative # of 1-2,1-3,1-4 neighs
-  int **special;                // IDs of 1-2,1-3,1-4 neighs of each atom
+  tagint **special;             // IDs of 1-2,1-3,1-4 neighs of each atom
   int maxspecial;               // special[nlocal][maxspecial]
 
   int *num_bond;
   int **bond_type;
-  int **bond_atom;
+  tagint **bond_atom;
 
   int *num_angle;
   int **angle_type;
-  int **angle_atom1,**angle_atom2,**angle_atom3;
+  tagint **angle_atom1,**angle_atom2,**angle_atom3;
 
   int *num_dihedral;
   int **dihedral_type;
-  int **dihedral_atom1,**dihedral_atom2,**dihedral_atom3,**dihedral_atom4;
+  tagint **dihedral_atom1,**dihedral_atom2,**dihedral_atom3,**dihedral_atom4;
 
   int *num_improper;
   int **improper_type;
-  int **improper_atom1,**improper_atom2,**improper_atom3,**improper_atom4;
+  tagint **improper_atom1,**improper_atom2,**improper_atom3,**improper_atom4;
 
   // custom arrays used by fix property/atom
 
@@ -104,15 +107,23 @@ class Atom : protected Pointers {
   int ecp_flag;
   int wavepacket_flag,sph_flag;
 
-  int molecule_flag,q_flag,mu_flag;
+  int molecule_flag,molindex_flag,molatom_flag;
+  int q_flag,mu_flag;
   int rmass_flag,radius_flag,omega_flag,torque_flag,angmom_flag;
   int vfrac_flag,spin_flag,eradius_flag,ervel_flag,erforce_flag;
   int cs_flag,csforce_flag,vforce_flag,ervelforce_flag,etag_flag;
   int rho_flag,e_flag,cv_flag,vest_flag;
 
-  // molecules
+  // Peridynamics scale factor, used by dump cfg
 
-  int nmolecule,maxmol;
+  double pdscale;
+
+  // molecule templates
+  // each template can be a set of consecutive molecules
+  // each with same ID (stored in molecules)
+  // 1st molecule in template stores nset = # in set
+
+  int nmolecule;
   class Molecule **molecules;
 
   // extra peratom info in restart file destined for fix & diag
@@ -132,9 +143,9 @@ class Atom : protected Pointers {
   int nextra_border_max;
   int nextra_store;
 
-  int map_style;                  // default or user-specified style of map
-                                  // 0 = none, 1 = array, 2 = hash
-  int map_tag_max;                // max atom ID that map() is setup for
+  int map_style;                  // style of atom map: 0=none, 1=array, 2=hash
+  int map_user;                   // user selected style = same 0,1,2
+  tagint map_tag_max;             // max atom ID that map() is setup for
 
   // spatial sorting of atoms
 
@@ -158,6 +169,7 @@ class Atom : protected Pointers {
 
   class AtomVec *style_match(const char *);
   void modify_params(int, char **);
+  void tag_check();
   void tag_extend();
   int tag_consecutive();
 
@@ -166,13 +178,14 @@ class Atom : protected Pointers {
 
   void data_atoms(int, char *);
   void data_vels(int, char *);
+
+  void data_bonds(int, char *, int *);
+  void data_angles(int, char *, int *);
+  void data_dihedrals(int, char *, int *);
+  void data_impropers(int, char *, int *);
+
   void data_bonus(int, char *, class AtomVec *);
   void data_bodies(int, char *, class AtomVecBody *);
-
-  void data_bonds(int, char *);
-  void data_angles(int, char *);
-  void data_dihedrals(int, char *);
-  void data_impropers(int, char *);
 
   void allocate_type_arrays();
   void set_mass(const char *);
@@ -186,7 +199,7 @@ class Atom : protected Pointers {
 
   void add_molecule(int, char **);
   int find_molecule(char *);
-  void add_molecule_atom(class Molecule *, int, int, int);
+  void add_molecule_atom(class Molecule *, int, int, tagint);
 
   void first_reorder();
   void sort();
@@ -211,7 +224,7 @@ class Atom : protected Pointers {
   // map lookup function inlined for efficiency
   // return -1 if no map defined
 
-  inline int map(int global) {
+  inline int map(tagint global) {
     if (map_style == 1) return map_array[global];
     else if (map_style == 2) return map_find_hash(global);
     else return -1;
@@ -220,28 +233,30 @@ class Atom : protected Pointers {
   void map_init();
   void map_clear();
   void map_set();
-  void map_one(int, int);
+  void map_one(tagint, int);
   void map_delete();
-  int map_find_hash(int);
+  int map_find_hash(tagint);
 
  private:
 
   // global to local ID mapping
 
-  int *map_array;       // direct map of length map_tag_max + 1
-  int smax;             // max size of sametag
+  int *map_array;       // direct map via array that holds map_tag_max
+  int map_maxarray;     // allocated size of map_array (1 larger than this)
 
-  struct HashElem {
-    int global;                   // key to search on = global ID
-    int local;                    // value associated with key = local index
-    int next;                     // next entry in this bucket, -1 if last
+  struct HashElem {     // hashed map
+    tagint global;      // key to search on = global ID
+    int local;          // value associated with key = local index
+    int next;           // next entry in this bucket, -1 if last
   };
-  int map_nhash;                  // # of entries hash table can hold
-  int map_nused;                  // # of actual entries in hash table
-  int map_free;                   // ptr to 1st unused entry in hash table
-  int map_nbucket;                // # of hash buckets
-  int *map_bucket;                // ptr to 1st entry in each bucket
-  HashElem *map_hash;             // hash table
+  int map_nhash;        // # of entries hash table can hold
+  int map_nused;        // # of actual entries in hash table
+  int map_free;         // ptr to 1st unused entry in hash table
+  int map_nbucket;      // # of hash buckets
+  int *map_bucket;      // ptr to 1st entry in each bucket
+  HashElem *map_hash;   // hash table
+
+  int max_same;         // allocated size of sametag
 
   // spatial sorting of atoms
 
@@ -269,6 +284,10 @@ class Atom : protected Pointers {
 
 /* ERROR/WARNING messages:
 
+E: Atom IDs must be used for molecular systems
+
+Atom IDs are used to identify and find partner atoms in bonds.
+
 E: Invalid atom style
 
 The choice of atom style is unknown.
@@ -283,6 +302,11 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
+E: Atom_modify id command after simulation box is defined
+
+The atom_modify id command cannot be used after a read_data,
+read_restart, or create_box command.
+
 E: Atom_modify map command after simulation box is defined
 
 The atom_modify map command cannot be used after a read_data,
@@ -291,6 +315,28 @@ read_restart, or create_box command.
 E: Atom_modify sort and first options cannot be used together
 
 Self-explanatory.
+
+E: Atom ID is negative
+
+Self-explanatory.
+
+E: Atom ID is too big
+
+The limit on atom IDs is set by the SMALLBIG, BIGBIG, SMALLSMALL
+setting in your Makefile.  See Section_start 2.2 of the manual for
+more details.
+
+E: Atom ID is zero
+
+Either all atoms IDs must be zero or none of them.
+
+E: Not all atom IDs are 0
+
+Either all atoms IDs must be zero or none of them.
+
+E: New atom IDs exceed maximum allowed ID
+
+See the setting for tagint in the src/lmptype.h file.
 
 E: Incorrect atom format in data file
 
@@ -303,21 +349,6 @@ Each atom style defines a format for the Velocity section
 of the data file.  The read-in lines do not match.
 
 E: Invalid atom ID in Velocities section of data file
-
-Atom IDs must be positive integers and within range of defined
-atoms.
-
-E: Incorrect bonus data format in data file
-
-See the read_data doc page for a description of how various kinds of
-bonus data must be formatted for certain atom styles.
-
-E: Invalid atom ID in Bonus section of data file
-
-Atom IDs must be positive integers and within range of defined
-atoms.
-
-E: Invalid atom ID in Bodies section of data file
 
 Atom IDs must be positive integers and within range of defined
 atoms.
@@ -362,6 +393,21 @@ E: Invalid improper type in Impropers section of data file
 Improper type must be positive integer and within range of specified
 improper types.
 
+E: Incorrect bonus data format in data file
+
+See the read_data doc page for a description of how various kinds of
+bonus data must be formatted for certain atom styles.
+
+E: Invalid atom ID in Bonus section of data file
+
+Atom IDs must be positive integers and within range of defined
+atoms.
+
+E: Invalid atom ID in Bodies section of data file
+
+Atom IDs must be positive integers and within range of defined
+atoms.
+
 E: Cannot set mass for this atom style
 
 This atom style does not support mass settings for each atom type.
@@ -386,6 +432,10 @@ For atom styles that define masses for each atom type, all masses must
 be set in the data file or by the mass command before running a
 simulation.  They must also be set before using the velocity
 command.
+
+E: Reuse of molecule template ID
+
+The template IDs must be unique.
 
 E: Atom sort did not operate correctly
 

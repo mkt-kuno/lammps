@@ -39,10 +39,10 @@ class FixGCMC : public Fix {
   void attempt_molecule_rotation();
   void attempt_molecule_deletion();
   void attempt_molecule_insertion();
-  double energy(int, int, int, double *);
+  double energy(int, int, tagint, double *);
   int pick_random_gas_atom();
-  int pick_random_gas_molecule();
-  double molecule_energy(int);
+  tagint pick_random_gas_molecule();
+  double molecule_energy(tagint);
   void get_rotation_matrix(double, double *);
   void get_model_molecule();
   void update_gas_atoms_list();
@@ -63,9 +63,10 @@ class FixGCMC : public Fix {
   int regionflag;           // 0 = anywhere in box, 1 = specific region
   int iregion;              // GCMC region
   char *idregion;           // GCMC region id
-  bool pressure_flag;       // true if user specified reservoir pressure, false otherwise
+  bool pressure_flag;       // true if user specified reservoir pressure
+                            // else false
 
-  int maxmol;               // largest molecule tag across all existing atoms
+  tagint maxmol;            // largest molecule tag across all existing atoms
   int natoms_per_molecule;  // number of atoms in each gas molecule
 
   double ntranslation_attempts;
@@ -94,7 +95,7 @@ class FixGCMC : public Fix {
   double **cutsq;
   double **atom_coord;
   double *model_atom_buf;
-  tagint imagetmp;
+  imageint imagetmp;
 
   class Pair *pair;
 
@@ -118,6 +119,10 @@ E: Illegal ... command
 Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
+
+E: Fix gcmc does not (yet) work with atom_style template
+
+Self-explanatory.
 
 E: Fix gcmc region does not support a bounding box
 
@@ -190,10 +195,7 @@ enable the atom_modify first command.
 
 E: Fix gcmc ran out of available molecule IDs
 
-This is a code limitation where more than MAXSMALLINT (usually around
-two billion) molecules have been created. The code needs to be 
-modified to either allow molecule ID recycling or use bigger ints for
-molecule IDs. A work-around is to run shorter simulations.
+See the setting for tagint in the src/lmptype.h file.
 
 E: Fix gcmc could not find any atoms in the user-supplied template molecule
 

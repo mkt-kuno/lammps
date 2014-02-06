@@ -475,10 +475,10 @@ void AtomVecAngle::unpack_border(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
-    tag[i] = (int) ubuf(buf[m++]).i;
+    tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
-    molecule[i] = (int) ubuf(buf[m++]).i;
+    molecule[i] = (tagint) ubuf(buf[m++]).i;
   }
 
   if (atom->nextra_border)
@@ -500,10 +500,10 @@ void AtomVecAngle::unpack_border_vel(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
-    tag[i] = (int) ubuf(buf[m++]).i;
+    tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
-    molecule[i] = (int) ubuf(buf[m++]).i;
+    molecule[i] = (tagint) ubuf(buf[m++]).i;
     v[i][0] = buf[m++];
     v[i][1] = buf[m++];
     v[i][2] = buf[m++];
@@ -524,7 +524,7 @@ int AtomVecAngle::unpack_border_hybrid(int n, int first, double *buf)
   m = 0;
   last = first + n;
   for (i = first; i < last; i++)
-    molecule[i] = (int) ubuf(buf[m++]).i;
+    molecule[i] = (tagint) ubuf(buf[m++]).i;
   return m;
 }
 
@@ -594,32 +594,32 @@ int AtomVecAngle::unpack_exchange(double *buf)
   v[nlocal][0] = buf[m++];
   v[nlocal][1] = buf[m++];
   v[nlocal][2] = buf[m++];
-  tag[nlocal] = (int) ubuf(buf[m++]).i;
+  tag[nlocal] = (tagint) ubuf(buf[m++]).i;
   type[nlocal] = (int) ubuf(buf[m++]).i;
   mask[nlocal] = (int) ubuf(buf[m++]).i;
-  image[nlocal] = (tagint) ubuf(buf[m++]).i;
+  image[nlocal] = (imageint) ubuf(buf[m++]).i;
 
-  molecule[nlocal] = (int) ubuf(buf[m++]).i;
+  molecule[nlocal] = (tagint) ubuf(buf[m++]).i;
 
   num_bond[nlocal] = (int) ubuf(buf[m++]).i;
   for (k = 0; k < num_bond[nlocal]; k++) {
     bond_type[nlocal][k] = (int) ubuf(buf[m++]).i;
-    bond_atom[nlocal][k] = (int) ubuf(buf[m++]).i;
+    bond_atom[nlocal][k] = (tagint) ubuf(buf[m++]).i;
   }
 
   num_angle[nlocal] = (int) ubuf(buf[m++]).i;
   for (k = 0; k < num_angle[nlocal]; k++) {
     angle_type[nlocal][k] = (int) ubuf(buf[m++]).i;
-    angle_atom1[nlocal][k] = (int) ubuf(buf[m++]).i;
-    angle_atom2[nlocal][k] = (int) ubuf(buf[m++]).i;
-    angle_atom3[nlocal][k] = (int) ubuf(buf[m++]).i;
+    angle_atom1[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+    angle_atom2[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+    angle_atom3[nlocal][k] = (tagint) ubuf(buf[m++]).i;
   }
 
   nspecial[nlocal][0] = (int) ubuf(buf[m++]).i;
   nspecial[nlocal][1] = (int) ubuf(buf[m++]).i;
   nspecial[nlocal][2] = (int) ubuf(buf[m++]).i;
   for (k = 0; k < nspecial[nlocal][2]; k++)
-    special[nlocal][k] = (int) ubuf(buf[m++]).i;
+    special[nlocal][k] = (tagint) ubuf(buf[m++]).i;
 
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
@@ -666,28 +666,28 @@ int AtomVecAngle::pack_restart(int i, double *buf)
   buf[m++] = x[i][0];
   buf[m++] = x[i][1];
   buf[m++] = x[i][2];
-  buf[m++] = tag[i];
-  buf[m++] = type[i];
-  buf[m++] = mask[i];
-  *((tagint *) &buf[m++]) = image[i];
+  buf[m++] = ubuf(tag[i]).d;
+  buf[m++] = ubuf(type[i]).d;
+  buf[m++] = ubuf(mask[i]).d;
+  buf[m++] = ubuf(image[i]).d;
   buf[m++] = v[i][0];
   buf[m++] = v[i][1];
   buf[m++] = v[i][2];
 
-  buf[m++] = molecule[i];
+  buf[m++] = ubuf(molecule[i]).d;
 
-  buf[m++] = num_bond[i];
+  buf[m++] = ubuf(num_bond[i]).d;
   for (k = 0; k < num_bond[i]; k++) {
-    buf[m++] = MAX(bond_type[i][k],-bond_type[i][k]);
-    buf[m++] = bond_atom[i][k];
+    buf[m++] = ubuf(MAX(bond_type[i][k],-bond_type[i][k])).d;
+    buf[m++] = ubuf(bond_atom[i][k]).d;
   }
 
-  buf[m++] = num_angle[i];
+  buf[m++] = ubuf(num_angle[i]).d;
   for (k = 0; k < num_angle[i]; k++) {
-    buf[m++] = MAX(angle_type[i][k],-angle_type[i][k]);
-    buf[m++] = angle_atom1[i][k];
-    buf[m++] = angle_atom2[i][k];
-    buf[m++] = angle_atom3[i][k];
+    buf[m++] = ubuf(MAX(angle_type[i][k],-angle_type[i][k])).d;
+    buf[m++] = ubuf(angle_atom1[i][k]).d;
+    buf[m++] = ubuf(angle_atom2[i][k]).d;
+    buf[m++] = ubuf(angle_atom3[i][k]).d;
   }
 
   if (atom->nextra_restart)
@@ -717,28 +717,28 @@ int AtomVecAngle::unpack_restart(double *buf)
   x[nlocal][0] = buf[m++];
   x[nlocal][1] = buf[m++];
   x[nlocal][2] = buf[m++];
-  tag[nlocal] = (int) ubuf(buf[m++]).i;
+  tag[nlocal] = (tagint) ubuf(buf[m++]).i;
   type[nlocal] = (int) ubuf(buf[m++]).i;
   mask[nlocal] = (int) ubuf(buf[m++]).i;
-  image[nlocal] = (tagint) ubuf(buf[m++]).i;
+  image[nlocal] = (imageint) ubuf(buf[m++]).i;
   v[nlocal][0] = buf[m++];
   v[nlocal][1] = buf[m++];
   v[nlocal][2] = buf[m++];
 
-  molecule[nlocal] = (int) ubuf(buf[m++]).i;
+  molecule[nlocal] = (tagint) ubuf(buf[m++]).i;
 
   num_bond[nlocal] = (int) ubuf(buf[m++]).i;
   for (k = 0; k < num_bond[nlocal]; k++) {
     bond_type[nlocal][k] = (int) ubuf(buf[m++]).i;
-    bond_atom[nlocal][k] = (int) ubuf(buf[m++]).i;
+    bond_atom[nlocal][k] = (tagint) ubuf(buf[m++]).i;
   }
 
   num_angle[nlocal] = (int) ubuf(buf[m++]).i;
   for (k = 0; k < num_angle[nlocal]; k++) {
     angle_type[nlocal][k] = (int) ubuf(buf[m++]).i;
-    angle_atom1[nlocal][k] = (int) ubuf(buf[m++]).i;
-    angle_atom2[nlocal][k] = (int) ubuf(buf[m++]).i;
-    angle_atom3[nlocal][k] = (int) ubuf(buf[m++]).i;
+    angle_atom1[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+    angle_atom2[nlocal][k] = (tagint) ubuf(buf[m++]).i;
+    angle_atom3[nlocal][k] = (tagint) ubuf(buf[m++]).i;
   }
 
   nspecial[nlocal][0] = nspecial[nlocal][1] = nspecial[nlocal][2] = 0;
@@ -769,8 +769,8 @@ void AtomVecAngle::create_atom(int itype, double *coord)
   x[nlocal][1] = coord[1];
   x[nlocal][2] = coord[2];
   mask[nlocal] = 1;
-  image[nlocal] = ((tagint) IMGMAX << IMG2BITS) |
-    ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+  image[nlocal] = ((imageint) IMGMAX << IMG2BITS) |
+    ((imageint) IMGMAX << IMGBITS) | IMGMAX;
   v[nlocal][0] = 0.0;
   v[nlocal][1] = 0.0;
   v[nlocal][2] = 0.0;
@@ -788,17 +788,13 @@ void AtomVecAngle::create_atom(int itype, double *coord)
    initialize other atom quantities
 ------------------------------------------------------------------------- */
 
-void AtomVecAngle::data_atom(double *coord, tagint imagetmp, char **values)
+void AtomVecAngle::data_atom(double *coord, imageint imagetmp, char **values)
 {
   int nlocal = atom->nlocal;
   if (nlocal == nmax) grow(0);
 
-  tag[nlocal] = atoi(values[0]);
-  if (tag[nlocal] <= 0)
-    error->one(FLERR,"Invalid atom ID in Atoms section of data file");
-
-  molecule[nlocal] = atoi(values[1]);
-
+  tag[nlocal] = ATOTAGINT(values[0]);
+  molecule[nlocal] = ATOTAGINT(values[1]);
   type[nlocal] = atoi(values[2]);
   if (type[nlocal] <= 0 || type[nlocal] > atom->ntypes)
     error->one(FLERR,"Invalid atom type in Atoms section of data file");
@@ -826,7 +822,7 @@ void AtomVecAngle::data_atom(double *coord, tagint imagetmp, char **values)
 
 int AtomVecAngle::data_atom_hybrid(int nlocal, char **values)
 {
-  molecule[nlocal] = atoi(values[0]);
+  molecule[nlocal] = ATOTAGINT(values[0]);
 
   num_bond[nlocal] = 0;
   num_angle[nlocal] = 0;
@@ -871,8 +867,9 @@ int AtomVecAngle::pack_data_hybrid(int i, double *buf)
 void AtomVecAngle::write_data(FILE *fp, int n, double **buf)
 {
   for (int i = 0; i < n; i++)
-    fprintf(fp,"%d %d %d %-1.16e %-1.16e %-1.16e %d %d %d\n",
-            (int) ubuf(buf[i][0]).i,(int) ubuf(buf[i][1]).i,
+    fprintf(fp,TAGINT_FORMAT " " TAGINT_FORMAT 
+            " %d %-1.16e %-1.16e %-1.16e %d %d %d\n",
+            (tagint) ubuf(buf[i][0]).i,(tagint) ubuf(buf[i][1]).i,
             (int) ubuf(buf[i][2]).i,
             buf[i][3],buf[i][4],buf[i][5],
             (int) ubuf(buf[i][6]).i,(int) ubuf(buf[i][7]).i,
@@ -885,7 +882,7 @@ void AtomVecAngle::write_data(FILE *fp, int n, double **buf)
 
 int AtomVecAngle::write_data_hybrid(FILE *fp, double *buf)
 {
-  fprintf(fp," %d",(int) ubuf(buf[0]).i);
+  fprintf(fp," " TAGINT_FORMAT,(tagint) ubuf(buf[0]).i);
   return 1;
 }
 

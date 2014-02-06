@@ -444,7 +444,6 @@ void ReadDump::atoms()
   int mapflag = 0;
   if (atom->map_style == 0) {
     mapflag = 1;
-    atom->map_style = 1;
     atom->map_init();
     atom->map_set();
   }
@@ -477,11 +476,9 @@ void ReadDump::atoms()
   if (addflag) {
     bigint nblocal = atom->nlocal;
     MPI_Allreduce(&nblocal,&atom->natoms,1,MPI_LMP_BIGINT,MPI_SUM,world);
-    if (atom->natoms < 0 || atom->natoms > MAXBIGINT)
+    if (atom->natoms < 0 || atom->natoms >= MAXBIGINT)
       error->all(FLERR,"Too many total atoms");
-    // change these to MAXTAGINT when allow tagint = bigint
-    if (atom->natoms > MAXSMALLINT) atom->tag_enable = 0;
-    if (atom->natoms <= MAXSMALLINT) atom->tag_extend();
+    if (atom->tag_enable) atom->tag_extend();
   }
 
   // if trimflag set, delete atoms not replaced by snapshot atoms
@@ -543,7 +540,7 @@ void ReadDump::atoms()
   // use irregular() in case atoms moved a long distance
 
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   nlocal = atom->nlocal;
   for (int i = 0; i < nlocal; i++) domain->remap(x[i],image[i]);
 
@@ -553,6 +550,10 @@ void ReadDump::atoms()
   irregular->migrate_atoms();
   delete irregular;
   if (triclinic) domain->lamda2x(atom->nlocal);
+
+  // check that atom IDs are valid
+
+  atom->tag_check();
 }
 
 /* ----------------------------------------------------------------------
@@ -710,24 +711,27 @@ int ReadDump::fields_and_keywords(int narg, char **arg)
 
 void ReadDump::process_atoms(int n)
 {
-  int i,m,ifield,itype,itag;;
+  int i,m,ifield,itype;
   int xbox,ybox,zbox;
+  tagint tag;
 
   double **x = atom->x;
   double **v = atom->v;
   double *q = atom->q;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
   int nlocal = atom->nlocal;
-  int map_tag_max = atom->map_tag_max;
+  tagint map_tag_max = atom->map_tag_max;
 
   for (i = 0; i < n; i++) {
     ucflag[i] = 0;
 
     // check if new atom matches one I own
     // setting m = -1 forces new atom not to match
+    // NOTE: atom ID in fields is stored as double, not as ubuf
+    //       so can only cast it to tagint, thus cannot be full 64-bit ID
 
-    itag = static_cast<int> (fields[i][0]);
-    if (itag <= map_tag_max) m = atom->map(static_cast<int> (fields[i][0]));
+    tag = static_cast<tagint> (fields[i][0]);
+    if (tag <= map_tag_max) m = atom->map(tag);
     else m = -1;
     if (m < 0 || m >= nlocal) continue;
 
@@ -785,9 +789,9 @@ void ReadDump::process_atoms(int n)
 
       if (!wrapped) xbox = ybox = zbox = 0;
 
-      image[m] = ((tagint) (xbox + IMGMAX) & IMGMASK) | 
-        (((tagint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) | 
-        (((tagint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
+      image[m] = ((imageint) (xbox + IMGMAX) & IMGMASK) | 
+        (((imageint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) | 
+        (((imageint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
     }
   }
 
@@ -874,9 +878,9 @@ void ReadDump::process_atoms(int n)
 
       // replace image flag in case changed by ix,iy,iz fields
 
-      image[m] = ((tagint) (xbox + IMGMAX) & IMGMASK) | 
-        (((tagint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) | 
-        (((tagint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
+      image[m] = ((imageint) (xbox + IMGMAX) & IMGMASK) | 
+        (((imageint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) | 
+        (((imageint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
     }
   }
 

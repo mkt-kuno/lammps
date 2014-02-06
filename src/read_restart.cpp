@@ -60,7 +60,8 @@ enum{VERSION,SMALLINT,TAGINT,BIGINT,
      TRICLINIC,BOXLO,BOXHI,XY,XZ,YZ,
      SPECIAL_LJ,SPECIAL_COUL,
      MASS,PAIR,BOND,ANGLE,DIHEDRAL,IMPROPER,
-     MULTIPROC,MPIIO,PROCSPERFILE,PERPROC};
+     MULTIPROC,MPIIO,PROCSPERFILE,PERPROC,
+     IMAGEINT};
 
 #define LB_FACTOR 1.1
 
@@ -97,12 +98,12 @@ void ReadRestart::command(int narg, char **arg)
 
   if (strchr(arg[0],'%')) multiproc = 1;
   else multiproc = 0;
-  if (strstr(arg[0],".mpi")) mpiioflag = 1;
+  if (strstr(arg[0],".mpiio")) mpiioflag = 1;
   else mpiioflag = 0;
 
   if (multiproc && mpiioflag) 
     error->all(FLERR,
-               "Read restart MPI-IO output not allowed with '%' in filename");
+               "Read restart MPI-IO input not allowed with % in filename");
 
   if (mpiioflag) {
     mpiio = new RestartMPIIO(lmp);
@@ -189,19 +190,13 @@ void ReadRestart::command(int narg, char **arg)
   // MPI-IO input from single file
 
   if (mpiioflag) {
-    // add calls to RestartMPIIO class
-    // reopen header file
-    // perform reads
-    // allow for different # of procs reading than wrote the file
+    mpiio->openForRead(file);
+    memory->create(buf,assignedChunkSize,"read_restart:buf");
+    mpiio->read((headerOffset+assignedChunkOffset),assignedChunkSize,buf);
+    mpiio->close();
 
-    // mpiio->open(file);
-    // mpiio->read();
-    // mpiio->close();
-
-    // then process atom info as
-
-    //m = 0;
-    //while (m < n) m += avec->unpack_restart(&buf[m]);
+    m = 0;
+    while (m < assignedChunkSize) m += avec->unpack_restart(&buf[m]);
   }
 
   // input of single native file
@@ -502,21 +497,20 @@ void ReadRestart::command(int narg, char **arg)
     }
   }
 
-  // check if tags are being used
-  // create global mapping and bond topology now that system is defined
+  // check that atom IDs are valid
 
-  flag = 0;
-  for (int i = 0; i < atom->nlocal; i++)
-    if (atom->tag[i] > 0) flag = 1;
-  int flag_all;
-  MPI_Allreduce(&flag,&flag_all,1,MPI_INT,MPI_MAX,world);
-  if (flag_all == 0) atom->tag_enable = 0;
+  atom->tag_check();
+
+  // create global mapping of atoms
 
   if (atom->map_style) {
     atom->map_init();
     atom->map_set();
   }
-  if (atom->molecular) {
+
+  // create special bond lists for molecular systems
+
+  if (atom->molecular == 1) {
     Special special(lmp);
     special.build();
   }
@@ -644,6 +638,10 @@ void ReadRestart::header(int incompatible)
       int size = read_int();
       if (size != sizeof(smallint))
         error->all(FLERR,"Smallint setting in lmptype.h is not compatible");
+    } else if (flag == IMAGEINT) {
+      int size = read_int();
+      if (size != sizeof(imageint))
+        error->all(FLERR,"Imageint setting in lmptype.h is not compatible");
     } else if (flag == TAGINT) {
       int size = read_int();
       if (size != sizeof(tagint))
@@ -766,26 +764,17 @@ void ReadRestart::header(int incompatible)
           domain->nonperiodic = 2;
       }
 
-    // create new AtomVec class
-    // if style = hybrid, read additional sub-class arguments
+    // create new AtomVec class using any stored args
 
     } else if (flag == ATOM_STYLE) {
       char *style = read_string();
-
-      int nwords = 0;
-      char **words = NULL;
-
-      if (strcmp(style,"hybrid") == 0) {
-        nwords = read_int();
-        words = new char*[nwords];
-        for (int i = 0; i < nwords; i++) words[i] = read_string();
-      }
-
-      atom->create_avec(style,nwords,words);
-      atom->avec->read_restart_settings(fp);
-
-      for (int i = 0; i < nwords; i++) delete [] words[i];
-      delete [] words;
+      int nargcopy = read_int();
+      char **argcopy = new char*[nargcopy];
+      for (int i = 0; i < nargcopy; i++)
+        argcopy[i] = read_string();
+      atom->create_avec(style,nargcopy,argcopy);
+      for (int i = 0; i < nargcopy; i++) delete [] argcopy[i];
+      delete [] argcopy;
       delete [] style;
 
     } else if (flag == NATOMS) {
@@ -933,12 +922,80 @@ void ReadRestart::file_layout()
         error->all(FLERR,"Restart file is a MPI-IO file");
       if (mpiioflag && mpiioflag_file == 0)
         error->all(FLERR,"Restart file is not a MPI-IO file");
+
+      if (mpiioflag) { 
+        bigint *nproc_chunk_offsets;
+        memory->create(nproc_chunk_offsets,nprocs,
+                       "write_restart:nproc_chunk_offsets");
+        bigint *nproc_chunk_sizes;
+        memory->create(nproc_chunk_sizes,nprocs,
+                       "write_restart:nproc_chunk_sizes");
+
+        // on rank 0 read in the chunk sizes that were written out
+        // then consolidate them and compute offsets relative to the
+        // end of the header info to fit the current partition size
+        // if the number of ranks that did the writing is different
+
+        if (me == 0) {
+          int *all_written_send_sizes;
+          memory->create(all_written_send_sizes,nprocs_file,
+                         "write_restart:all_written_send_sizes");
+          int *nproc_chunk_number;
+          memory->create(nproc_chunk_number,nprocs,
+                         "write_restart:nproc_chunk_number");
+          
+          fread(all_written_send_sizes,sizeof(int),nprocs_file,fp);
+          
+          int init_chunk_number = nprocs_file/nprocs;
+          int num_extra_chunks = nprocs_file - (nprocs*init_chunk_number);
+          
+          for (int i = 0; i < nprocs; i++) {
+            if (i < num_extra_chunks)
+              nproc_chunk_number[i] = init_chunk_number+1;
+            else
+              nproc_chunk_number[i] = init_chunk_number;
+          }
+          
+          int all_written_send_sizes_index = 0;
+          bigint current_offset = 0;
+          for (int i=0;i<nprocs;i++) {
+            nproc_chunk_offsets[i] = current_offset;
+            nproc_chunk_sizes[i] = 0;
+            for (int j=0;j<nproc_chunk_number[i];j++) {
+              nproc_chunk_sizes[i] += 
+                all_written_send_sizes[all_written_send_sizes_index];
+              current_offset += 
+                (all_written_send_sizes[all_written_send_sizes_index] * 
+                 sizeof(double));
+              all_written_send_sizes_index++;
+            }
+          
+          }
+          memory->destroy(all_written_send_sizes);
+          memory->destroy(nproc_chunk_number);
+        }
+
+        // scatter chunk sizes and offsets to all procs
+        
+        MPI_Scatter(nproc_chunk_sizes, 1, MPI_LMP_BIGINT,
+                    &assignedChunkSize , 1, MPI_LMP_BIGINT, 0,world);
+        MPI_Scatter(nproc_chunk_offsets, 1, MPI_LMP_BIGINT,
+                    &assignedChunkOffset , 1, MPI_LMP_BIGINT, 0,world);
+        
+        memory->destroy(nproc_chunk_sizes);
+        memory->destroy(nproc_chunk_offsets);
+      }
     }
 
-    // NOTE: could add reading of MPI-IO specific fields to header here
-    // e.g. read vector of PERPROCSIZE values
-
     flag = read_int();
+  }
+
+  // if MPI-IO file, broadcast the end of the header offste
+  // this allows all ranks to compute offset to their data
+
+  if (mpiioflag) {
+    if (me == 0) headerOffset = ftell(fp);
+    MPI_Bcast(&headerOffset,1,MPI_LMP_BIGINT,0,world);
   }
 }
 

@@ -129,7 +129,7 @@ E: Read_dump field not found in dump file
 
 Self-explanatory.
 
-E: Read_dump x,y,z fields do not have consistent scaling
+E: Read_dump xyz fields do not have consistent scaling/wrapping
 
 Self-explanatory.
 
@@ -142,6 +142,10 @@ coordinates.
 E: Too many total atoms
 
 See the setting for bigint in the src/lmptype.h file.
+
+E: Read dump of atom property that isn't allocated
+
+Self-explanatory.
 
 E: Duplicate fields in read_dump command
 

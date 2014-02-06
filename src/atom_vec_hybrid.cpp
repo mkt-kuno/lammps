@@ -43,7 +43,7 @@ AtomVecHybrid::~AtomVecHybrid()
    process sub-style args
 ------------------------------------------------------------------------- */
 
-void AtomVecHybrid::settings(int narg, char **arg)
+void AtomVecHybrid::process_args(int narg, char **arg)
 {
   // build list of all known atom styles
 
@@ -55,7 +55,7 @@ void AtomVecHybrid::settings(int narg, char **arg)
   keywords = new char*[narg];
 
   // allocate each sub-style
-  // call settings() with set of args that are not atom style names
+  // call process_args() with set of args that are not atom style names
   // use known_style() to determine which args these are
 
   int i,jarg,dummy;
@@ -73,7 +73,7 @@ void AtomVecHybrid::settings(int narg, char **arg)
     strcpy(keywords[nstyles],arg[iarg]);
     jarg = iarg + 1;
     while (jarg < narg && !known_style(arg[jarg])) jarg++;
-    styles[nstyles]->settings(jarg-iarg-1,&arg[iarg+1]);
+    styles[nstyles]->process_args(jarg-iarg-1,&arg[iarg+1]);
     iarg = jarg;
     nstyles++;
   }
@@ -97,7 +97,12 @@ void AtomVecHybrid::settings(int narg, char **arg)
   xcol_data = 3;
 
   for (int k = 0; k < nstyles; k++) {
+    if ((styles[k]->molecular == 1 && molecular == 2) ||
+        (styles[k]->molecular == 2 && molecular == 1))
+      error->all(FLERR,"Cannot mix molecular and molecule template "
+                 "atom styles");
     molecular = MAX(molecular,styles[k]->molecular);
+
     bonds_allow = MAX(bonds_allow,styles[k]->bonds_allow);
     angles_allow = MAX(angles_allow,styles[k]->angles_allow);
     dihedrals_allow = MAX(dihedrals_allow,styles[k]->dihedrals_allow);
@@ -616,7 +621,7 @@ void AtomVecHybrid::unpack_border(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
-    tag[i] = (int) ubuf(buf[m++]).i;
+    tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
   }
@@ -647,7 +652,7 @@ void AtomVecHybrid::unpack_border_vel(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
-    tag[i] = (int) ubuf(buf[m++]).i;
+    tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
     v[i][0] = buf[m++];
@@ -820,22 +825,6 @@ int AtomVecHybrid::unpack_restart(double *buf)
   return m;
 }
 
-/* ---------------------------------------------------------------------- */
-
-void AtomVecHybrid::write_restart_settings(FILE *fp)
-{
-  for (int k = 0; k < nstyles; k++)
-    styles[k]->write_restart_settings(fp);
-}
-
-/* ---------------------------------------------------------------------- */
-
-void AtomVecHybrid::read_restart_settings(FILE *fp)
-{
-  for (int k = 0; k < nstyles; k++)
-    styles[k]->read_restart_settings(fp);
-}
-
 /* ----------------------------------------------------------------------
    create one atom of itype at coord
    create each sub-style one after the other
@@ -859,15 +848,12 @@ void AtomVecHybrid::create_atom(int itype, double *coord)
    grow() occurs here so arrays for all sub-styles are grown
 ------------------------------------------------------------------------- */
 
-void AtomVecHybrid::data_atom(double *coord, tagint imagetmp, char **values)
+void AtomVecHybrid::data_atom(double *coord, imageint imagetmp, char **values)
 {
   int nlocal = atom->nlocal;
   if (nlocal == nmax) grow(0);
 
-  tag[nlocal] = atoi(values[0]);
-  if (tag[nlocal] <= 0)
-    error->one(FLERR,"Invalid atom ID in Atoms section of data file");
-
+  tag[nlocal] = ATOTAGINT(values[0]);
   type[nlocal] = atoi(values[1]);
   if (type[nlocal] <= 0 || type[nlocal] > atom->ntypes)
     error->one(FLERR,"Invalid atom type in Atoms section of data file");
@@ -954,8 +940,8 @@ void AtomVecHybrid::write_data(FILE *fp, int n, double **buf)
   int k,m;
 
   for (int i = 0; i < n; i++) {
-    fprintf(fp,"%d %d %-1.16e %-1.16e %-1.16e",
-            (int) ubuf(buf[i][0]).i,(int) ubuf(buf[i][1]).i,
+    fprintf(fp,TAGINT_FORMAT " %d %-1.16e %-1.16e %-1.16e",
+            (tagint) ubuf(buf[i][0]).i,(int) ubuf(buf[i][1]).i,
             buf[i][2],buf[i][3],buf[i][4]);
 
     m = 5;
@@ -998,8 +984,8 @@ void AtomVecHybrid::write_vel(FILE *fp, int n, double **buf)
   int k,m;
 
   for (int i = 0; i < n; i++) {
-    fprintf(fp,"%d %g %g %g",
-            (int) ubuf(buf[i][0]).i,buf[i][1],buf[i][2],buf[i][3]);
+    fprintf(fp,TAGINT_FORMAT " %g %g %g",
+            (tagint) ubuf(buf[i][0]).i,buf[i][1],buf[i][2],buf[i][3]);
 
     m = 4;
     for (k = 0; k < nstyles; k++)

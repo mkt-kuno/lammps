@@ -57,10 +57,6 @@ AtomVecBody::AtomVecBody(LAMMPS *lmp) : AtomVec(lmp)
 
   bptr = NULL;
 
-  nargcopy = 0;
-  argcopy = NULL;
-  copyflag = 1;
-
   if (sizeof(double) == sizeof(int)) intdoubleratio = 1;
   else if (sizeof(double) == 2*sizeof(int)) intdoubleratio = 2;
   else error->all(FLERR,"Internal error in atom_style body");
@@ -78,9 +74,6 @@ AtomVecBody::~AtomVecBody()
   memory->sfree(bonus);
 
   delete bptr;
-
-  for (int i = 0; i < nargcopy; i++) delete [] argcopy[i];
-  delete [] argcopy;
 }
 
 /* ----------------------------------------------------------------------
@@ -89,7 +82,7 @@ AtomVecBody::~AtomVecBody()
    set size_forward and size_border to max sizes
 ------------------------------------------------------------------------- */
 
-void AtomVecBody::settings(int narg, char **arg)
+void AtomVecBody::process_args(int narg, char **arg)
 {
   if (narg < 1) error->all(FLERR,"Invalid atom_style body command");
 
@@ -114,19 +107,6 @@ void AtomVecBody::settings(int narg, char **arg)
 
   size_forward = 7 + bptr->size_forward;
   size_border = 16 + bptr->size_border;
-
-  // make copy of args if called externally, so can write to restart file
-  // make no copy of args if called from read_restart()
-
-  if (copyflag) {
-    nargcopy = narg;
-    argcopy = new char*[nargcopy];
-    for (int i = 0; i < nargcopy; i++) {
-      int n = strlen(arg[i]) + 1;
-      argcopy[i] = new char[n];
-      strcpy(argcopy[i],arg[i]);
-    }
-  }
 }
 
 /* ----------------------------------------------------------------------
@@ -834,7 +814,7 @@ void AtomVecBody::unpack_border(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
-    tag[i] = (int) ubuf(buf[m++]).i;
+    tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
     body[i] = (int) ubuf(buf[m++]).i;
@@ -882,7 +862,7 @@ void AtomVecBody::unpack_border_vel(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
-    tag[i] = (int) ubuf(buf[m++]).i;
+    tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
     body[i] = (int) ubuf(buf[m++]).i;
@@ -1027,10 +1007,10 @@ int AtomVecBody::unpack_exchange(double *buf)
   v[nlocal][0] = buf[m++];
   v[nlocal][1] = buf[m++];
   v[nlocal][2] = buf[m++];
-  tag[nlocal] = (int) ubuf(buf[m++]).i;
+  tag[nlocal] = (tagint) ubuf(buf[m++]).i;
   type[nlocal] = (int) ubuf(buf[m++]).i;
   mask[nlocal] = (int) ubuf(buf[m++]).i;
-  image[nlocal] = (tagint) ubuf(buf[m++]).i;
+  image[nlocal] = (imageint) ubuf(buf[m++]).i;
 
   rmass[nlocal] = buf[m++];
   angmom[nlocal][0] = buf[m++];
@@ -1176,10 +1156,10 @@ int AtomVecBody::unpack_restart(double *buf)
   x[nlocal][0] = buf[m++];
   x[nlocal][1] = buf[m++];
   x[nlocal][2] = buf[m++];
-  tag[nlocal] = (int) ubuf(buf[m++]).i;
+  tag[nlocal] = (tagint) ubuf(buf[m++]).i;
   type[nlocal] = (int) ubuf(buf[m++]).i;
   mask[nlocal] = (int) ubuf(buf[m++]).i;
-  image[nlocal] = (tagint) ubuf(buf[m++]).i;
+  image[nlocal] = (imageint) ubuf(buf[m++]).i;
   v[nlocal][0] = buf[m++];
   v[nlocal][1] = buf[m++];
   v[nlocal][2] = buf[m++];
@@ -1229,41 +1209,6 @@ int AtomVecBody::unpack_restart(double *buf)
   return m;
 }
 
-/* ---------------------------------------------------------------------- */
-
-void AtomVecBody::write_restart_settings(FILE *fp)
-{
-  fwrite(&nargcopy,sizeof(int),1,fp);
-  for (int i = 0; i < nargcopy; i++) {
-    int n = strlen(argcopy[i]) + 1;
-    fwrite(&n,sizeof(int),1,fp);
-    fwrite(argcopy[i],sizeof(char),n,fp);
-  }
-}
-
-/* ---------------------------------------------------------------------- */
-
-void AtomVecBody::read_restart_settings(FILE *fp)
-{
-  int n;
-
-  int me = comm->me;
-  if (me == 0) fread(&nargcopy,sizeof(int),1,fp);
-  MPI_Bcast(&nargcopy,1,MPI_INT,0,world);
-  argcopy = new char*[nargcopy];
-    
-  for (int i = 0; i < nargcopy; i++) {
-    if (me == 0) fread(&n,sizeof(int),1,fp);
-    MPI_Bcast(&n,1,MPI_INT,0,world);
-    argcopy[i] = new char[n];
-    if (me == 0) fread(argcopy[i],sizeof(char),n,fp);
-    MPI_Bcast(argcopy[i],n,MPI_CHAR,0,world);
-  }
-
-  copyflag = 0;
-  settings(nargcopy,argcopy);
-}
-
 /* ----------------------------------------------------------------------
    create one atom of itype at coord
    set other values to defaults
@@ -1280,8 +1225,8 @@ void AtomVecBody::create_atom(int itype, double *coord)
   x[nlocal][1] = coord[1];
   x[nlocal][2] = coord[2];
   mask[nlocal] = 1;
-  image[nlocal] = ((tagint) IMGMAX << IMG2BITS) |
-    ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+  image[nlocal] = ((imageint) IMGMAX << IMG2BITS) |
+    ((imageint) IMGMAX << IMGBITS) | IMGMAX;
   v[nlocal][0] = 0.0;
   v[nlocal][1] = 0.0;
   v[nlocal][2] = 0.0;
@@ -1300,15 +1245,12 @@ void AtomVecBody::create_atom(int itype, double *coord)
    initialize other atom quantities
 ------------------------------------------------------------------------- */
 
-void AtomVecBody::data_atom(double *coord, tagint imagetmp, char **values)
+void AtomVecBody::data_atom(double *coord, imageint imagetmp, char **values)
 {
   int nlocal = atom->nlocal;
   if (nlocal == nmax) grow(0);
 
-  tag[nlocal] = atoi(values[0]);
-  if (tag[nlocal] <= 0)
-    error->one(FLERR,"Invalid atom ID in Atoms section of data file");
-
+  tag[nlocal] = ATOTAGINT(values[0]);
   type[nlocal] = atoi(values[1]);
   if (type[nlocal] <= 0 || type[nlocal] > atom->ntypes)
     error->one(FLERR,"Invalid atom type in Atoms section of data file");
@@ -1442,8 +1384,8 @@ int AtomVecBody::pack_data_hybrid(int i, double *buf)
 void AtomVecBody::write_data(FILE *fp, int n, double **buf)
 {
   for (int i = 0; i < n; i++)
-    fprintf(fp,"%d %d %d %g %g %g %g %d %d %d\n",
-            (int) ubuf(buf[i][0]).i,(int) ubuf(buf[i][1]).i,
+    fprintf(fp,TAGINT_FORMAT " %d %d %g %g %g %g %d %d %d\n",
+            (tagint) ubuf(buf[i][0]).i,(int) ubuf(buf[i][1]).i,
             (int) ubuf(buf[i][2]).i,
             buf[i][3],buf[i][4],buf[i][5],buf[i][6],
             (int) ubuf(buf[i][7]).i,(int) ubuf(buf[i][8]).i,
@@ -1497,8 +1439,8 @@ int AtomVecBody::pack_vel_hybrid(int i, double *buf)
 void AtomVecBody::write_vel(FILE *fp, int n, double **buf)
 {
   for (int i = 0; i < n; i++)
-    fprintf(fp,"%d %g %g %g %g %g %g\n",
-            (int) ubuf(buf[i][0]).i,buf[i][1],buf[i][2],buf[i][3],
+    fprintf(fp,TAGINT_FORMAT " %g %g %g %g %g %g\n",
+            (tagint) ubuf(buf[i][0]).i,buf[i][1],buf[i][2],buf[i][3],
             buf[i][4],buf[i][5],buf[i][6]);
 }
 

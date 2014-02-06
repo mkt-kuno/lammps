@@ -104,7 +104,7 @@ class Dump : protected Pointers {
   int reorderflag;           // 1 if OK to reorder instead of sort
   int ntotal_reorder;        // # of atoms that must be in snapshot
   int nme_reorder;           // # of atoms I must own in snapshot
-  int idlo;                  // lowest ID I own when reordering
+  tagint idlo;               // lowest ID I own when reordering
 
   int maxbuf;                // size of buf
   double *buf;               // memory for atom quantities
@@ -115,9 +115,10 @@ class Dump : protected Pointers {
   int maxids;                // size of ids
   int maxsort;               // size of bufsort, idsort, index
   int maxproc;               // size of proclist
-  int *ids;                  // list of atom IDs, if sorting on IDs
+  tagint *ids;               // list of atom IDs, if sorting on IDs
   double *bufsort;
-  int *idsort,*index,*proclist;
+  tagint *idsort;
+  int *index,*proclist;
 
   class Irregular *irregular;
 
@@ -126,7 +127,7 @@ class Dump : protected Pointers {
   virtual int modify_param(int, char **) {return 0;}
   virtual void write_header(bigint) = 0;
   virtual int count();
-  virtual void pack(int *) = 0;
+  virtual void pack(tagint *) = 0;
   virtual int convert_string(int, double *) {return 0;}
   virtual void write_data(int, double *) = 0;
 
@@ -147,9 +148,15 @@ class Dump : protected Pointers {
 
 /* ERROR/WARNING messages:
 
-E: Cannot dump sort when multiple procs write the dump file
+E: Dump file MPI-IO output not allowed with % in filename
 
-UNDOCUMENTED
+This is because a % signifies one file per processor and MPI-IO
+creates one large file for all processors.
+
+E: Cannot dump sort when multiple dump files are written
+
+In this mode, each processor dumps its atoms to a file, so
+no sorting is allowed.
 
 E: Cannot dump sort on atom IDs with no atom IDs defined
 
@@ -168,6 +175,11 @@ E: Too much per-proc info for dump
 Number of local atoms times number of columns must fit in a 32-bit
 integer for dump.
 
+E: Too much buffered per-proc info for dump
+
+The size of the buffered string must fit in a 32-bit integer for a
+dump.
+
 E: Cannot open gzipped file
 
 LAMMPS was compiled without support for reading and writing gzipped
@@ -175,9 +187,8 @@ files through a pipeline to the gzip program with -DLAMMPS_GZIP.
 
 E: Cannot open dump file
 
-The specified file cannot be opened.  Check that the path and name are
-correct. If the file is a compressed file, also check that the gzip
-executable can be found and run.
+The output file for the dump command cannot be opened.  Check that the
+path and name are correct.
 
 E: Illegal ... command
 
@@ -185,12 +196,16 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
+E: Dump_modify buffer yes not allowed for this style
+
+Self-explanatory.
+
 E: Cannot use dump_modify fileper without % in dump file name
 
-UNDOCUMENTED
+Self-explanatory.
 
 E: Cannot use dump_modify nfile without % in dump file name
 
-UNDOCUMENTED
+Self-explanatory.
 
 */

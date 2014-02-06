@@ -44,7 +44,7 @@ enum{ID,MOL,TYPE,ELEMENT,MASS,
      TQX,TQY,TQZ,SPIN,ERADIUS,ERVEL,ERFORCE,
      COMPUTE,FIX,VARIABLE};
 enum{LT,LE,GT,GE,EQ,NEQ};
-enum{INT,DOUBLE,STRING};    // same as in DumpCFG
+enum{INT,DOUBLE,STRING,BIGINT};    // same as in DumpCFG
 
 #define INVOKED_PERATOM 8
 #define ONEFIELD 32
@@ -128,6 +128,7 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
     if (vtype[i] == INT) strcat(format_default,"%d ");
     else if (vtype[i] == DOUBLE) strcat(format_default,"%g ");
     else if (vtype[i] == STRING) strcat(format_default,"%s ");
+    else if (vtype[i] == BIGINT) strcat(format_default,BIGINT_FORMAT " ");
     vformat[i] = NULL;
   }
 
@@ -437,7 +438,7 @@ int DumpCustom::count()
       // customize by adding to if statement
 
       if (thresh_array[ithresh] == ID) {
-        int *tag = atom->tag;
+        tagint *tag = atom->tag;
         for (i = 0; i < nlocal; i++) dchoose[i] = tag[i];
         ptr = dchoose;
         nstride = 1;
@@ -445,7 +446,7 @@ int DumpCustom::count()
         if (!atom->molecule_flag)
           error->all(FLERR,
                      "Threshhold for an atom property that isn't allocated");
-        int *molecule = atom->molecule;
+        tagint *molecule = atom->molecule;
         for (i = 0; i < nlocal; i++) dchoose[i] = molecule[i];
         ptr = dchoose;
         nstride = 1;
@@ -535,7 +536,7 @@ int DumpCustom::count()
 
       } else if (thresh_array[ithresh] == XU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double xprd = domain->xprd;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = x[i][0] + ((image[i] & IMGMASK) - IMGMAX) * xprd;
@@ -543,7 +544,7 @@ int DumpCustom::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == YU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double yprd = domain->yprd;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = x[i][1] + 
@@ -552,7 +553,7 @@ int DumpCustom::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == ZU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double zprd = domain->zprd;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = x[i][2] + ((image[i] >> IMG2BITS) - IMGMAX) * zprd;
@@ -561,7 +562,7 @@ int DumpCustom::count()
 
       } else if (thresh_array[ithresh] == XUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *h = domain->h;
         int xbox,ybox,zbox;
         for (i = 0; i < nlocal; i++) {
@@ -574,7 +575,7 @@ int DumpCustom::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == YUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *h = domain->h;
         int ybox,zbox;
         for (i = 0; i < nlocal; i++) {
@@ -586,7 +587,7 @@ int DumpCustom::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == ZUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *h = domain->h;
         int zbox;
         for (i = 0; i < nlocal; i++) {
@@ -598,7 +599,7 @@ int DumpCustom::count()
 
       } else if (thresh_array[ithresh] == XSU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double boxxlo = domain->boxlo[0];
         double invxprd = 1.0/domain->xprd;
         for (i = 0; i < nlocal; i++)
@@ -609,7 +610,7 @@ int DumpCustom::count()
 
       } else if (thresh_array[ithresh] == YSU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double boxylo = domain->boxlo[1];
         double invyprd = 1.0/domain->yprd;
         for (i = 0; i < nlocal; i++)
@@ -621,7 +622,7 @@ int DumpCustom::count()
 
       } else if (thresh_array[ithresh] == ZSU) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double boxzlo = domain->boxlo[2];
         double invzprd = 1.0/domain->zprd;
         for (i = 0; i < nlocal; i++)
@@ -632,7 +633,7 @@ int DumpCustom::count()
 
       } else if (thresh_array[ithresh] == XSUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *boxlo = domain->boxlo;
         double *h_inv = domain->h_inv;
         for (i = 0; i < nlocal; i++)
@@ -644,7 +645,7 @@ int DumpCustom::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == YSUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *boxlo = domain->boxlo;
         double *h_inv = domain->h_inv;
         for (i = 0; i < nlocal; i++)
@@ -655,7 +656,7 @@ int DumpCustom::count()
         nstride = 1;
       } else if (thresh_array[ithresh] == ZSUTRI) {
         double **x = atom->x;
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         double *boxlo = domain->boxlo;
         double *h_inv = domain->h_inv;
         for (i = 0; i < nlocal; i++)
@@ -665,19 +666,19 @@ int DumpCustom::count()
         nstride = 1;
 
       } else if (thresh_array[ithresh] == IX) {
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = (image[i] & IMGMASK) - IMGMAX;
         ptr = dchoose;
         nstride = 1;
       } else if (thresh_array[ithresh] == IY) {
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = (image[i] >> IMGBITS & IMGMASK) - IMGMAX;
         ptr = dchoose;
         nstride = 1;
       } else if (thresh_array[ithresh] == IZ) {
-        tagint *image = atom->image;
+        imageint *image = atom->image;
         for (i = 0; i < nlocal; i++)
           dchoose[i] = (image[i] >> IMG2BITS) - IMGMAX;
         ptr = dchoose;
@@ -894,11 +895,11 @@ int DumpCustom::count()
 
 /* ---------------------------------------------------------------------- */
 
-void DumpCustom::pack(int *ids)
+void DumpCustom::pack(tagint *ids)
 {
   for (int n = 0; n < size_one; n++) (this->*pack_choice[n])(n);
   if (ids) {
-    int *tag = atom->tag;
+    tagint *tag = atom->tag;
     for (int i = 0; i < nchoose; i++)
       ids[i] = tag[clist[i]];
   }
@@ -929,6 +930,9 @@ int DumpCustom::convert_string(int n, double *mybuf)
         offset += sprintf(&sbuf[offset],vformat[j],mybuf[m]);
       else if (vtype[j] == STRING)
         offset += sprintf(&sbuf[offset],vformat[j],typenames[(int) mybuf[m]]);
+      else if (vtype[j] == BIGINT) 
+        offset += sprintf(&sbuf[offset],vformat[j],
+                          static_cast<bigint> (mybuf[m]));
       m++;
     }
     offset += sprintf(&sbuf[offset],"\n");
@@ -973,6 +977,8 @@ void DumpCustom::write_lines(int n, double *mybuf)
       else if (vtype[j] == DOUBLE) fprintf(fp,vformat[j],mybuf[m]);
       else if (vtype[j] == STRING)
         fprintf(fp,vformat[j],typenames[(int) mybuf[m]]);
+      else if (vtype[j] == BIGINT) 
+        fprintf(fp,vformat[j],static_cast<bigint> (mybuf[m]));
       m++;
     }
     fprintf(fp,"\n");
@@ -991,7 +997,8 @@ int DumpCustom::parse_fields(int narg, char **arg)
 
     if (strcmp(arg[iarg],"id") == 0) {
       pack_choice[i] = &DumpCustom::pack_id;
-      vtype[i] = INT;
+      if (sizeof(tagint) == sizeof(smallint)) vtype[i] = INT;
+      else vtype[i] = BIGINT;
     } else if (strcmp(arg[iarg],"mol") == 0) {
       if (!atom->molecule_flag)
         error->all(FLERR,"Dumping an atom property that isn't allocated");
@@ -1211,7 +1218,7 @@ int DumpCustom::parse_fields(int narg, char **arg)
         error->all(FLERR,
                    "Dump custom compute does not calculate per-atom vector");
       if (argindex[i] > 0 && modify->compute[n]->size_peratom_cols == 0)
-        error->all(FLERR,\
+        error->all(FLERR,
                    "Dump custom compute does not calculate per-atom array");
       if (argindex[i] > 0 &&
           argindex[i] > modify->compute[n]->size_peratom_cols)
@@ -1706,7 +1713,7 @@ void DumpCustom::pack_variable(int n)
 
 void DumpCustom::pack_id(int n)
 {
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = tag[clist[i]];
@@ -1718,7 +1725,7 @@ void DumpCustom::pack_id(int n)
 
 void DumpCustom::pack_molecule(int n)
 {
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = molecule[clist[i]];
@@ -1896,7 +1903,7 @@ void DumpCustom::pack_xu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double xprd = domain->xprd;
 
@@ -1913,7 +1920,7 @@ void DumpCustom::pack_yu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double yprd = domain->yprd;
 
@@ -1930,7 +1937,7 @@ void DumpCustom::pack_zu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double zprd = domain->zprd;
 
@@ -1947,7 +1954,7 @@ void DumpCustom::pack_xu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *h = domain->h;
   int xbox,ybox,zbox;
@@ -1968,7 +1975,7 @@ void DumpCustom::pack_yu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *h = domain->h;
   int ybox,zbox;
@@ -1988,7 +1995,7 @@ void DumpCustom::pack_zu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *h = domain->h;
   int zbox;
@@ -2007,7 +2014,7 @@ void DumpCustom::pack_xsu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double boxxlo = domain->boxlo[0];
   double invxprd = 1.0/domain->xprd;
@@ -2025,7 +2032,7 @@ void DumpCustom::pack_ysu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double boxylo = domain->boxlo[1];
   double invyprd = 1.0/domain->yprd;
@@ -2043,7 +2050,7 @@ void DumpCustom::pack_zsu(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double boxzlo = domain->boxlo[2];
   double invzprd = 1.0/domain->zprd;
@@ -2061,7 +2068,7 @@ void DumpCustom::pack_xsu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *boxlo = domain->boxlo;
   double *h_inv = domain->h_inv;
@@ -2080,7 +2087,7 @@ void DumpCustom::pack_ysu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *boxlo = domain->boxlo;
   double *h_inv = domain->h_inv;
@@ -2099,7 +2106,7 @@ void DumpCustom::pack_zsu_triclinic(int n)
 {
   int j;
   double **x = atom->x;
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   double *boxlo = domain->boxlo;
   double *h_inv = domain->h_inv;
@@ -2115,7 +2122,7 @@ void DumpCustom::pack_zsu_triclinic(int n)
 
 void DumpCustom::pack_ix(int n)
 {
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = (image[clist[i]] & IMGMASK) - IMGMAX;
@@ -2127,7 +2134,7 @@ void DumpCustom::pack_ix(int n)
 
 void DumpCustom::pack_iy(int n)
 {
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = (image[clist[i]] >> IMGBITS & IMGMASK) - IMGMAX;
@@ -2139,7 +2146,7 @@ void DumpCustom::pack_iy(int n)
 
 void DumpCustom::pack_iz(int n)
 {
-  tagint *image = atom->image;
+  imageint *image = atom->image;
 
   for (int i = 0; i < nchoose; i++) {
     buf[n] = (image[clist[i]] >> IMG2BITS) - IMGMAX;

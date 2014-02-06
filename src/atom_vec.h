@@ -39,12 +39,19 @@ class AtomVec : protected Pointers {
   int size_data_bonus;                 // number of values in Bonus line
   int xcol_data;                       // column (1-N) where x is in Atom line
 
+  class Molecule **onemols;            // list of molecules for style template
+  int nset;                            // # of molecules in list
+
   int cudable;                         // 1 if atom style is CUDA-enabled
   int *maxsend;                        // CUDA-specific variable
 
+  int nargcopy;          // copy of command-line args for atom_style command
+  char **argcopy;        // used when AtomVec is realloced (restart,replicate)
+
   AtomVec(class LAMMPS *);
-  virtual ~AtomVec() {}
-  virtual void settings(int, char **);
+  virtual ~AtomVec();
+  void store_args(int, char **);
+  virtual void process_args(int, char **);
   virtual void init();
 
   virtual void grow(int) = 0;
@@ -78,12 +85,9 @@ class AtomVec : protected Pointers {
   virtual int pack_restart(int, double *) = 0;
   virtual int unpack_restart(double *) = 0;
 
-  virtual void write_restart_settings(FILE *) {}
-  virtual void read_restart_settings(FILE *) {}
-
   virtual void create_atom(int, double *) = 0;
 
-  virtual void data_atom(double *, tagint, char **) = 0;
+  virtual void data_atom(double *, imageint, char **) = 0;
   virtual void data_atom_bonus(int, char **) {}
   virtual int data_atom_hybrid(int, char **) {return 0;}
   virtual void data_vel(int, char **);
@@ -99,14 +103,14 @@ class AtomVec : protected Pointers {
   virtual int write_vel_hybrid(FILE *, double *) {return 0;}
 
   void reset();
-  int pack_bond(int **);
-  void write_bond(FILE *, int, int **, int);
-  int pack_angle(int **);
-  void write_angle(FILE *, int, int **, int);
-  void pack_dihedral(int **);
-  void write_dihedral(FILE *, int, int **, int);
-  void pack_improper(int **);
-  void write_improper(FILE *, int, int **, int);
+  int pack_bond(tagint **);
+  void write_bond(FILE *, int, tagint **, int);
+  int pack_angle(tagint **);
+  void write_angle(FILE *, int, tagint **, int);
+  void pack_dihedral(tagint **);
+  void write_dihedral(FILE *, int, tagint **, int);
+  void pack_improper(tagint **);
+  void write_improper(FILE *, int, tagint **, int);
 
   virtual bigint memory_usage() = 0;
 
@@ -128,8 +132,8 @@ class AtomVec : protected Pointers {
   //   the cast prevents compiler warnings about possible truncation
 
   union ubuf {
-    double   d;
-    int64_t  i;
+    double d;
+    int64_t i;
     ubuf(double arg) : d(arg) {}
     ubuf(int64_t arg) : i(arg) {}
     ubuf(int arg) : i(arg) {}

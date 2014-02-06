@@ -882,10 +882,10 @@ void AtomVecTri::unpack_border(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
-    tag[i] = (int) ubuf(buf[m++]).i;
+    tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
-    molecule[i] = (int) ubuf(buf[m++]).i;
+    molecule[i] = (tagint) ubuf(buf[m++]).i;
     tri[i] = (int) ubuf(buf[m++]).i;
     if (tri[i] == 0) tri[i] = -1;
     else {
@@ -938,10 +938,10 @@ void AtomVecTri::unpack_border_vel(int n, int first, double *buf)
     x[i][0] = buf[m++];
     x[i][1] = buf[m++];
     x[i][2] = buf[m++];
-    tag[i] = (int) ubuf(buf[m++]).i;
+    tag[i] = (tagint) ubuf(buf[m++]).i;
     type[i] = (int) ubuf(buf[m++]).i;
     mask[i] = (int) ubuf(buf[m++]).i;
-    molecule[i] = (int) ubuf(buf[m++]).i;
+    molecule[i] = (tagint) ubuf(buf[m++]).i;
     tri[i] = (int) ubuf(buf[m++]).i;
     if (tri[i] == 0) tri[i] = -1;
     else {
@@ -996,7 +996,7 @@ int AtomVecTri::unpack_border_hybrid(int n, int first, double *buf)
   m = 0;
   last = first + n;
   for (i = first; i < last; i++) {
-    molecule[i] = (int) ubuf(buf[m++]).i;
+    molecule[i] = (tagint) ubuf(buf[m++]).i;
     tri[i] = (int) ubuf(buf[m++]).i;
     if (tri[i] == 0) tri[i] = -1;
     else {
@@ -1105,12 +1105,12 @@ int AtomVecTri::unpack_exchange(double *buf)
   v[nlocal][0] = buf[m++];
   v[nlocal][1] = buf[m++];
   v[nlocal][2] = buf[m++];
-  tag[nlocal] = (int) ubuf(buf[m++]).i;
+  tag[nlocal] = (tagint) ubuf(buf[m++]).i;
   type[nlocal] = (int) ubuf(buf[m++]).i;
   mask[nlocal] = (int) ubuf(buf[m++]).i;
-  image[nlocal] = (tagint) ubuf(buf[m++]).i;
+  image[nlocal] = (imageint) ubuf(buf[m++]).i;
 
-  molecule[nlocal] = (int) ubuf(buf[m++]).i;
+  molecule[nlocal] = (tagint) ubuf(buf[m++]).i;
   rmass[nlocal] = buf[m++];
   angmom[nlocal][0] = buf[m++];
   angmom[nlocal][1] = buf[m++];
@@ -1255,15 +1255,15 @@ int AtomVecTri::unpack_restart(double *buf)
   x[nlocal][0] = buf[m++];
   x[nlocal][1] = buf[m++];
   x[nlocal][2] = buf[m++];
-  tag[nlocal] = (int) ubuf(buf[m++]).i;
+  tag[nlocal] = (tagint) ubuf(buf[m++]).i;
   type[nlocal] = (int) ubuf(buf[m++]).i;
   mask[nlocal] = (int) ubuf(buf[m++]).i;
-  image[nlocal] = (tagint) ubuf(buf[m++]).i;
+  image[nlocal] = (imageint) ubuf(buf[m++]).i;
   v[nlocal][0] = buf[m++];
   v[nlocal][1] = buf[m++];
   v[nlocal][2] = buf[m++];
 
-  molecule[nlocal] = (int) ubuf(buf[m++]).i;
+  molecule[nlocal] = (tagint) ubuf(buf[m++]).i;
   rmass[nlocal] = buf[m++];
   angmom[nlocal][0] = buf[m++];
   angmom[nlocal][1] = buf[m++];
@@ -1324,8 +1324,8 @@ void AtomVecTri::create_atom(int itype, double *coord)
   x[nlocal][1] = coord[1];
   x[nlocal][2] = coord[2];
   mask[nlocal] = 1;
-  image[nlocal] = ((tagint) IMGMAX << IMG2BITS) |
-    ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+  image[nlocal] = ((imageint) IMGMAX << IMG2BITS) |
+    ((imageint) IMGMAX << IMGBITS) | IMGMAX;
   v[nlocal][0] = 0.0;
   v[nlocal][1] = 0.0;
   v[nlocal][2] = 0.0;
@@ -1345,17 +1345,13 @@ void AtomVecTri::create_atom(int itype, double *coord)
    initialize other atom quantities
 ------------------------------------------------------------------------- */
 
-void AtomVecTri::data_atom(double *coord, tagint imagetmp, char **values)
+void AtomVecTri::data_atom(double *coord, imageint imagetmp, char **values)
 {
   int nlocal = atom->nlocal;
   if (nlocal == nmax) grow(0);
 
-  tag[nlocal] = atoi(values[0]);
-  if (tag[nlocal] <= 0)
-    error->one(FLERR,"Invalid atom ID in Atoms section of data file");
-
-  molecule[nlocal] = atoi(values[1]);
-
+  tag[nlocal] = ATOTAGINT(values[0]);
+  molecule[nlocal] = ATOTAGINT(values[1]);
   type[nlocal] = atoi(values[2]);
   if (type[nlocal] <= 0 || type[nlocal] > atom->ntypes)
     error->one(FLERR,"Invalid atom type in Atoms section of data file");
@@ -1393,7 +1389,7 @@ void AtomVecTri::data_atom(double *coord, tagint imagetmp, char **values)
 
 int AtomVecTri::data_atom_hybrid(int nlocal, char **values)
 {
-  molecule[nlocal] = atoi(values[0]);
+  molecule[nlocal] = ATOTAGINT(values[0]);
 
   tri[nlocal] = atoi(values[1]);
   if (tri[nlocal] == 0) tri[nlocal] = -1;
@@ -1618,8 +1614,9 @@ int AtomVecTri::pack_data_hybrid(int i, double *buf)
 void AtomVecTri::write_data(FILE *fp, int n, double **buf)
 {
   for (int i = 0; i < n; i++)
-    fprintf(fp,"%d %d %d %d %-1.16e %-1.16e %-1.16e %-1.16e %d %d %d\n",
-            (int) ubuf(buf[i][0]).i,(int) ubuf(buf[i][1]).i,
+    fprintf(fp,TAGINT_FORMAT " " TAGINT_FORMAT
+            " %d %d %-1.16e %-1.16e %-1.16e %-1.16e %d %d %d\n",
+            (tagint) ubuf(buf[i][0]).i,(tagint) ubuf(buf[i][1]).i,
             (int) ubuf(buf[i][2]).i,(int) ubuf(buf[i][3]).i,
             buf[i][4],buf[i][5],buf[i][6],buf[i][7],
             (int) ubuf(buf[i][8]).i,(int) ubuf(buf[i][9]).i,
@@ -1632,7 +1629,8 @@ void AtomVecTri::write_data(FILE *fp, int n, double **buf)
 
 int AtomVecTri::write_data_hybrid(FILE *fp, double *buf)
 {
-  fprintf(fp," %d %d %-1.16e",(int) ubuf(buf[0]).i,(int) ubuf(buf[1]).i,buf[2]);
+  fprintf(fp," " TAGINT_FORMAT " %d %-1.16e",
+          (tagint) ubuf(buf[0]).i,(int) ubuf(buf[1]).i,buf[2]);
   return 3;
 }
 
@@ -1673,8 +1671,9 @@ int AtomVecTri::pack_vel_hybrid(int i, double *buf)
 void AtomVecTri::write_vel(FILE *fp, int n, double **buf)
 {
   for (int i = 0; i < n; i++)
-    fprintf(fp,"%d %-1.16e %-1.16e %-1.16e %-1.16e %-1.16e %-1.16e\n",
-            (int) ubuf(buf[i][0]).i,buf[i][1],buf[i][2],buf[i][3],
+    fprintf(fp,TAGINT_FORMAT 
+            " %-1.16e %-1.16e %-1.16e %-1.16e %-1.16e %-1.16e\n",
+            (tagint) ubuf(buf[i][0]).i,buf[i][1],buf[i][2],buf[i][3],
             buf[i][4],buf[i][5],buf[i][6]);
 }
 

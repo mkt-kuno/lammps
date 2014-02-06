@@ -51,7 +51,8 @@ void Neighbor::granular_nsq_no_newton_omp(NeighList *list)
   int *neighptr,*touchptr;
   double *shearptr;
 
-  int *npartner,**partner;
+  int *npartner;
+  tagint **partner;
   double (**shearpartner)[3];
   int **firsttouch;
   double **firstshear;
@@ -60,10 +61,10 @@ void Neighbor::granular_nsq_no_newton_omp(NeighList *list)
 
   double **x = atom->x;
   double *radius = atom->radius;
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nall = atom->nlocal + atom->nghost;
 
   int *ilist = list->ilist;
@@ -189,10 +190,10 @@ void Neighbor::granular_nsq_newton_omp(NeighList *list)
 
   double **x = atom->x;
   double *radius = atom->radius;
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
   int nall = atom->nlocal + atom->nghost;
 
   int *ilist = list->ilist;
@@ -292,7 +293,8 @@ void Neighbor::granular_bin_no_newton_omp(NeighList *list)
   MyPage<int> *ipage_touch;
   MyPage<double> *dpage_shear;
 
-  int *npartner,**partner;
+  int *npartner;
+  tagint **partner;
   double (**shearpartner)[3];
   int **firsttouch;
   double **firstshear;
@@ -301,10 +303,10 @@ void Neighbor::granular_bin_no_newton_omp(NeighList *list)
 
   double **x = atom->x;
   double *radius = atom->radius;
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
 
   int *ilist = list->ilist;
   int *numneigh = list->numneigh;
@@ -443,7 +445,7 @@ void Neighbor::granular_bin_newton_omp(NeighList *list)
   double *radius = atom->radius;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
 
   int *ilist = list->ilist;
   int *numneigh = list->numneigh;
@@ -552,7 +554,7 @@ void Neighbor::granular_bin_newton_tri_omp(NeighList *list)
   double *radius = atom->radius;
   int *type = atom->type;
   int *mask = atom->mask;
-  int *molecule = atom->molecule;
+  tagint *molecule = atom->molecule;
 
   int *ilist = list->ilist;
   int *numneigh = list->numneigh;

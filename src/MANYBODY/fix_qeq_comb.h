@@ -75,7 +75,7 @@ E: Fix qeq/comb requires atom attribute q
 
 An atom style with charge must be used to perform charge equilibration.
 
-E: Must use pair_style comb with fix qeq/comb
+E: Must use pair_style comb or comb3 with fix qeq/comb
 
 Self-explanatory.
 

@@ -58,7 +58,7 @@ class FixBondCreate : public Fix {
 
   int nmax;
   int *bondcount;        // count of created bonds this atom is part of
-  int *partner;          // ID of preferred atom for this atom to bond to
+  tagint *partner;       // ID of preferred atom for this atom to bond to
   double *distsq;        // distance to preferred bond partner
   double *probability;   // random # to use in decision to form bond
 
@@ -91,7 +91,8 @@ Self-explanatory.
 
 E: Cannot use fix bond/create with non-molecular systems
 
-Self-explanatory.
+Only systems with bonds that can be changed can be used.  Atom_style
+template does not qualify.
 
 E: Inconsistent iparam/jparam values in fix bond/create command
 
