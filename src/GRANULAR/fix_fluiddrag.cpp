@@ -160,7 +160,7 @@ void FixFluidDrag::init()
   double temppvolume;
   int ltag = 0; //~ The tag of the largest particle
 
-  int *tag = atom->tag;
+  tagint *tag = atom->tag;
   int *mask = atom->mask;
   double *radius = atom->radius;
   int nlocal = atom->nlocal;
@@ -304,7 +304,7 @@ void FixFluidDrag::post_force(int vflag)
   double **f = atom->f;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  int *tag = atom->tag; //~ Use atom tags for ID
+  tagint *tag = atom->tag; //~ Use atom tags for ID
   double **x = atom->x; //~ Write out the coordinates for convenience
 
   //~ Now do the calculation, updating the forces as normal for all particles
@@ -357,7 +357,7 @@ void FixFluidDrag::end_of_step()
     double **f = atom->f;
     int *mask = atom->mask;
     int nlocal = atom->nlocal;
-    int *tag = atom->tag;
+    tagint *tag = atom->tag;
     int *type = atom->type;
     double *rmass = atom->rmass;
     double *mass = atom->mass;

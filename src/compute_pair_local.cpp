@@ -167,7 +167,7 @@ int ComputePairLocal::compute_pairs(int flag)
 
   Pair *pair = force->pair;
   double **cutsq = force->pair->cutsq;
-  int *tag = atom->tag; //~ Added this for use below [KH - 10 January 2013]
+  tagint *tag = atom->tag; //~ Added this for use below [KH - 10 January 2013]
   double *radius = atom->radius; //~ Also added this [KH - 14 January 2013]
 
   m = 0;

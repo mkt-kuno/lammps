@@ -62,7 +62,7 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
   double **x = atom->x;
   double *radius = atom->radius;
   int *mask = atom->mask;
-  int *tag = atom->tag; //~ Need to use atom tags for ID
+  tagint *tag = atom->tag; //~ Need to use atom tags for ID
 
   //~ Gain access to arrays in pairstyle using pair->extract
   Pair *pair;
