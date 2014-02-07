@@ -287,7 +287,7 @@ double PairGranHooke::single(int i, int j, int itype, int jtype, double rsq,
   radsum = radi + radj;
 
   double **x = atom->x;
-  int *tag = atom->tag; //~ Write out the atom tags
+  tagint *tag = atom->tag; //~ Write out the atom tags
 
   // zero out forces if caller requests non-touching pair outside cutoff
 

@@ -387,7 +387,7 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
   radsum = radi + radj;
 
   double **x = atom->x;
-  int *tag = atom->tag; //~ Write out the atom tags
+  tagint *tag = atom->tag; //~ Write out the atom tags
 
   if (rsq >= radsum*radsum) {
     fforce = 0.0;
