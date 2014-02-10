@@ -1332,7 +1332,7 @@ void FixWallGran::rolling_resistance(int i, int numshearq, double dx, double dy,
   
   /*~ Transfer the old omega values to the local coordinate system
     using the rotation matrix T*/
-  MathExtra::matvec(T,globaloldomegai,localoldomegai);
+  MathExtra::transpose_matvec(T,globaloldomegai,localoldomegai);
 
   //~ Now find relative rotations, dthetar, in three directions
   double db[3], dthetar[3];
@@ -1450,7 +1450,7 @@ void FixWallGran::rolling_resistance(int i, int numshearq, double dx, double dy,
     transpose of the rotation matrix, T, by the local resistance
     increments*/
   double globaldM[3];
-  MathExtra::transpose_matvec(T,localdM,globaldM);
+  MathExtra::matvec(T,localdM,globaldM);
 
   /*~ Now add the global resistance increments to the fourth-last, 
     third-last and second-last columns of the shear array and the

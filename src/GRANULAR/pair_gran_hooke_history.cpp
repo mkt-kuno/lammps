@@ -1070,14 +1070,14 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
     using the rotation matrix T*/
   double localoldomegai[3], localoldomegaj[3];
 
-  MathExtra::matvec(T,globaloldomegai,localoldomegai);
-  MathExtra::matvec(T,globaloldomegaj,localoldomegaj);
+  MathExtra::transpose_matvec(T,globaloldomegai,localoldomegai);
+  MathExtra::transpose_matvec(T,globaloldomegaj,localoldomegaj);
 
   //~ Use a similar procedure for the difference in coordinates
   double globaldiffcoords[3], localdiffcoords[3];
   for (int q = 0; q < 3; q++)
     globaldiffcoords[q] = oldomegas[i][q+3] - oldomegas[j][q+3];
-  MathExtra::matvec(T,globaldiffcoords,localdiffcoords);
+  MathExtra::transpose_matvec(T,globaldiffcoords,localdiffcoords);
 
   //~ Now find relative rotations, dthetar, in three directions 
   double PI, beta, dalpha[2], da[3], db[3], dthetar[3];
@@ -1222,7 +1222,7 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
   /*~ Compute the global moment increments by multiplying the 
     transpose of the rotation matrix, T, by the local resistance
     increments*/
-  MathExtra::transpose_matvec(T,localdM,globaldM);
+  MathExtra::matvec(T,localdM,globaldM);
   
   if (!issingle) {
     /*~ Now add the global resistance increments to the fourth-last, 
