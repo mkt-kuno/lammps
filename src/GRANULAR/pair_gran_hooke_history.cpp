@@ -1237,10 +1237,10 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
       shear[numshearq-10+q] += dus[q];
       shear[numshearq-13+q] += dur[q];
 
-      /*~ Finally update the torque values for both i and j. The 
-	increments differ in sign*/
+      /*~ Finally update the torque values for both i and j (the
+	latter only if local to proc). The increments differ in sign*/
       torque[i][q] -= globaldM[q];
-      torque[j][q] += globaldM[q];
+      if (j <= atom->nlocal) torque[j][q] += globaldM[q];
     }
   }
 }
