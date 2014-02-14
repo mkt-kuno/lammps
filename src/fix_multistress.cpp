@@ -581,15 +581,16 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, nar
   strcpy(id_stress,id);
   strcat(id_stress,"_stress");
   
-  char **snewarg = new char*[6];
+  char **snewarg = new char*[7];
   snewarg[0] = id_stress;
   snewarg[1] = (char *) "all";
   snewarg[2] = (char *) "stress/atom";
-  snewarg[3] = (char *) "pair";
-  snewarg[4] = (char *) "fix";
-  snewarg[5] = (char *) "bond";
+  snewarg[3] = (char *) "NULL"; //~ No temperature [KH - 14 Feb. 2013]
+  snewarg[4] = (char *) "pair";
+  snewarg[5] = (char *) "fix";
+  snewarg[6] = (char *) "bond";
 
-  modify->add_compute(6,snewarg);
+  modify->add_compute(7,snewarg);
   delete [] snewarg;
 }
 
