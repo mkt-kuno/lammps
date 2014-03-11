@@ -585,7 +585,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, nar
   snewarg[0] = id_stress;
   snewarg[1] = (char *) "all";
   snewarg[2] = (char *) "stress/atom";
-  snewarg[3] = (char *) "NULL"; //~ No temperature [KH - 14 Feb. 2013]
+  snewarg[3] = (char *) "NULL"; //~ No temperature [KH - 14 Feb. 2014]
   snewarg[4] = (char *) "pair";
   snewarg[5] = (char *) "fix";
   snewarg[6] = (char *) "bond";
