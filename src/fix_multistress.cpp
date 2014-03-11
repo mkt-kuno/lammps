@@ -899,10 +899,8 @@ void FixMultistress::end_of_step()
   means = tstress->array_export();
 
   //~ Accumulate the means from all processors in tallymeans and initialise temprates
-  for (int i = 0; i < 6; i++) {
-    tallymeans[i] = temprates[i] = 0.0;
-    MPI_Allreduce(&means[i],&tallymeans[i],1,MPI_DOUBLE,MPI_SUM,world);
-  }
+  for (int i = 0; i < 6; i++) tallymeans[i] = temprates[i] = 0.0;
+  MPI_Allreduce(&means[0],&tallymeans[0],6,MPI_DOUBLE,MPI_SUM,world);
 
   /*~ Calculate the initial values of mean effective and deviator stress. 
     This is done only once even if fix multistress is redefined while
