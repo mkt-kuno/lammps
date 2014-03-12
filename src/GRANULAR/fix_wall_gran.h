@@ -47,6 +47,9 @@ class FixWallGran : public Fix {
   void reset_dt();
   int modify_param(int, char **);
   double compute_vector(int);
+  void *extract(const char *, int &); //~ [KH - 20 February 2014]
+  void write_restart(FILE *); //~ [KH - 20 February 2014]
+  void restart(char *); //~ [KH - 20 February 2014]
 
  protected:
   int wallstyle,pairstyle,wiggle,wshear,axis,dampflag;
@@ -67,6 +70,10 @@ class FixWallGran : public Fix {
   int *rolling,*model_type; //~ Quantities for rolling resistance model [KH - 30 October 2013]
   double *rolling_delta;
   int lastwarning[2]; //~ Used to control frequencies at which warnings about failures to calculate contact stiffnesses are output in the rolling resistance model [KH - 6 November 2013]
+
+  //~ Add quantities for tracing global energy [KH - 20 February 2014]
+  int pairenergy, *trace_energy;;
+  double dissipfriction, normalstrain, shearstrain;
 
   /*~ Used for accessing fix old_omega when rolling resistance model
     is active [KH - 30 October 2013]*/

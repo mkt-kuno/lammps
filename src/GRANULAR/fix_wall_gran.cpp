@@ -36,6 +36,9 @@
 #include "math_special.h"
 #include "comm.h"
 #include "mpi.h"
+//~ Added compute header files for energy tracing [KH - 20 February 2014]
+#include "compute.h"
+#include "compute_energy_gran.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -58,6 +61,8 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   if (!atom->sphere_flag)
     error->all(FLERR,"Fix wall/gran requires atom style sphere");
 
+  //~ Global information is saved to restart file [KH - 20 February 2014]
+  restart_global = 1;
   restart_peratom = 1;
   create_attribute = 1;
 
@@ -250,6 +255,9 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   if (dim) rolling = (int *) pair->extract("rolling",dim);
   if (*rolling) numshearquants += 13;
 
+  trace_energy = (int *) pair->extract("trace_energy",dim);
+  if (*trace_energy) numshearquants += 4;
+
   /*~ Use same method to obtain model_type and rolling_delta from 
     pairstyles. Also initialise two integers used to limit the 
     numbers of warnings about failures to calculate contact stiffnesses
@@ -284,6 +292,12 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
       shear[i][q] = 0.0; //~ [KH - 30 October 2013]
 
   time_origin = update->ntimestep;
+
+  /*~ Initialise the accumulated energy terms to zero. For the
+    linear contact model, the shear strain is not calculated
+    cumulatively, but it makes no difference to zero it here
+    anyway [KH - 27 February 2014]*/
+  dissipfriction = shearstrain = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -397,6 +411,23 @@ void FixWallGran::post_force(int vflag)
 
   fwall[0] = fwall[1] = fwall[2] = 0.0; //per-processor force// fwall_all[0] = fwall_all[1] = fwall_all[2] = 0.0;
 
+  /*~ Ascertain whether or not energy tracing is active by checking
+    for the presence of compute energy/gran. If so, check if the
+    tracked terms include those calculated in this fix. The
+    energy terms are updated only if necessary for efficiency.
+    [KH - 20 February 2014]*/
+  pairenergy = *trace_energy;
+  if (!pairenergy)
+    for (int q = 0; q < modify->ncompute; q++)
+      if (strcmp(modify->compute[q]->style,"energy/gran") == 0) {
+	pairenergy = ((ComputeEnergyGran *) modify->compute[q])->pairenergy;
+	break;
+      }
+  
+  //~ Initialise the non-accumulated strain energy terms to zero
+  normalstrain = 0.0;
+  if (pairstyle == HOOKE_HISTORY) shearstrain = 0.0;
+  
   // loop over all my atoms
   // rsq = distance from wall
   // dx,dy,dz = signed distance from wall
@@ -684,11 +715,38 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
     rolling_resistance(i,numshearquants,dx,dy,dz,r,radius,ccel,fn,
 		       kt,torque,shear);
 
+  //~ Add contributions to traced energy [KH - 20 February 2014]
+  double aveshearforce, slipdisp, incdissipf, nstr, sstr;
+  if (pairenergy) {
+    /*~ Increment the friction energy only if the slip condition
+      is invoked*/
+    if (fs > fn && fn > 0.0) {
+      slipdisp = (fs-fn)/kt;
+      aveshearforce = 0.5*(fn + fs);
+
+      //~ slipdisp and aveshearforce are both positive
+      incdissipf = aveshearforce*slipdisp;
+      dissipfriction += incdissipf;
+      if (*trace_energy) shear[3] += incdissipf;
+    }
+
+    /*~ Update the strain energy terms which don't need to be 
+      calculated incrementally*/
+    nstr = 0.5*kn*(radius-r)*(radius-r);
+    sstr = 0.5*(fs1*fs1 + fs2*fs2 + fs3*fs3)/kt;
+    normalstrain += nstr;
+    shearstrain += sstr;
+
+    if (trace_energy) {
+      shear[4] = nstr;
+      shear[5] = sstr;
+    }
+  }
+
   fwall[0] += fx;
   fwall[1] += fy;
   fwall[2] += fz;
   if (evflag) ev_tally_wall(i,fx,fy,fz,dx,dy,dz,radius);
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -701,7 +759,7 @@ void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
   double r,vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3;
   double meff,damp,ccel,vtr1,vtr2,vtr3,vrel;
   double fn,fs,fs1,fs2,fs3,fx,fy,fz;
-  double shrmag,rsht,polyhertz,rinv,rsqinv;
+  double shrmag,rsht,polyhertz,rinv,rsqinv,oldshear[3];
 
   r = sqrt(rsq);
   rinv = 1.0/r;
@@ -747,6 +805,11 @@ void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
   // shear history effects
 
   if (shearupdate) {
+    //~ Store the old values of shear [KH - 20 February 2014]
+    oldshear[0] = shear[0];
+    oldshear[1] = shear[1];
+    oldshear[2] = shear[2];
+
     shear[0] += vtr1*dt;
     shear[1] += vtr2*dt;
     shear[2] += vtr3*dt;
@@ -808,11 +871,43 @@ void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
     rolling_resistance(i,numshearquants,dx,dy,dz,r,radius,ccel,fn,
 		       effectivekt,torque,shear);
 
+  //~ Add contributions to traced energy [KH - 20 February 2014]
+  double aveshearforce, slipdisp, oldsheardisp, incrementaldisp;
+  double incdissipf, nstr, sstr;
+  if (pairenergy) {
+    /*~ Increment the friction energy only if the slip condition
+      is invoked*/
+    if (fs > fn && fn > 0.0) {
+      //~ current shear displacement = fn/effectivekt;
+      slipdisp = (fs-fn)/effectivekt;
+      aveshearforce = 0.5*(fn + fs);
+
+      //~ slipdisp and aveshearforce are both positive
+     incdissipf = aveshearforce*slipdisp;
+     dissipfriction += incdissipf;
+     if (trace_energy) shear[3] += incdissipf;
+    }
+
+    /*~ Update the normal contribution to strain energy which 
+      doesn't need to be calculated incrementally*/
+    nstr = 0.4*kn*polyhertz*(radius-r)*(radius-r);
+    normalstrain += nstr;
+    if (trace_energy) shear[4] = nstr;
+	    
+    //~ The shear component does require incremental calculation
+    if (shearupdate) {
+      oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
+      incrementaldisp = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]) - oldsheardisp;
+      sstr = 0.5*incrementaldisp*(2.0*sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3)-effectivekt*incrementaldisp);
+      shearstrain += sstr;
+      if (trace_energy) shear[5] += sstr;
+    }
+  }
+
   fwall[0] += fx;
   fwall[1] += fy;
   fwall[2] += fz;
   if (evflag) ev_tally_wall(i,fx,fy,fz,dx,dy,dz,radius);
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -907,6 +1002,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
 
   // tangential forces done incrementally
 
+  int ctcorrection = 0;
   if (shearupdate) {
     /*~ Apply Colin Thornton's suggested correction (see
       Eq. 18 of 2013 P. Tech. paper) [KH - 30 October 2013]*/
@@ -916,6 +1012,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
       shear[0] *= polyhertz/shear[3];
       shear[1] *= polyhertz/shear[3];
       shear[2] *= polyhertz/shear[3];
+      ctcorrection = 1;
     }
 
     shear[0] -= polyhertz*kt*vtr1*dt;//shear displacement =vtr*dt
@@ -938,9 +1035,6 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
     } else shear[0] = shear[1] = shear[2] = 0.0;
   }
 
-  //~ Assign current polyhertz value to shear[3] [KH - 30 October 2013]
-  shear[3] = polyhertz;
-
   // forces & torques
 
   fx = dx*ccel + shear[0];
@@ -960,6 +1054,70 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
   if (*rolling && shearupdate)
     rolling_resistance(i,numshearquants,dx,dy,dz,r,radius,ccel,fslim,
 		       effectivekt,torque,shear);
+
+  //~ Add contributions to traced energy [KH - 20 February 2014]
+  double aveshearforce, slipdisp, oldshearforce, newshearforce;
+  double incdissipf, nstr, sstr, incrementaldisp, rkt;
+  if (pairenergy) {
+    rkt = 1.0/effectivekt;
+
+    /*~ Increment the friction energy only if the slip condition
+      is invoked*/
+    if (fs > fslim && fslim > 0.0) {
+      //~ current shear displacement = fslim/effectivekt;
+      slipdisp = rkt*(fs-fslim);
+      aveshearforce = 0.5*(fs + fslim);
+
+      //~ slipdisp and aveshearforce are both positive
+      incdissipf = aveshearforce*slipdisp;
+      dissipfriction += incdissipf;
+      if (trace_energy) shear[4] += incdissipf;
+    }
+
+    /*~ Update the normal contribution to strain energy which 
+      doesn't need to be calculated incrementally*/
+    nstr = 0.4*kn*polyhertz*(radius-r)*(radius-r);
+    normalstrain += nstr;
+    if (trace_energy) shear[5] = nstr;
+
+    //~ The shear component does require incremental calculation
+    if (shearupdate) {
+      oldshearforce = sqrt(shsqmag);
+      newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+      incrementaldisp = rkt*(newshearforce - oldshearforce);
+      sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
+      shearstrain += sstr;
+      if (trace_energy) shear[6] += sstr;
+
+      /*~ If Colin Thornton's shear force rescaling has been used, the adjustment
+	made to the energy is added to dissipfriction so that energy will still
+	be balanced [KH - 12 March 2014]*/
+      double fsunscaled[3], fsunscaledmag, a, b, c;
+      double d = 0.0;
+      if (ctcorrection) {
+	b = shear[3]/polyhertz;
+	fs > fslim ? a = b*fs/fslim : a = b;
+	c = effectivekt*dt*(b - 1.0);
+
+	fsunscaled[0] = a*shear[0] + c*vtr1;
+	fsunscaled[1] = a*shear[1] + c*vtr2;
+	fsunscaled[2] = a*shear[2] + c*vtr3;
+	fsunscaledmag = sqrt(fsunscaled[0]*fsunscaled[0] + fsunscaled[1]*fsunscaled[1] + fsunscaled[2]*fsunscaled[2]);
+	
+	if (fs > fslim && fslim > 0.0) {
+	  d += 0.5*rkt*(fsunscaledmag + fslim)*(fsunscaledmag - fslim) - incdissipf;
+	  fsunscaledmag *= fslim/fsunscaledmag;
+	}
+
+	d += 0.5*rkt*(fsunscaledmag - oldshearforce)*(fsunscaledmag + oldshearforce) - sstr;
+	dissipfriction += d;
+	if (trace_energy) shear[4] += d;
+      }
+    }
+  }
+
+  //~ Assign current polyhertz value to shear[3] [KH - 30 October 2013]
+  shear[3] = polyhertz;
 
   fwall[0] += fx;
   fwall[1] += fy;
@@ -1467,5 +1625,64 @@ void FixWallGran::rolling_resistance(int i, int numshearq, double dx, double dy,
 
     //~ Finally update the torque values
     torque[q] -= globaldM[q];
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void *FixWallGran::extract(const char *str, int &dim)
+{
+  /*~ This function was added so that the accumulated energy
+    terms, if computed, may be extracted by ComputeEnergyGran
+    [KH - 20 February 2014]*/
+
+  //~ Extended for boundary work in FixEnergyBoundary [KH - 12 March 2014]
+
+  dim = 0;
+  if (strcmp(str,"dissipfriction") == 0) return (void *) &dissipfriction;
+  else if (strcmp(str,"normalstrain") == 0) return (void *) &normalstrain;
+  else if (strcmp(str,"shearstrain") == 0) return (void *) &shearstrain;
+  else if (strcmp(str,"wiggle") == 0) return (void *) &wiggle;
+  else if (strcmp(str,"wtranslate") == 0) return (void *) &wtranslate;
+  else if (strcmp(str,"wscontrol") == 0) return (void *) &wscontrol;
+  return NULL;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixWallGran::write_restart(FILE *fp)
+{
+  /*~ Added (along with the restart function below) to store the 
+    accumulated energy terms, if computed. Note that the total 
+    energy dissipated by friction and stored as shear strain, 
+    from all procs, is calculated and stored on proc 0 [KH - 28
+    February 2014]*/
+
+  double gatheredf = 0.0;
+  double gatheredss = 0.0;
+  MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
+
+  int n = 0;
+  double list[2];
+  list[n++] = gatheredf;
+  list[n++] = gatheredss;
+  if (comm->me == 0) {
+    int size = n * sizeof(double);
+    fwrite(&size,sizeof(int),1,fp);
+    fwrite(list,sizeof(double),n,fp);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixWallGran::restart(char *buf)
+{
+  int n = 0;
+  double *list = (double *) buf;
+  //~ Only read these quantities to proc 0 [KH - 28 February 2014]
+  if (comm->me == 0) {
+    dissipfriction = static_cast<double> (list[n++]);
+    shearstrain = static_cast<double> (list[n++]);
   }
 }
