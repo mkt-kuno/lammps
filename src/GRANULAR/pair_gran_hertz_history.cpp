@@ -31,6 +31,7 @@
 #include "error.h"
 #include "domain.h" //~ Two header files were added [KH - 9 November 2011]
 #include "modify.h"
+#include "compute_energy_gran.h" //~ For energy tracing [KH - 20 February 2014]
 
 using namespace LAMMPS_NS;
 
@@ -94,7 +95,7 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
   int *type = atom->type;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  double deltan,cri,crj;
+  double deltan,cri,crj,oldshear[3];
 
   inum = list->inum;
   ilist = list->ilist;
@@ -126,9 +127,31 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
       }
   }
 
+  /*~ Ascertain whether or not energy tracing is active by checking
+    for the presence of compute energy/gran and also the trace_energy
+    flag which indicates per-contact tracing is active. If so, check if the
+    tracked terms include those calculated in this pairstyle. The
+    energy terms are updated only if necessary for efficiency.
+    [KH - 6 March 2014]*/
+  int pairenergy = trace_energy;
+  if (!pairenergy)
+    for (int q = 0; q < modify->ncompute; q++)
+      if (strcmp(modify->compute[q]->style,"energy/gran") == 0) {
+	pairenergy = ((ComputeEnergyGran *) modify->compute[q])->pairenergy;
+	break;
+      }
+
+  //~ Initialise the non-accumulated strain energy terms to zero
+  normalstrain = 0.0;
+
   /*~ The number of shear quantities is 16 if rolling resistance
     is active [KH - 25 October 2013]*/
-  int numshearquants = 3 + 13*rolling;
+  /*~ Another 4 shear quantities were added for per-contact energy
+    tracing [KH - 6 March 2014]*/
+  int numshearquants = 3 + 13*rolling + 4*trace_energy;
+
+  //~ Use tags to consider contacts only once [KH - 28 February 2014]
+  tagint *tag = atom->tag; 
 
   // loop over neighbors of my atoms
 
@@ -245,6 +268,11 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
         shear = &allshear[numshearquants*jj];
 
         if (shearupdate) {
+	  //~ Store the old values of shear [KH - 20 February 2014]
+	  oldshear[0] = shear[0];
+	  oldshear[1] = shear[1];
+	  oldshear[2] = shear[2];
+
           shear[0] += vtr1*dt;
           shear[1] += vtr2*dt;
           shear[2] += vtr3*dt;
@@ -318,15 +346,52 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
 	  torque[j][2] -= crj*tor3;
         }
 
-	//~ Call function for rolling resistance model [KH - 25 October 2013]
 	double dur[3], dus[3], localdM[3], globaldM[3]; //~ Pass by reference
 	double effectivekt = kt*polyhertz;
-	if (rolling && shearupdate) {
-	  /*~ The first '0' indicates that the rolling_resistance function is
-	    called by the compute rather than the single function*/
-	  rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
-			     fn,effectivekt,torque,shear,dur,dus,localdM,
-			     globaldM);
+	double aveshearforce, slipdisp, oldsheardisp, incrementaldisp;
+	double incdissipf, nstr, sstr;
+
+	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
+
+	  //~ Call function for rolling resistance model [KH - 25 October 2013]
+	  if (rolling && shearupdate) {
+	    /*~ The first '0' indicates that the rolling_resistance function is
+	      called by the compute rather than the single function*/
+	    rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
+			       fn,effectivekt,torque,shear,dur,dus,localdM,
+			       globaldM);
+	  }
+
+	  //~ Add contributions to traced energy [KH - 20 February 2014]
+	  if (pairenergy) {
+	    /*~ Increment the friction energy only if the slip condition
+	      is invoked*/
+	    if (fs > fn && fn > 0.0) {
+	      //~ current shear displacement = fn/effectivekt;
+	      slipdisp = (fs-fn)/effectivekt;
+	      aveshearforce = 0.5*(fn + fs);
+	      
+	      //~ slipdisp and aveshearforce are both positive
+	      incdissipf = aveshearforce*slipdisp;
+	      dissipfriction += incdissipf;
+	      if (trace_energy) shear[3] += incdissipf;
+	    }
+
+	    /*~ Update the normal contribution to strain energy which 
+	      doesn't need to be calculated incrementally*/
+	    nstr = 0.4*kn*polyhertz*deltan*deltan;
+	    normalstrain += nstr;
+	    if (trace_energy) shear[4] = nstr;
+
+	    //~ The shear component does require incremental calculation
+	    if (shearupdate) {
+	      oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
+	      incrementaldisp = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]) - oldsheardisp;
+	      sstr = 0.5*incrementaldisp*(2.0*sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3)-effectivekt*incrementaldisp);
+	      shearstrain += sstr;
+	      if (trace_energy) shear[5] += sstr;
+	    }
+	  }
 	}
 
         if (evflag) ev_tally_gran(i,j,nlocal,fx,fy,fz,x[i][0],x[i][1],x[i][2],
@@ -389,6 +454,10 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
   double **x = atom->x;
   tagint *tag = atom->tag; //~ Write out the atom tags
 
+  /*~ The number of optional entries in svector for energy
+    tracing and/or rolling resistance [KH - 6 March 2014]*/
+  int optionalq = 4*trace_energy + 25*rolling;
+
   if (rsq >= radsum*radsum) {
     fforce = 0.0;
     svector[0] = svector[1] = svector[2] = svector[3] = 0.0;
@@ -402,12 +471,18 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
       svector[q+10] = x[j][q];
     svector[13] = radj;
 
-    /*~ Add for the rolling resistance model [KH - 25 October 2013]
-      Order: dUr[*], accumulated dUr[*], dUs[*], accumulated dUs[*], 
+    /*~ Four optional entries for energy tracing [KH - 6 March 2014]
+      Order: energy dissipated by friction, normal component of
+      strain energy, shear component of strain energy, other
+      contributions (e.g., from rolling resistance model)
+
+      25 optional entries for the rolling resistance model 
+      [KH - 25 October 2013]. Order: 
+      dUr[*], accumulated dUr[*], dUs[*], accumulated dUs[*], 
       localdM[*], accumulated localdM[*], globaldM[*], accumulated 
       globaldM[*],ksbar*/
-    if (rolling)
-      for (int q = 0; q < 25; q++) svector[q+14] = 0.0;
+    if (optionalq > 0)
+      for (int q = 0; q < optionalq; q++) svector[q+14] = 0.0;
 
     return 0.0;
   }
@@ -519,7 +594,9 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
 
  /*~ The number of shear quantities is 16 if rolling resistance
     is active [KH - 25 October 2013]*/
-  int numshearquants = 3 + 13*rolling;
+  /*~ Another 4 shear quantities were added for per-contact energy
+    tracing [KH - 6 March 2014]*/
+  int numshearquants = 3 + 13*rolling + 4*trace_energy;
   double *shear = &allshear[numshearquants*neighprev];
 
   // rotate shear displacements - not needed- shear already updated by compute!
@@ -572,19 +649,25 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
     svector[q+10] = x[j][q];
   svector[13] = radj;
 
+  //~ Add for energy tracing [KH - 6 March 2014]
+  int nq = 4*trace_energy;
+  if (trace_energy)
+    for (int q = 0; q < 4; q++)
+      svector[q+14] = shear[q+3];
+
   //~ Add for the rolling resistance model [KH - 30 October 2013]
   if (rolling) {
     for (int q = 0; q < 3; q++) {
-      svector[q+14] = dur[q];
-      svector[q+17] = shear[q+3];
-      svector[q+20] = dus[q];
-      svector[q+23] = shear[q+6];
-      svector[q+26] = localdM[q];
-      svector[q+29] = shear[q+9];
-      svector[q+32] = globaldM[q];
-      svector[q+35] = shear[q+12];
+      svector[q+nq+14] = dur[q];
+      svector[q+nq+17] = shear[q+nq+3];
+      svector[q+nq+20] = dus[q];
+      svector[q+nq+23] = shear[q+nq+6];
+      svector[q+nq+26] = localdM[q];
+      svector[q+nq+29] = shear[q+nq+9];
+      svector[q+nq+32] = globaldM[q];
+      svector[q+nq+35] = shear[q+nq+12];
     }
-    svector[38] = shear[numshearquants-1];
+    svector[nq+38] = shear[numshearquants-1];
   }
 
   return 0.0;
