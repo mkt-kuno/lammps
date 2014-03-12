@@ -98,6 +98,10 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
 
   //~ Initialise at 1 [KH - 25 October 2013]
   model_type = 1;
+
+  /*~ Initialise the status of per-contact energy tracing as
+    inactive [KH - 6 March 2014]*/
+  trace_energy = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -141,6 +145,10 @@ void Pair::modify_params(int narg, char **arg)
 	error->all(FLERR,"model_type must be a positive integer in rolling resistance model");
 
       iarg += 3;
+    } else if (strcmp(arg[iarg],"trace_energy") == 0) {
+      //~ This pair_modify option was added [KH - 6 March 2014]
+      trace_energy = 1;
+      iarg++;
     } else if (strcmp(arg[iarg],"shift") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal pair_modify command");
       if (strcmp(arg[iarg+1],"yes") == 0) offset_flag = 1;

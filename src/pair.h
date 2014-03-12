@@ -211,6 +211,10 @@ class Pair : protected Pointers {
   int rolling,model_type;
   double rolling_delta;
 
+  /*~ Added flag which indicates whether per-contact energy tracing is
+    active or not [KH - 6 March 2014]*/
+  int trace_energy;
+
   virtual void ev_setup(int, int);
   void ev_unset();
   void ev_tally_full(int, double, double, double, double, double, double);
