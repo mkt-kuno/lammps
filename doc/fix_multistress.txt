@@ -294,8 +294,8 @@ minimization"_minimize.html.
 
 * Boundaries that are controlled by fix multistress must be periodic.
 
-* The {linkvolstress}, {constantp} and {constantb} options are not defined for 2D simulations.
+* The {linkvolstress}, {constantp}, {constantq} and {constantb} options are not defined for 2D simulations.
 
 [Defaults:]
 
-The option defaults are {units} = {lattice}, no maximum strain rate and no volume or p' control.
+The option defaults are {units} = {lattice}, no maximum strain rate and no volume/p'/q control.
