@@ -51,8 +51,8 @@ FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
   //~ pair/gran/shm/history has 4 shear quantities
   if (force->pair_match("shm",0)) numshearquants++;
 
-  /*~ Finally, adding a rolling resistance model causes the number of
-    shear history quantities to be increased by 13. Gain access to
+  /*~ Adding a rolling resistance model causes the number of
+    shear quantities to be increased by 13. Gain access to
     arrays in pairstyle using pair->extract [KH - 6 February 2014]*/
   Pair *pair;
 
@@ -67,6 +67,11 @@ FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
   int dim;
   int *rolling = (int *) pair->extract("rolling",dim);
   if (*rolling) numshearquants += 13;
+
+  /*~ Per-contact energy tracing causes the number of shear quantities
+    to increase by 4 [KH - 6 March 2014]*/
+  int *trace_energy = (int *) pair->extract("trace_energy",dim);
+  if (*trace_energy) numshearquants += 4;
 
   //~ Allocate memory for the sheardata array
   nrows = 1;

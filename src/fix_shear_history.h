@@ -60,10 +60,16 @@ class FixShearHistory : public Fix {
     numbers of shear quantities. There are no space implications as
     memory will be allocated for only one of these later on (using new)
     [KH - 9 January 2014]*/
+  //~ ----------------- without energy tracing ----------------------
   double (**shearpartner3)[3]; //~ hooke/history or hertz/history
   double (**shearpartner4)[4]; //~ shm/history
   double (**shearpartner16)[16]; //~ hooke/history or hertz/history with rolling
   double (**shearpartner17)[17]; //~ shm/history with rolling
+  //~ ----------------- with energy tracing ----------------------
+  double (**shearpartner7)[7]; //~ hooke/history or hertz/history
+  double (**shearpartner8)[8]; //~ shm/history
+  double (**shearpartner20)[20]; //~ hooke/history or hertz/history with rolling
+  double (**shearpartner21)[21]; //~ shm/history with rolling
 
   int num_quants;               // the number of extra quantities for each partner (i.e. contact) modified GM
   int maxtouch;                 // max # of touching partners for my atoms
@@ -78,8 +84,12 @@ class FixShearHistory : public Fix {
     2014]*/
   MyPage<double[3]> *dpage3;     // pages of shear history with partners
   MyPage<double[4]> *dpage4;
+  MyPage<double[7]> *dpage7;
+  MyPage<double[8]> *dpage8;
   MyPage<double[16]> *dpage16;
   MyPage<double[17]> *dpage17;
+  MyPage<double[20]> *dpage20;
+  MyPage<double[21]> *dpage21;
 
   void allocate_pages();
 };
