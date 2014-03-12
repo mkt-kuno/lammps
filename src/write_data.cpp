@@ -65,7 +65,7 @@ void WriteData::command(int narg, char **arg)
   int n = strlen(arg[0]) + 16;
   char *file = new char[n];
 
-  if (ptr = strchr(arg[0],'*')) {
+  if ((ptr = strchr(arg[0],'*'))) {
     *ptr = '\0';
     sprintf(file,"%s" BIGINT_FORMAT "%s",arg[0],update->ntimestep,ptr+1);
   } else strcpy(file,arg[0]);
@@ -152,11 +152,11 @@ void WriteData::write(char *file)
   // sum up bond,angle counts
   // may be different than atom->nbonds,nangles if broken/turned-off
 
-  if (atom->molecular == 1 && atom->nbonds || atom->nbondtypes) {
+  if (atom->molecular == 1 && (atom->nbonds || atom->nbondtypes)) {
     nbonds_local = atom->avec->pack_bond(NULL);
     MPI_Allreduce(&nbonds_local,&nbonds,1,MPI_LMP_BIGINT,MPI_SUM,world);
   }
-  if (atom->molecular == 1 && atom->nangles || atom->nangletypes) {
+  if (atom->molecular == 1 && (atom->nangles || atom->nangletypes)) {
     nangles_local = atom->avec->pack_angle(NULL);
     MPI_Allreduce(&nangles_local,&nangles,1,MPI_LMP_BIGINT,MPI_SUM,world);
   }
@@ -272,27 +272,27 @@ void WriteData::force_fields()
 {
   if (force->pair && force->pair->writedata) {
     if (pairflag == II) {
-      fprintf(fp,"\nPair Coeffs\n\n");
+      fprintf(fp,"\nPair Coeffs # %s\n\n", force->pair_style);
       force->pair->write_data(fp);
     } else if (pairflag == IJ) {
-      fprintf(fp,"\nPairIJ Coeffs\n\n");
+      fprintf(fp,"\nPairIJ Coeffs # %s\n\n", force->pair_style);
       force->pair->write_data_all(fp);
     }
   }
   if (force->bond && force->bond->writedata) {
-    fprintf(fp,"\nBond Coeffs\n\n");
+    fprintf(fp,"\nBond Coeffs # %s\n\n", force->bond_style);
     force->bond->write_data(fp);
   }
   if (force->angle && force->angle->writedata) {
-    fprintf(fp,"\nAngle Coeffs\n\n");
+    fprintf(fp,"\nAngle Coeffs # %s\n\n", force->angle_style);
     force->angle->write_data(fp);
   }
   if (force->dihedral && force->dihedral->writedata) {
-    fprintf(fp,"\nDihedral Coeffs\n\n");
+    fprintf(fp,"\nDihedral Coeffs # %s\n\n", force->dihedral_style);
     force->dihedral->write_data(fp);
   }
   if (force->improper && force->improper->writedata) {
-    fprintf(fp,"\nImproper Coeffs\n\n");
+    fprintf(fp,"\nImproper Coeffs # %s\n\n", force->improper_style);
     force->improper->write_data(fp);
   }
 }
@@ -329,7 +329,7 @@ void WriteData::atoms()
   MPI_Request request;
 
   if (me == 0) {
-    fprintf(fp,"\nAtoms\n\n");
+    fprintf(fp,"\nAtoms # %s\n\n",atom->atom_style);
     for (int iproc = 0; iproc < nprocs; iproc++) {
       if (iproc) {
         MPI_Irecv(&buf[0][0],maxrow*ncol,MPI_DOUBLE,iproc,0,world,&request);
@@ -422,7 +422,7 @@ void WriteData::bonds()
 
   // pack my bond data into buf
 
-  int foo = atom->avec->pack_bond(buf);
+  atom->avec->pack_bond(buf);
 
   // write one chunk of info per proc to file
   // proc 0 pings each proc, receives its chunk, writes to file

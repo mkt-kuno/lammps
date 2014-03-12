@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -32,13 +32,16 @@ class ReadData : protected Pointers {
   void command(int, char **);
 
  private:
-  int me;
-  char *line,*keyword,*buffer;
+  char *line,*keyword,*buffer,*style;
   FILE *fp;
-  int narg,maxarg,compressed;
   char **arg;
+  int me,narg,maxarg,compressed;
 
-  int nfix;         // # of extra fixes that process/store info in data file
+  // optional args
+
+  int addflag,mergeflag;
+  double offset[3];
+  int nfix;         
   int *fix_index;
   char **fix_header;
   char **fix_section;
@@ -59,6 +62,7 @@ class ReadData : protected Pointers {
   void parse_keyword(int);
   void skip_lines(bigint);
   void parse_coeffs(char *, const char *, int);
+  int style_match(const char *, const char *);
 
   void atoms();
   void velocities();

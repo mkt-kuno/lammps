@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -13,38 +13,29 @@
 
 #ifdef FIX_CLASS
 
-FixStyle(EVENT/PRD,FixEventPRD)
+FixStyle(oneway,FixOneWay)
 
 #else
 
-#ifndef LMP_FIX_EVENT_PRD_H
-#define LMP_FIX_EVENT_PRD_H
+#ifndef LMP_FIX_ONEWAY_H
+#define LMP_FIX_ONEWAY_H
 
-#include "fix_event.h"
+#include "fix.h"
 
 namespace LAMMPS_NS {
 
-class FixEventPRD : public FixEvent {
+class FixOneWay : public Fix {
  public:
-  int event_number;      // event counter
-  bigint event_timestep; // timestep of last event on any replica
-  bigint clock;          // total elapsed timesteps across all replicas
-  int replica_number;    // replica where last event occured
-  int correlated_event;  // 1 if last event was correlated, 0 otherwise
-  int ncoincident;       // # of simultaneous events on different replicas
+  FixOneWay(class LAMMPS *, int, char **);
+  virtual ~FixOneWay();
+  int setmask();
+  virtual void init();
+  virtual void end_of_step();
 
-  FixEventPRD(class LAMMPS *, int, char **);
-  ~FixEventPRD() {}
-
-  void write_restart(FILE *);
-  void restart(char *);
-
-  // methods specific to FixEventPRD, invoked by PRD
-
-  void store_event_prd(bigint, int);
-
- private:
-
+ protected:
+  int direction;
+  int regionidx;
+  char *regionstr;
 };
 
 }

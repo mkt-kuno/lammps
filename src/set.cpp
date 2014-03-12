@@ -771,7 +771,6 @@ void Set::setrandom(int keyword)
 
   AtomVecEllipsoid *avec_ellipsoid =
     (AtomVecEllipsoid *) atom->style_match("ellipsoid");
-  AtomVecLine *avec_line = (AtomVecLine *) atom->style_match("line");
   AtomVecTri *avec_tri = (AtomVecTri *) atom->style_match("tri");
 
   RanPark *random = new RanPark(lmp,1);
@@ -835,8 +834,6 @@ void Set::setrandom(int keyword)
   // set quaternions to random orientations in 3d or 2d
 
   } else if (keyword == QUAT_RANDOM) {
-    int *ellipsoid = atom->ellipsoid;
-    int *tri = atom->tri;
     int nlocal = atom->nlocal;
     double *quat;
 
