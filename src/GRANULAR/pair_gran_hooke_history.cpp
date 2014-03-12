@@ -38,6 +38,7 @@
 #include "fix_old_omega.h" //~ And these three too [KH - 6 November 2013]
 #include "math_special.h"
 #include "mpi.h"
+#include "compute_energy_gran.h" //~ For energy tracing [KH - 19 February 2014]
 
 using namespace LAMMPS_NS;
 
@@ -54,7 +55,8 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
   /*~ Modified for rolling resistance model. The last 25(!) entries 
     in svector will be unused if rolling resistance model is inactive
     [KH - 30 October 2013]*/
-  single_extra = 39;
+  //~ Added four more for energy tracing [KH - 6 March 2014]
+  single_extra = 43;
   svector = new double[single_extra]; //~ Changed to single_extra [KH - 25 October 2013]
 
   computeflag = 0;
@@ -71,6 +73,12 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
   // set comm size needed by this Pair if used with fix rigid
 
   comm_forward = 1;
+
+  /*~ Initialise the accumulated energy terms to zero. For the
+    linear contact model, the shear strain is not calculated
+    cumulatively, but it makes no difference to zero it here
+    anyway [KH - 27 February 2014]*/
+  dissipfriction = shearstrain = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -185,9 +193,31 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
       }
   }
 
+  /*~ Ascertain whether or not energy tracing is active by checking
+    for the presence of compute energy/gran and also the trace_energy
+    flag which indicates per-contact tracing is active. If so, check if the
+    tracked terms include those calculated in this pairstyle. The
+    energy terms are updated only if necessary for efficiency.
+    [KH - 6 March 2014]*/
+  int pairenergy = trace_energy;
+  if (!pairenergy)
+    for (int q = 0; q < modify->ncompute; q++)
+      if (strcmp(modify->compute[q]->style,"energy/gran") == 0) {
+	pairenergy = ((ComputeEnergyGran *) modify->compute[q])->pairenergy;
+	break;
+      }
+
+  //~ Initialise the strain energy terms to zero
+  normalstrain = shearstrain = 0.0;
+
   /*~ The number of shear quantities is 16 if rolling resistance
     is active [KH - 24 October 2013]*/
-  int numshearquants = 3 + 13*rolling;
+  /*~ Another 4 shear quantities were added for per-contact energy
+    tracing [KH - 6 March 2014]*/
+  int numshearquants = 3 + 13*rolling + 4*trace_energy;
+
+  //~ Use tags to consider contacts only once [KH - 28 February 2014]
+  tagint *tag = atom->tag; 
 
   // loop over neighbors of my atoms
 
@@ -375,13 +405,46 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 	  torque[j][2] -= crj*tor3;
         }
 
-	//~ Call function for rolling resistance model [KH - 25 October 2013]
 	double dur[3], dus[3], localdM[3], globaldM[3]; //~ Pass by reference
-	if (rolling && shearupdate) {
-	  /*~ The first '0' indicates that the rolling_resistance function is
-	    called by the compute rather than the single function*/
-	  rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
-			     fn,kt,torque,shear,dur,dus,localdM,globaldM);
+	double aveshearforce, slipdisp; //~ Required for energy
+	double incdissipf, nstr, sstr;
+
+	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
+
+	  //~ Call function for rolling resistance model [KH - 25 October 2013]
+	  if (rolling && shearupdate) {
+	    /*~ The first '0' indicates that the rolling_resistance function is
+	      called by the compute rather than the single function*/
+	    rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
+			       fn,kt,torque,shear,dur,dus,localdM,globaldM);
+	  }
+
+	  //~ Add contributions to traced energy [KH - 19 February 2014]
+	  if (pairenergy) {
+	    /*~ Increment the friction energy only if the slip condition
+	      is invoked*/
+	    if (fs > fn && fn > 0.0) {
+	      slipdisp = (fs-fn)/kt;
+	      aveshearforce = 0.5*(fn + fs);
+
+	      //~ slipdisp and aveshearforce are both positive
+	      incdissipf = aveshearforce*slipdisp;
+	      dissipfriction += incdissipf;
+	      if (trace_energy) shear[3] += incdissipf;
+	    }
+
+	    /*~ Update the strain energy terms which don't need to
+	      be calculated incrementally*/
+	    nstr = 0.5*kn*deltan*deltan;
+	    sstr = 0.5*(fs1*fs1 + fs2*fs2 + fs3*fs3)/kt;
+	    normalstrain += nstr;
+	    shearstrain += sstr;
+
+	    if (trace_energy) {
+	      shear[4] = nstr;
+	      shear[5] = sstr;
+	    }
+	  }
 	}
 
         if (evflag) ev_tally_gran(i,j,nlocal,fx,fy,fz,x[i][0],x[i][1],x[i][2],
@@ -477,6 +540,12 @@ void PairGranHookeHistory::init_style()
   if (comm->ghost_velocity == 0)
     error->all(FLERR,"Pair granular requires ghost atoms store velocity");
 
+  /*~ Have 16 shear quantities if rolling resistance is included
+    [KH - 24 October 2013]*/
+  /*~ Another 4 shear quantities are needed for per-contact energy
+    tracing [KH - 6 March 2014]*/
+  int numshearquants = 3 + 13*rolling + 4*trace_energy;
+
   // need a granular neigh list and optionally a granular history neigh list
 
   int irequest = neighbor->request(this);
@@ -487,11 +556,7 @@ void PairGranHookeHistory::init_style()
     neighbor->requests[irequest]->id = 1;
     neighbor->requests[irequest]->half = 0;
     neighbor->requests[irequest]->granhistory = 1;
-
-    /*~ Have 16 shear quantities if rolling resistance is included
-      [KH - 24 October 2013]*/
-    if (rolling) neighbor->requests[irequest]->dnum = 16;
-    else neighbor->requests[irequest]->dnum = 3;
+    neighbor->requests[irequest]->dnum = numshearquants;
   }
 
   dt = update->dt;
@@ -506,15 +571,19 @@ void PairGranHookeHistory::init_style()
 
   if (history && fix_history == NULL) {
     /*~ Even though the default of 3 is sufficient without rolling
-      resistance, it is cleaner to always specify the number of
-      shear quantities (optional last arg) [KH - 23 October 2013]*/
+      resistance and energy tracing, it is cleaner to always 
+      specify the number of shear quantities (optional last arg) 
+      [KH - 6 March 2014]*/
 
     char **fixarg = new char*[4]; //~ Increased from 3 to 4
     fixarg[0] = (char *) "SHEAR_HISTORY";
     fixarg[1] = (char *) "all";
     fixarg[2] = (char *) "SHEAR_HISTORY";
-    if (rolling) fixarg[3] = (char *) "16"; //~ Added this condition
-    else fixarg[3] = (char *) "3";
+
+    //~ Carry out the necessary string conversion [KH - 6 March 2014]
+    char nsq[5] = {0};
+    sprintf(nsq,"%i",numshearquants);
+    fixarg[3] = nsq; //~ Changed this condition
     modify->add_fix(4,fixarg,suffix); //~ Increased to 4
     delete [] fixarg;
     fix_history = (FixShearHistory *) modify->fix[modify->nfix-1];
@@ -659,6 +728,17 @@ void PairGranHookeHistory::write_restart_settings(FILE *fp)
   fwrite(&gammat,sizeof(double),1,fp);
   fwrite(&xmu,sizeof(double),1,fp);
   fwrite(&dampflag,sizeof(int),1,fp);
+
+  /*~ Added energy terms. Note that the total energy dissipated by
+    friction and stored as shear strain, from all procs, is 
+    calculated and stored on proc 0 [KH - 28 February 2014]*/
+  double gatheredf = 0.0;
+  MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
+  fwrite(&gatheredf,sizeof(double),1,fp);
+
+  double gatheredss = 0.0;
+  MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
+  fwrite(&gatheredss,sizeof(double),1,fp);
 }
 
 /* ----------------------------------------------------------------------
@@ -674,6 +754,12 @@ void PairGranHookeHistory::read_restart_settings(FILE *fp)
     fread(&gammat,sizeof(double),1,fp);
     fread(&xmu,sizeof(double),1,fp);
     fread(&dampflag,sizeof(int),1,fp);
+
+    /*~ Added energy terms. The total energy is read to the root
+    proc and is NOT broadcast to all procs as only the total summed
+    across all procs is of interest [KH - 28 February 2014]*/
+    fread(&dissipfriction,sizeof(double),1,fp);
+    fread(&shearstrain,sizeof(double),1,fp);
   }
   MPI_Bcast(&kn,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&kt,1,MPI_DOUBLE,0,world);
@@ -713,6 +799,10 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
   double **x = atom->x;
   tagint *tag = atom->tag; //~ Write out the atom tags
 
+  /*~ The number of optional entries in svector for energy
+    tracing and/or rolling resistance [KH - 6 March 2014]*/
+  int optionalq = 4*trace_energy + 25*rolling;
+
   if (rsq >= radsum*radsum) {
     fforce = 0.0;
     svector[0] = svector[1] = svector[2] = svector[3] = 0.0;
@@ -726,12 +816,18 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
       svector[q+10] = x[j][q];
     svector[13] = radj;
 
-    /*~ Add for the rolling resistance model [KH - 25 October 2013]
-      Order: dUr[*], accumulated dUr[*], dUs[*], accumulated dUs[*], 
+    /*~ Four optional entries for energy tracing [KH - 6 March 2014]
+      Order: energy dissipated by friction, normal component of
+      strain energy, shear component of strain energy, other
+      contributions (e.g., from rolling resistance model)
+
+      25 optional entries for the rolling resistance model 
+      [KH - 25 October 2013]. Order: 
+      dUr[*], accumulated dUr[*], dUs[*], accumulated dUs[*], 
       localdM[*], accumulated localdM[*], globaldM[*], accumulated 
       globaldM[*],ksbar*/
-    if (rolling)
-      for (int q = 0; q < 25; q++) svector[q+14] = 0.0;
+    if (optionalq > 0)
+      for (int q = 0; q < optionalq; q++) svector[q+14] = 0.0;
 
     return 0.0;
   }
@@ -840,7 +936,9 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
 
   /*~ The number of shear quantities is 16 if rolling resistance
     is active [KH - 25 October 2013]*/
-  int numshearquants = 3 + 13*rolling;
+  /*~ Another 4 shear quantities were added for per-contact energy
+    tracing [KH - 6 March 2014]*/
+  int numshearquants = 3 + 13*rolling + 4*trace_energy;
   double *shear = &allshear[numshearquants*neighprev];
 
   // rotate shear displacements - not needed- shear already updated by compute!
@@ -892,19 +990,25 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
     svector[q+10] = x[j][q];
   svector[13] = radj;
 
+  //~ Add for energy tracing [KH - 6 March 2014]
+  int nq = 4*trace_energy;
+  if (trace_energy)
+    for (int q = 0; q < 4; q++)
+      svector[q+14] = shear[q+3];
+
   //~ Add for the rolling resistance model [KH - 30 October 2013]
   if (rolling) {
     for (int q = 0; q < 3; q++) {
-      svector[q+14] = dur[q];
-      svector[q+17] = shear[q+3];
-      svector[q+20] = dus[q];
-      svector[q+23] = shear[q+6];
-      svector[q+26] = localdM[q];
-      svector[q+29] = shear[q+9];
-      svector[q+32] = globaldM[q];
-      svector[q+35] = shear[q+12];
+      svector[q+nq+14] = dur[q];
+      svector[q+nq+17] = shear[q+nq+3];
+      svector[q+nq+20] = dus[q];
+      svector[q+nq+23] = shear[q+nq+6];
+      svector[q+nq+26] = localdM[q];
+      svector[q+nq+29] = shear[q+nq+9];
+      svector[q+nq+32] = globaldM[q];
+      svector[q+nq+35] = shear[q+nq+12];
     }
-    svector[38] = shear[numshearquants-1];
+    svector[nq+38] = shear[numshearquants-1];
   }
 
   return 0.0;
@@ -948,6 +1052,10 @@ void *PairGranHookeHistory::extract(const char *str, int &dim)
   else if (strcmp(str,"rolling") == 0) return (void *) &rolling;
   else if (strcmp(str,"model_type") == 0) return (void *) &model_type;
   else if (strcmp(str,"rolling_delta") == 0) return (void *) &rolling_delta;
+  else if (strcmp(str,"dissipfriction") == 0) return (void *) &dissipfriction;
+  else if (strcmp(str,"normalstrain") == 0) return (void *) &normalstrain;
+  else if (strcmp(str,"shearstrain") == 0) return (void *) &shearstrain;
+  else if (strcmp(str,"trace_energy") == 0) return (void *) &trace_energy;
   return NULL;
 }
 

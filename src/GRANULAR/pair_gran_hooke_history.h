@@ -76,6 +76,9 @@ class PairGranHookeHistory : public Pair {
   class Fix *deffix;
 
   int lastwarning[2]; //~ Used to control frequencies at which warnings about failures to calculate contact stiffnesses are output in the rolling resistance model [KH - 6 November 2013]
+
+  //~ Add quantities for tracing global energy [KH - 19 February 2014]
+  double dissipfriction, normalstrain, shearstrain;
 };
 
 }
