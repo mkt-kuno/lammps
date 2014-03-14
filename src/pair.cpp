@@ -89,8 +89,14 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
   eatom = NULL;
   vatom = NULL;
 
+  // CUDA and KOKKOS per-fix data masks
+
   datamask = ALL_MASK;
   datamask_ext = ALL_MASK;
+
+  execution_space = Host;
+  datamask_read = ALL_MASK;
+  datamask_modify = ALL_MASK;
 
   /*~ Added to initialise the status of the rolling resistance
     model as disabled [KH - 23 October 2013]*/
