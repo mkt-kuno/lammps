@@ -17,6 +17,10 @@
   
   Energy dissipated by friction ('friction')
 
+  Energy dissipated by local damping ('local_damping')
+  Energy dissipated by viscous damping ('viscous_damping')
+  Total energy dissipated by damping ('damping')
+
   Energy added/removed by boundary work ('boundary')
 
   Rotational kinetic energy ('rotational_kinetic')
@@ -59,6 +63,8 @@ class ComputeEnergyGran : public Compute {
   int length_enum; //~ The length of an enumeration
   int wallactive; //~ The ID of fix wall/gran, if present
   int wallcheck; //~ 1 if the check for walls has been done
+  int dampactive[2]; //~ The IDs of fix damp/local and fix viscous
+  int dampcheck[2]; //~ 1 if the check for local/viscous damping done
   int *inputs;
   double *evector, **earray;
   double kinetic[3];
@@ -67,6 +73,7 @@ class ComputeEnergyGran : public Compute {
   //~ List of helper functions to obtain and prepare the data
   double pair_extract(const char *);
   double kinetic_extract(int);
+  double damping_extract(const char *, int);
   void add_fix_energy_boundary();
   inline double peratom_rke(double, double, double, double);
   inline double peratom_tke(double, double, double);

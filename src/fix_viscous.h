@@ -35,10 +35,17 @@ class FixViscous : public Fix {
   void post_force(int);
   void post_force_respa(int, int, int);
   void min_post_force(int);
+  void *extract(const char *, int &); //~ To fetch energy [KH - 9 April 2014]
+  void write_restart(FILE *); //~ To store energy in restart file
+  void restart(char *);
 
  protected:
   double *gamma;
   int nlevels_respa;
+
+  int energy_calc; //~ 0 if energy not computed; else 1 [KH - 9 April 2014]
+  double energy_dissip; //~ Energy dissipated by damping
+  double dissipated_energy(double); //~ Function to calculate dissipation
 };
 
 }

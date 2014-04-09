@@ -33,14 +33,20 @@ class FixDampLocal : public Fix {
   void setup(int);
   void post_force(int);
   void post_force_respa(int, int, int);
-
   int modify_param(int, char **); // added in so as to be able to reset parameters
+  void *extract(const char *, int &); //~ To fetch energy [KH - 9 April 2014]
+  void write_restart(FILE *); //~ To store energy in restart file
+  void restart(char *);
 
  protected:
   double alpha;
   int nlevels_respa;
 
   double signofnum(double);
+
+  int energy_calc; //~ 0 if energy not computed; else 1 [KH - 9 April 2014]
+  double energy_dissip; //~ Energy dissipated by damping
+  double dissipated_energy(double, int, double *, double *); //~ Function to calculate dissipation
 };
 
 }

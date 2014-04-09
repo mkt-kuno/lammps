@@ -26,7 +26,7 @@
 
 using namespace LAMMPS_NS;
 
-enum{FRICTION,RKINETIC,TKINETIC,KINETIC,NSTRAIN,SSTRAIN,STRAIN,BOUNDARY};
+enum{FRICTION,RKINETIC,TKINETIC,KINETIC,NSTRAIN,SSTRAIN,STRAIN,BOUNDARY,LDAMP,VDAMP,DAMP};
 
 /* ---------------------------------------------------------------------- */
 
@@ -43,7 +43,7 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
 
   /*~ Read in the user-defined inputs. The order of the inputs
     corresponds exactly to the ordering in the output vector.*/
-  length_enum = 8;
+  length_enum = 11;
   inputs = new int[length_enum];
   for (int i = 0; i < length_enum; i++) inputs[i] = -1;
 
@@ -82,6 +82,15 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(arg[iarg],"boundary") == 0) {
       if (inputs[iarg-3] < 0) inputs[iarg-3] = BOUNDARY;
       else error->all(FLERR,"Duplicated boundary input to ComputeEnergyGran");
+    } else if (strcmp(arg[iarg],"local_damping") == 0) {
+      if (inputs[iarg-3] < 0) inputs[iarg-3] = LDAMP;
+      else error->all(FLERR,"Duplicated local damping input to ComputeEnergyGran");
+    } else if (strcmp(arg[iarg],"viscous_damping") == 0) {
+      if (inputs[iarg-3] < 0) inputs[iarg-3] = VDAMP;
+      else error->all(FLERR,"Duplicated viscous damping input to ComputeEnergyGran");
+    } else if (strcmp(arg[iarg],"damping") == 0) {
+      if (inputs[iarg-3] < 0) inputs[iarg-3] = DAMP;
+      else error->all(FLERR,"Duplicated damping input to ComputeEnergyGran");
     } else error->all(FLERR,"Invalid input to ComputeEnergyGran");
   }
 
@@ -96,6 +105,9 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
 
   wallactive = -1; //~ Increased later if walls are present in the simulation
   wallcheck = 0; //~ 0 indicates the check for walls must still be done
+
+  dampactive[0] = dampactive[1] = -1; //~ Increased later if damping present
+  dampcheck[0] = dampcheck[1] = 0; //~ The check for damping must still be done
 
   /*~ Set up a new fix if boundary work needs to be calculated. This
     is in the constructor as the setmask function of this fix needs 
@@ -153,6 +165,10 @@ void ComputeEnergyGran::compute_vector()
       //~ Fetch the boundary work from FixEnergyBoundary
       vector[i] = *((double *) deffix->extract("boundary_work",dim)); //~ BOUNDARY
     }
+    else if (inputs[i] == 8) vector[i] = damping_extract("damp/local",0); //~ LDAMP
+    else if (inputs[i] == 9) vector[i] = damping_extract("viscous",1); //~ VDAMP
+    else if (inputs[i] == 10) vector[i] = damping_extract("damp/local",0)
+				+ damping_extract("viscous",1); //~ DAMP
   }
 }
 
@@ -194,6 +210,29 @@ double ComputeEnergyGran::kinetic_extract(int i)
   MPI_Allreduce(&kinetic[i],&gathered,1,MPI_DOUBLE,MPI_SUM,world);
 
   return gathered;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double ComputeEnergyGran::damping_extract(const char *str, int p)
+{
+  double singleproc;
+  double gathered = 0.0;
+
+  /*~ Firstly determine whether damping is active if this check
+    has not already been done*/
+  if (!dampcheck[p]) {
+    for (int i = 0; i < modify->nfix; i++)
+      if (strcmp(modify->fix[i]->style,str) == 0) dampactive[p] = i;
+    dampcheck[p] = 1;
+  }
+
+  if (dampactive[p] >= 0) {
+    singleproc = *((double *) modify->fix[dampactive[p]]->extract("energy_dissip",dim));
+    MPI_Allreduce(&singleproc,&gathered,1,MPI_DOUBLE,MPI_SUM,world);
+  }
+
+  return gathered; //~ Will be zero if damping is inactive
 }
 
 /* ---------------------------------------------------------------------- */
