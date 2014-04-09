@@ -318,9 +318,9 @@ void PairComb3::read_lib()
   MPI_Comm_rank(world,&comm->me);
 
   // open libraray file on proc 0
-  
+
   if(comm->me == 0) {
-    FILE *fp =  open_potential("lib.comb3");
+    FILE *fp = force->open_potential("lib.comb3");
     if (fp == NULL) {
       char str[128];
       sprintf(str,"Cannot open COMB3 C library file \n");
@@ -1020,6 +1020,9 @@ void PairComb3::compute(int eflag, int vflag)
       i = ilist[ii];
       itag = tag[i];
       itype = map[type[i]];
+      xtmp = x[i][0];
+      ytmp = x[i][1];
+      ztmp = x[i][2];
       iq = q[i];
       jlist = firstneigh[i];
       jnum = numneigh[i];
@@ -1041,9 +1044,9 @@ void PairComb3::compute(int eflag, int vflag)
         jtype = map[type[j]];
         jq = q[j];
 
-        delrj[0] = x[j][0] - x[i][0];
-        delrj[1] = x[j][1] - x[i][1];
-        delrj[2] = x[j][2] - x[i][2];
+        delrj[0] = x[j][0] - xtmp;
+        delrj[1] = x[j][1] - ytmp;
+        delrj[2] = x[j][2] - ztmp;
         rsq = vec3_dot(delrj,delrj);
 
         iparam_ij = elem2param[itype][jtype][jtype];
@@ -1053,8 +1056,8 @@ void PairComb3::compute(int eflag, int vflag)
 
         tri_point(rsq, mr1, mr2, mr3, sr1, sr2, sr3);
       
-        dipole_init(&params[iparam_ij],&params[iparam_ji],fac11,delrj
-	      ,rsq,mr1,mr2,mr3,sr1,sr2,sr3,iq,jq,i,j);
+        dipole_init(&params[iparam_ij],&params[iparam_ji],fac11,delrj,
+                    rsq,mr1,mr2,mr3,sr1,sr2,sr3,iq,jq,i,j);
       }
     }
 

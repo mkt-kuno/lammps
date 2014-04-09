@@ -25,7 +25,6 @@
 #include "pair_airebo.h"
 #include "atom.h"
 #include "neighbor.h"
-#include "neigh_request.h"
 #include "force.h"
 #include "comm.h"
 #include "neighbor.h"
@@ -3328,7 +3327,7 @@ void PairAIREBO::read_file(char *filename)
   // read file on proc 0
 
   if (me == 0) {
-    FILE *fp = open_potential(filename);
+    FILE *fp = force->open_potential(filename);
     if (fp == NULL) {
       char str[128];
       sprintf(str,"Cannot open AIREBO potential file %s",filename);

@@ -28,6 +28,7 @@
 #include "domain.h"
 #include "error.h"
 #include "force.h"
+#include "neighbor.h"
 #include "memory.h"
 #include "msm_cg_omp.h"
 
@@ -73,6 +74,10 @@ MSMCGOMP::~MSMCGOMP()
 
 void MSMCGOMP::compute(int eflag, int vflag)
 {
+  if (scalar_pressure_flag)
+    error->all(FLERR,"Must use 'kspace_modify pressure/scalar no' "
+      "with kspace_style msm/cg/omp");
+
   const double * const q = atom->q;
   const int nlocal = atom->nlocal;
   int i,j,n;
@@ -152,12 +157,16 @@ void MSMCGOMP::compute(int eflag, int vflag)
     }
   }
 
-  num_charged = 0;
-  for (i = 0; i < nlocal; ++i)
-    if (fabs(q[i]) > smallq) {
-      is_charged[num_charged] = i;
-      ++num_charged;
+  // only need to rebuild this list after a neighbor list update
+  if (neighbor->ago == 0) {
+    num_charged = 0;
+    for (i = 0; i < nlocal; ++i) {
+      if (fabs(q[i]) > smallq) {
+        is_charged[num_charged] = i;
+        ++num_charged;
+      }
     }
+  }
 
   // find grid points for all my particles
   // map my particle charge onto my local 3d density grid (aninterpolation)

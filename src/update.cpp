@@ -247,7 +247,7 @@ void Update::set_units(const char *style)
     force->ftm2v = 1.0;
     force->mv2d = 1.0;
     force->nktv2p = 1.0;
-    force->qqr2e = 8.9876e30;
+    force->qqr2e = 8.987556e6;
     force->qe2f = 1.0;
     force->vxmu2f = 1.0;
     force->xxt2kmu = 1.0;
@@ -256,19 +256,19 @@ void Update::set_units(const char *style)
     force->mvh2r = 0.0;
     force->angstrom = 1.0e-4;
     force->femtosecond = 1.0e-9;
-    force->qelectron = 1.6021765e-19;
+    force->qelectron = 1.6021765e-7;
 
     dt = 2.0;
     neighbor->skin = 0.1;
                                               
   } else if (strcmp(style,"nano") == 0) {  
-    force->boltz = 0.013806503;
+    force->boltz = 0.013806504;
     force->hplanck = 6.62606896e-4;
     force->mvv2e = 1.0;
     force->ftm2v = 1.0;
     force->mv2d = 1.0;
     force->nktv2p = 1.0;
-    force->qqr2e = 8.9876e39;
+    force->qqr2e = 230.7078669;
     force->qe2f = 1.0;
     force->vxmu2f = 1.0;
     force->xxt2kmu = 1.0;
@@ -277,7 +277,7 @@ void Update::set_units(const char *style)
     force->mvh2r = 0.0;
     force->angstrom = 1.0e-1;
     force->femtosecond = 1.0e-6;
-    force->qelectron = 1.6021765e-19;
+    force->qelectron = 1.0;
        
     dt = 0.00045;
     neighbor->skin = 0.1;

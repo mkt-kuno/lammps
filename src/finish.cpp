@@ -527,7 +527,7 @@ void Finish::end(int flag)
       }
     }
 
-    // find a non-skip neighbor list containing half the pairwise interactions
+    // find a non-skip neighbor list containing half pairwise interactions
     // count neighbors in that list for stats purposes
     // allow it to be Kokkos neigh list as well
 
@@ -537,8 +537,8 @@ void Finish::end(int flag)
            neighbor->old_requests[m]->respaouter ||
            neighbor->old_requests[m]->half_from_full) &&
           neighbor->old_requests[m]->skip == 0) {
-        if (neighbor->lists[m] && neighbor->lists[m]->numneigh) break;
         if (lmp->kokkos && lmp->kokkos->neigh_list_kokkos(m)) break;
+        else break;
       }
     }
 
@@ -572,12 +572,13 @@ void Finish::end(int flag)
 
     // find a non-skip neighbor list containing full pairwise interactions
     // count neighbors in that list for stats purposes
+    // allow it to be Kokkos neigh list as well
 
     for (m = 0; m < neighbor->old_nrequest; m++) {
       if (neighbor->old_requests[m]->full &&
           neighbor->old_requests[m]->skip == 0) {
-        if (neighbor->lists[m] && neighbor->lists[m]->numneigh) break;
         if (lmp->kokkos && lmp->kokkos->neigh_list_kokkos(m)) break;
+        else break;
       }
     }
 

@@ -193,6 +193,7 @@ void PairADP::compute(int eflag, int vflag)
 
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
+      j &= NEIGHMASK;
 
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
@@ -293,6 +294,7 @@ void PairADP::compute(int eflag, int vflag)
 
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
+      j &= NEIGHMASK;
 
       delx = xtmp - x[j][0];
       dely = ytmp - x[j][1];
@@ -545,7 +547,7 @@ void PairADP::read_file(char *filename)
   char line[MAXLINE];
 
   if (me == 0) {
-    fp = open_potential(filename);
+    fp = force->open_potential(filename);
     if (fp == NULL) {
       char str[128];
       sprintf(str,"Cannot open ADP potential file %s",filename);
