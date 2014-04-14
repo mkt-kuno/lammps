@@ -209,7 +209,8 @@ FixPour::FixPour(LAMMPS *lmp, int narg, char **arg) :
   // volume_one = volume of inserted particle (with max possible radius)
   // in 3d, insure dy >= 1, for quasi-2d simulations
 
-  double volume,volume_one;
+  double volume,volume_one=0.0;
+  dstyle = -1;
   if (domain->dimension == 3) {
     if (region_style == 1) {
       double dy = yhi - ylo;
@@ -593,7 +594,7 @@ void FixPour::pre_exchange()
         int n = atom->nlocal - 1;
         atom->tag[n] = maxtag_all + m+1;
         if (mode == MOLECULE) {
-          if (atom->molecular) atom->molecule[n] = maxmol_all+1;
+          if (atom->molecule) atom->molecule[n] = maxmol_all+1;
           if (atom->molecular == 2) {
             atom->molindex[n] = 0;
             atom->molatom[n] = m;

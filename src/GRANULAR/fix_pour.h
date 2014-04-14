@@ -53,7 +53,7 @@ class FixPour : public Fix {
   char *idrigid,*idshake;
 
   class Molecule *onemol;
-  int natom;
+  int natom;                    // # of atoms per inserted particle
   double **coords;
   imageint *imageflags;
   class Fix *fixrigid,*fixshake;

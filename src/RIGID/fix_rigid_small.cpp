@@ -384,7 +384,6 @@ void FixRigidSmall::setup_pre_neighbor()
 void FixRigidSmall::setup(int vflag)
 {
   int i,n,ibody;
-  double massone,radone;
 
   //check(1);
 
@@ -394,7 +393,6 @@ void FixRigidSmall::setup(int vflag)
 
   double **x = atom->x;
   double **f = atom->f;
-  int *type = atom->type;
   imageint *image = atom->image;
   int nlocal = atom->nlocal;
 
@@ -2033,7 +2031,7 @@ void FixRigidSmall::setup_bodies_static()
 
 void FixRigidSmall::setup_bodies_dynamic()
 {
-  int i,n,ibody;
+  int i,ibody;
   double massone,radone;
 
   // sum vcm, angmom across all rigid bodies
@@ -2138,7 +2136,7 @@ void FixRigidSmall::setup_bodies_dynamic()
    which = 0 to read total mass and center-of-mass
    which = 1 to read 6 moments of inertia, store in array
    flag inbody = 0 for local bodies whose info is read from file
-   nlines = # of lines of rigid body info
+   nlines = # of lines of rigid body info, 0 is OK
    one line = rigid-ID mass xcm ycm zcm ixx iyy izz ixy ixz iyz
    and rigid-ID = mol-ID for fix rigid/small
 ------------------------------------------------------------------------- */
@@ -2155,11 +2153,10 @@ void FixRigidSmall::readfile(int which, double **array, int *inbody)
   // key = mol ID of bodies my atoms own
   // value = index into local body array
 
-  tagint *molecule = atom->molecule;
   int nlocal = atom->nlocal;
 
   hash = new std::map<tagint,int>();
-  for (int i = 0; i < nlocal; i++)
+  for (i = 0; i < nlocal; i++)
     if (bodyown[i] >= 0) (*hash)[atom->molecule[i]] = bodyown[i];
 
   // open file and read header
@@ -2184,7 +2181,6 @@ void FixRigidSmall::readfile(int which, double **array, int *inbody)
   }
 
   MPI_Bcast(&nlines,1,MPI_INT,0,world);
-  if (nlines == 0) error->all(FLERR,"Fix rigid file has no lines");
 
   char *buffer = new char[CHUNK*MAXLINE];
   char **values = new char*[ATTRIBUTE_PERBODY];
@@ -2449,7 +2445,6 @@ void FixRigidSmall::set_molecule(int nlocalprev, tagint tagprev,
   int nlocal = atom->nlocal;
   if (nlocalprev == nlocal) return;
 
-  double **x = atom->x;
   tagint *tag = atom->tag;
 
   for (int i = nlocalprev; i < nlocal; i++) {
@@ -2502,6 +2497,10 @@ void FixRigidSmall::set_molecule(int nlocalprev, tagint tagprev,
       nlocal_body++;
     }
   }
+
+  // increment total # of rigid bodies
+
+  nbody++;
 }
 
 /* ----------------------------------------------------------------------

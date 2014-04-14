@@ -41,8 +41,8 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixQEQCombOMP::FixQEQCombOMP(LAMMPS *lmp, int narg, char **arg)
-  : FixQEQComb(lmp, narg, arg)
+FixQEQCombOMP::FixQEQCombOMP(LAMMPS *lmp, int narg, char **arg) :
+  FixQEQComb(lmp, narg, arg)
 {
   if (narg < 5) error->all(FLERR,"Illegal fix qeq/comb/omp command");
 }
@@ -54,10 +54,15 @@ void FixQEQCombOMP::init()
   if (!atom->q_flag)
     error->all(FLERR,"Fix qeq/comb/omp requires atom attribute q");
 
+  if (NULL != force->pair_match("comb3",0))
+    error->all(FLERR,"No support for comb3 currently available in USER-OMP");
+
   comb = (PairComb *) force->pair_match("comb/omp",1);
   if (comb == NULL)
     comb = (PairComb *) force->pair_match("comb",1);
-  if (comb == NULL) error->all(FLERR,"Must use pair_style comb or comb/omp with fix qeq/comb");
+  if (comb == NULL) 
+    error->all(FLERR,"Must use pair_style comb or "
+               "comb/omp with fix qeq/comb/omp");
 
   if (strstr(update->integrate_style,"respa"))
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
@@ -74,10 +79,6 @@ void FixQEQCombOMP::init()
   }
 
   int irequest = neighbor->request(this);
-  neighbor->requests[irequest]->pair = 0;
-  neighbor->requests[irequest]->fix = 1;
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->full = 1;
   neighbor->requests[irequest]->omp = use_omp;
 }
 
