@@ -893,7 +893,8 @@ void FixMultistress::end_of_step()
     for (int i = 0; i < 6; i++)
       oldmeans[i] = tallymeans[i];
 
-  tstress->compute_peratom(); //~ Update the atom stresses
+  if (tstress->invoked_peratom != update->ntimestep)
+    tstress->compute_peratom(); //~ Update the atom stresses if necessary
 
   //~ Import a 6-element array of mean stresses from ComputeStressAtom
   means = tstress->array_export();
@@ -1555,11 +1556,19 @@ double *FixMultistress::param_export()
     The static specifier ensures that the data exists for the duration of
     the program [KH - 9 November 2011]*/
   static double exprates[6];
-
-  for (int i = 0; i < 6; i++)
-    exprates[i] = erates[i];
-
+  for (int i = 0; i < 6; i++) exprates[i] = erates[i];
   return exprates;
+}
+
+/* ---------------------------------------------------------------------- */
+
+double *FixMultistress::extract_pboundstart()
+{
+  /*~ This function allows pboundstart to be extracted easily by
+    FixEnergyBoundary [KH - 14 April 2014]*/
+  static double pbs[6];
+  for (int i = 0; i < 6; i++) pbs[i] = pboundstart[i];
+  return pbs;
 }
 
 /* ---------------------------------------------------------------------- */

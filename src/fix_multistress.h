@@ -46,6 +46,7 @@ namespace LAMMPS_NS {
     void update_fix_deform_params();
     void instability_test(int);
     double *param_export();
+    double *extract_pboundstart();
     double compute_vector(int);
     void lost_atom_check();
     void write_restart(FILE *);

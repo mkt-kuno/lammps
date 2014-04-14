@@ -1089,3 +1089,24 @@ double *FixDeform::param_export()
 
   return erates;
 }
+
+/* ---------------------------------------------------------------------- */
+
+double *FixDeform::extract_pboundstart()
+{
+  /*~ This function allows pboundstart to be extracted easily by
+    FixEnergyBoundary [KH - 14 April 2014]*/
+  static double pboundstart[6];
+ 
+  for (int i = 0; i < 2; i++) {
+    pboundstart[2*i] = set[i].lo_start;
+    pboundstart[2*i+1] = set[i].hi_start;
+  }
+
+  if (domain->dimension == 3) {
+    pboundstart[4] = set[2].lo_start;
+    pboundstart[5] = set[2].hi_start;
+  } else pboundstart[4] = pboundstart[5] = 0.0;
+  
+  return pboundstart;
+}

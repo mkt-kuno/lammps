@@ -202,6 +202,11 @@ class Fix : protected Pointers {
     function [KH - 9 November 2011]*/
   virtual double *param_export() {return 0;}
 
+  /*~ Added a similar virtual function to allow the initial
+    positions of the periodic boundaries to be extracted from
+    fix_multistress and fix_deform [KH - 14 April 2014]*/
+  virtual double *extract_pboundstart() {return 0;}
+
  protected:
   int evflag;
   int vflag_global,vflag_atom;

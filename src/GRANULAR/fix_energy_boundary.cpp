@@ -154,16 +154,25 @@ void FixEnergyBoundary::end_of_step()
   
   //~ For now, the boundary work is calculated only for a periodic cell
   double deltaW = 0.0; //~ The work input per unit volume (later x V)
-  
+  double corre[6]; //~ True strain rates (found from engineering rates)
+
   if (pb == 1) {
-    //~ Either fix multistress/deform is active; fetch the strain rates
+    /*~ Either fix multistress/deform is active; fetch both the strain 
+      rates and the initial positions of the periodic boundaries. The
+      latter are used to convert engineering strain rates to true
+      strain rates.*/
     double *ierates = deffix->param_export();
+    double *pstart = deffix->extract_pboundstart();
+
+    for (int i = 0; i < 6; i++) corre[i] = ierates[i];
+    for (int i = 0; i < 3; i++) corre[i] *= (pstart[2*i+1]-pstart[2*i])/(domain->boxhi[i] - domain->boxlo[i]);
 
     //~ Eq. 1.24, p. 20, "Soil Behavior and Critical State Soil Mechanics"
-    for (int i = 0; i < 6; i++) deltaW -= tmeans[i]*ierates[i];
+    for (int i = 0; i < 6; i++) deltaW -= tmeans[i]*corre[i];
+
     deltaW *= update->dt; //~ strain rate * timestep = strain increment
 
-    //~ Multiply by cell volume to find the increment of work input
+    //~ Multiply by current cell volume to find increment of work input
     for (int i = 0; i < domain->dimension; i++)
       deltaW *= (domain->boxhi[i] - domain->boxlo[i]);
   }
