@@ -39,12 +39,8 @@ class FixDeform : public Fix {
   void end_of_step();
 
   /*~ Added *param_export to allow the calling function to access 
-    details of the rates of boundary movement [KH - 9 November 2011]
-
-    Added a similar function, *extract_pboundstart, to access the
-    initial positions of the periodic boundaries [KH - 14 April 2014]*/
+    details of the rates of boundary movement [KH - 9 November 2011]*/
   double *param_export();
-  double *extract_pboundstart();
 
  private:
   int triclinic,scaleflag,flipflag;

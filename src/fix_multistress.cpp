@@ -1554,21 +1554,16 @@ double *FixMultistress::param_export()
     be updated because of the applied strain rate field.
     
     The static specifier ensures that the data exists for the duration of
-    the program [KH - 9 November 2011]*/
+    the program [KH - 9 November 2011]
+
+    These engineering strain rates were changed to true strain rates, the
+    correct strain rates required, rather than engineering strain rates.
+    These true strain rates are used in FixEnergyBoundary and the granular
+    pairstyles [KH - 16 April 2014]*/
   static double exprates[6];
   for (int i = 0; i < 6; i++) exprates[i] = erates[i];
+  for (int i = 0; i < 3; i++) exprates[i] *= (pboundstart[2*i+1]-pboundstart[2*i])/(domain->boxhi[i] - domain->boxlo[i]);
   return exprates;
-}
-
-/* ---------------------------------------------------------------------- */
-
-double *FixMultistress::extract_pboundstart()
-{
-  /*~ This function allows pboundstart to be extracted easily by
-    FixEnergyBoundary [KH - 14 April 2014]*/
-  static double pbs[6];
-  for (int i = 0; i < 6; i++) pbs[i] = pboundstart[i];
-  return pbs;
 }
 
 /* ---------------------------------------------------------------------- */

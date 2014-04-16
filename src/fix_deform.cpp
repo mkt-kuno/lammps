@@ -1040,6 +1040,12 @@ double *FixDeform::param_export()
       if (set[i].style == WIGGLE)
 	error->all(FLERR,"Not implemented for wiggle changes");
     }
+
+    /*~ These engineering strain rates were changed to true strain rates,
+      the correct strain rates required, rather than engineering strain 
+      rates. These true strain rates are used in FixEnergyBoundary and
+      the granular pairstyles [KH - 16 April 2014]*/
+    erates[i] *= (set[i].hi_start - set[i].lo_start)/(domain->boxhi[i] - domain->boxlo[i]);
   }
 
   int q = 3;
@@ -1088,25 +1094,4 @@ double *FixDeform::param_export()
   }
 
   return erates;
-}
-
-/* ---------------------------------------------------------------------- */
-
-double *FixDeform::extract_pboundstart()
-{
-  /*~ This function allows pboundstart to be extracted easily by
-    FixEnergyBoundary [KH - 14 April 2014]*/
-  static double pboundstart[6];
- 
-  for (int i = 0; i < 2; i++) {
-    pboundstart[2*i] = set[i].lo_start;
-    pboundstart[2*i+1] = set[i].hi_start;
-  }
-
-  if (domain->dimension == 3) {
-    pboundstart[4] = set[2].lo_start;
-    pboundstart[5] = set[2].hi_start;
-  } else pboundstart[4] = pboundstart[5] = 0.0;
-  
-  return pboundstart;
 }
