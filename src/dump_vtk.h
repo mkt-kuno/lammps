@@ -175,10 +175,6 @@ class DumpVTK : public Dump {
   void pack_tqx(int);
   void pack_tqy(int);
   void pack_tqz(int);
-  void pack_spin(int);
-  void pack_eradius(int);
-  void pack_ervel(int);
-  void pack_erforce(int);
 };
 
 }
