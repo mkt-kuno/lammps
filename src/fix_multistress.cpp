@@ -863,7 +863,7 @@ void FixMultistress::calc_ctrl_params()
 
 void FixMultistress::end_of_step()
 {
-  int remsteps = update->endstep - update->ntimestep;
+  bigint remsteps = update->endstep - update->ntimestep;
 
   //~ Initialise the % differences between the current and target stresses
   double maxpercdiff = 0.0;
