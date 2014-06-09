@@ -54,6 +54,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   if (narg < 4) error->all(FLERR,"Illegal fix nvt/npt/nph command");
 
   restart_global = 1;
+  dynamic_group_allow = 1;
   time_integrate = 1;
   scalar_flag = 1;
   vector_flag = 1;
@@ -1645,6 +1646,12 @@ void *FixNH::extract(const char *str, int &dim)
   dim=0;
   if (strcmp(str,"t_target") == 0) {
     return &t_target;
+  } else if (strcmp(str,"mtchain") == 0) {
+    return &mtchain;
+  }
+  dim=1;
+  if (strcmp(str,"eta") == 0) {
+    return &eta;
   }
   return NULL;
 }

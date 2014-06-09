@@ -16,6 +16,7 @@
 #include "delete_atoms.h"
 #include "atom.h"
 #include "atom_vec.h"
+#include "molecule.h"
 #include "comm.h"
 #include "domain.h"
 #include "force.h"
@@ -53,6 +54,10 @@ void DeleteAtoms::command(int narg, char **arg)
   // store state before delete
 
   bigint natoms_previous = atom->natoms;
+  bigint nbonds_previous = atom->nbonds;
+  bigint nangles_previous = atom->nangles;
+  bigint ndihedrals_previous = atom->ndihedrals;
+  bigint nimpropers_previous = atom->nimpropers;
 
   // delete the atoms
 
@@ -61,6 +66,8 @@ void DeleteAtoms::command(int narg, char **arg)
   else if (strcmp(arg[0],"overlap") == 0) delete_overlap(narg,arg);
   else if (strcmp(arg[0],"porosity") == 0) delete_porosity(narg,arg);
   else error->all(FLERR,"Illegal delete_atoms command");
+
+  if (mol_flag) delete_molecule();
 
   // delete local atoms flagged in dlist
   // reset nlocal
@@ -91,7 +98,7 @@ void DeleteAtoms::command(int narg, char **arg)
     atom->tag_extend();
   }
 
-  // reset atom->natoms
+  // reset atom->natoms and also topology counts
   // reset atom->map if it exists
   // set nghost to 0 so old ghosts of deleted atoms won't be mapped
 
@@ -103,23 +110,66 @@ void DeleteAtoms::command(int narg, char **arg)
     atom->map_set();
   }
 
-  // print before and after atom count
+  if (mol_flag) recount_topology();
+
+  // print before and after atom and topology counts
 
   bigint ndelete = natoms_previous - atom->natoms;
+  bigint ndelete_bonds = nbonds_previous - atom->nbonds;
+  bigint ndelete_angles = nangles_previous - atom->nangles;
+  bigint ndelete_dihedrals = ndihedrals_previous - atom->ndihedrals;
+  bigint ndelete_impropers = nimpropers_previous - atom->nimpropers;
 
   if (comm->me == 0) {
-    if (screen) fprintf(screen,"Deleted " BIGINT_FORMAT
-                        " atoms, new total = " BIGINT_FORMAT "\n",
-                        ndelete,atom->natoms);
+    if (screen) {
+      fprintf(screen,"Deleted " BIGINT_FORMAT
+              " atoms, new total = " BIGINT_FORMAT "\n",
+              ndelete,atom->natoms);
+      if (mol_flag) {
+        if (nbonds_previous) 
+          fprintf(screen,"Deleted " BIGINT_FORMAT
+                  " bonds, new total = " BIGINT_FORMAT "\n",
+                  ndelete_bonds,atom->nbonds);
+        if (nangles_previous) 
+          fprintf(screen,"Deleted " BIGINT_FORMAT
+                  " angles, new total = " BIGINT_FORMAT "\n",
+                  ndelete_angles,atom->nangles);
+        if (ndihedrals_previous) 
+          fprintf(screen,"Deleted " BIGINT_FORMAT
+                  " dihedrals, new total = " BIGINT_FORMAT "\n",
+                  ndelete_dihedrals,atom->ndihedrals);
+        if (nimpropers_previous) 
+          fprintf(screen,"Deleted " BIGINT_FORMAT
+                  " impropers, new total = " BIGINT_FORMAT "\n",
+                  ndelete_impropers,atom->nimpropers);
+      }
+    }
     if (logfile) fprintf(logfile,"Deleted " BIGINT_FORMAT
                          " atoms, new total = " BIGINT_FORMAT "\n",
                          ndelete,atom->natoms);
+      if (mol_flag) {
+        if (nbonds_previous) 
+          fprintf(logfile,"Deleted " BIGINT_FORMAT
+                  " bonds, new total = " BIGINT_FORMAT "\n",
+                  ndelete_bonds,atom->nbonds);
+        if (nangles_previous) 
+          fprintf(logfile,"Deleted " BIGINT_FORMAT
+                  " angles, new total = " BIGINT_FORMAT "\n",
+                  ndelete_angles,atom->nangles);
+        if (ndihedrals_previous) 
+          fprintf(logfile,"Deleted " BIGINT_FORMAT
+                  " dihedrals, new total = " BIGINT_FORMAT "\n",
+                  ndelete_dihedrals,atom->ndihedrals);
+        if (nimpropers_previous) 
+          fprintf(logfile,"Deleted " BIGINT_FORMAT
+                  " impropers, new total = " BIGINT_FORMAT "\n",
+                  ndelete_impropers,atom->nimpropers);
+      }
   }
 }
 
 /* ----------------------------------------------------------------------
-   delete all atoms in group
-   group will still exist
+   delete all atoms in group, group will still exist
 ------------------------------------------------------------------------- */
 
 void DeleteAtoms::delete_group(int narg, char **arg)
@@ -145,7 +195,6 @@ void DeleteAtoms::delete_group(int narg, char **arg)
 
 /* ----------------------------------------------------------------------
    delete all atoms in region
-   if mol_flag is set, also delete atoms in molecules with any deletions
 ------------------------------------------------------------------------- */
 
 void DeleteAtoms::delete_region(int narg, char **arg)
@@ -154,6 +203,8 @@ void DeleteAtoms::delete_region(int narg, char **arg)
 
   int iregion = domain->find_region(arg[1]);
   if (iregion == -1) error->all(FLERR,"Could not find delete_atoms region ID");
+  domain->regions[iregion]->prematch();
+
   options(narg-2,&arg[2]);
 
   // allocate and initialize deletion list
@@ -166,54 +217,6 @@ void DeleteAtoms::delete_region(int narg, char **arg)
 
   for (int i = 0; i < nlocal; i++)
     if (domain->regions[iregion]->match(x[i][0],x[i][1],x[i][2])) dlist[i] = 1;
-
-  if (mol_flag == 0) return;
-
-  // delete entire molecules if any atom in molecule was deleted
-  // store list of molecule IDs I delete atoms from in list
-  // pass list from proc to proc via ring communication
-
-  hash = new std::map<tagint,int>();
-
-  tagint *molecule = atom->molecule;
-  for (int i = 0; i < nlocal; i++)
-    if (dlist[i] && hash->find(molecule[i]) == hash->end())
-      (*hash)[molecule[i]] = 1;
-
-  int n = hash->size();
-  tagint *list;
-  memory->create(list,n,"delete_atoms:list");
-
-  n = 0;
-  std::map<tagint,int>::iterator pos;
-  for (pos = hash->begin(); pos != hash->end(); ++pos) list[n++] = pos->first;
-
-  cptr = this;
-  comm->ring(n,sizeof(tagint),list,1,molring,NULL);
-
-  delete hash;
-  memory->destroy(list);
-}
-
-/* ----------------------------------------------------------------------
-   callback from comm->ring()
-   cbuf = list of N molecule IDs, put them in hash
-   loop over my atoms, if matches molecule ID in hash, delete that atom
-------------------------------------------------------------------------- */
-
-void DeleteAtoms::molring(int n, char *cbuf)
-{
-  tagint *list = (tagint *) cbuf;
-  int *dlist = cptr->dlist;
-  std::map<tagint,int> *hash = cptr->hash;
-  int nlocal = cptr->atom->nlocal;
-  tagint *molecule = cptr->atom->molecule;
-
-  hash->clear();
-  for (int i = 0; i < n; i++) (*hash)[list[i]] = 1;
-
-  for (int i = 0; i < nlocal; i++)
-    if (hash->find(molecule[i]) != hash->end()) dlist[i] = 1;
 }
 
 /* ----------------------------------------------------------------------
@@ -377,6 +380,7 @@ void DeleteAtoms::delete_porosity(int narg, char **arg)
 
   int iregion = domain->find_region(arg[1]);
   if (iregion == -1) error->all(FLERR,"Could not find delete_atoms region ID");
+  domain->regions[iregion]->prematch();
 
   double porosity_fraction = force->numeric(FLERR,arg[2]);
   int seed = force->inumeric(FLERR,arg[3]);
@@ -398,6 +402,124 @@ void DeleteAtoms::delete_porosity(int narg, char **arg)
 }
 
 /* ----------------------------------------------------------------------
+   delete atoms in molecules with any deletions
+   use dlist marked with atom deletions, and mark additional atoms
+------------------------------------------------------------------------- */
+
+void DeleteAtoms::delete_molecule()
+{
+  // hash = unique molecule IDs from which I deleted atoms
+
+  hash = new std::map<tagint,int>();
+
+  tagint *molecule = atom->molecule;
+  int nlocal = atom->nlocal;
+
+  for (int i = 0; i < nlocal; i++)
+    if (dlist[i] && hash->find(molecule[i]) == hash->end())
+      (*hash)[molecule[i]] = 1;
+
+  // list = set of unique molecule IDs from which I deleted atoms
+  // pass list to all other procs via comm->ring()
+
+  int n = hash->size();
+  tagint *list;
+  memory->create(list,n,"delete_atoms:list");
+
+  n = 0;
+  std::map<tagint,int>::iterator pos;
+  for (pos = hash->begin(); pos != hash->end(); ++pos) list[n++] = pos->first;
+
+  cptr = this;
+  comm->ring(n,sizeof(tagint),list,1,molring,NULL);
+
+  delete hash;
+  memory->destroy(list);
+}
+
+/* ----------------------------------------------------------------------
+   update bond,angle,etc counts
+   different for atom->molecular = 1 or 2
+------------------------------------------------------------------------- */
+
+void DeleteAtoms::recount_topology()
+{
+  bigint nbonds = 0;
+  bigint nangles = 0;
+  bigint ndihedrals = 0;
+  bigint nimpropers = 0;
+
+  if (atom->molecular == 1) {
+    int *num_bond = atom->num_bond;
+    int *num_angle = atom->num_angle;
+    int *num_dihedral = atom->num_dihedral;
+    int *num_improper = atom->num_improper;
+    int nlocal = atom->nlocal;
+
+    for (int i = 0; i < nlocal; i++) {
+      if (num_bond) nbonds += num_bond[i];
+      if (num_angle) nangles += num_angle[i];
+      if (num_dihedral) ndihedrals += num_dihedral[i];
+      if (num_improper) nimpropers += num_improper[i];
+    }
+
+  } else if (atom->molecular == 2) {
+    Molecule **onemols = atom->avec->onemols;
+    int *molindex = atom->molindex;
+    int *molatom = atom->molatom;
+    int nlocal = atom->nlocal;
+
+    int imol,iatom;
+
+    for (int i = 0; i < nlocal; i++) {
+      imol = molindex[i];
+      iatom = molatom[i];
+      nbonds += onemols[imol]->num_bond[iatom];
+      nangles += onemols[imol]->num_angle[iatom];
+      ndihedrals += onemols[imol]->num_dihedral[iatom];
+      nimpropers += onemols[imol]->num_improper[iatom];
+    }
+  }
+
+  if (atom->avec->bonds_allow)
+    MPI_Allreduce(&nbonds,&atom->nbonds,1,MPI_LMP_BIGINT,MPI_SUM,world);
+  if (atom->avec->angles_allow)
+    MPI_Allreduce(&nangles,&atom->nangles,1,MPI_LMP_BIGINT,MPI_SUM,world);
+  if (atom->avec->dihedrals_allow)
+    MPI_Allreduce(&ndihedrals,&atom->ndihedrals,1,MPI_LMP_BIGINT,MPI_SUM,world);
+  if (atom->avec->impropers_allow)
+    MPI_Allreduce(&nimpropers,&atom->nimpropers,1,MPI_LMP_BIGINT,MPI_SUM,world);
+
+  if (!force->newton_bond) {
+    atom->nbonds /= 2;
+    atom->nangles /= 3;
+    atom->ndihedrals /= 4;
+    atom->nimpropers /= 4;
+  }
+}
+
+/* ----------------------------------------------------------------------
+   callback from comm->ring()
+   cbuf = list of N molecule IDs, put them in hash
+   loop over my atoms, if matches molecule ID in hash, delete that atom
+------------------------------------------------------------------------- */
+
+void DeleteAtoms::molring(int n, char *cbuf)
+{
+  tagint *list = (tagint *) cbuf;
+  int *dlist = cptr->dlist;
+  std::map<tagint,int> *hash = cptr->hash;
+  int nlocal = cptr->atom->nlocal;
+  tagint *molecule = cptr->atom->molecule;
+
+  hash->clear();
+  for (int i = 0; i < n; i++) (*hash)[list[i]] = 1;
+
+  for (int i = 0; i < nlocal; i++)
+    if (hash->find(molecule[i]) != hash->end()) dlist[i] = 1;
+}
+
+/* ----------------------------------------------------------------------
    process command options
 ------------------------------------------------------------------------- */
 
@@ -416,6 +538,9 @@ void DeleteAtoms::options(int narg, char **arg)
       iarg += 2;
     } else if (strcmp(arg[iarg],"mol") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal delete_atoms command");
+      if (atom->molecular == 0) 
+        error->all(FLERR,"Cannot delete_atoms mol yes for "
+                   "non-molecular systems");
       if (strcmp(arg[iarg+1],"yes") == 0) mol_flag = 1;
       else if (strcmp(arg[iarg+1],"no") == 0) mol_flag = 0;
       else error->all(FLERR,"Illegal delete_atoms command");

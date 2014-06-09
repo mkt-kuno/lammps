@@ -49,7 +49,7 @@
     numbers = 0.0, 100, -5.4, 2.8e-4, etc
     constants = PI
     thermo keywords = vol, ke, press, etc from <A HREF = "thermo_style.html">thermo_style</A>
-    math operators = (), -x, x+y, x-y, x*y, x/y, x^y, 
+    math operators = (), -x, x+y, x-y, x*y, x/y, x^y, x%y,
                      x==y, x!=y, x<y, x<=y, x>y, x>=y, x&&y, x||y, !x
     math functions = sqrt(x), exp(x), ln(x), log(x), abs(x),
                      sin(x), cos(x), tan(x), asin(x), acos(x), atan(x), atan2(y,x),
@@ -66,8 +66,8 @@
 		      angmom(group,dim,region), torque(group,dim,region), 
 		      inertia(group,dimdim,region), omega(group,dim,region)
     special functions = sum(x), min(x), max(x), ave(x), trap(x), slope(x), gmask(x), rmask(x), grmask(x,y), next(x)
-    atom value = id[i], mass[i], radius[i], mol[i], type[i], x[i], y[i], z[i], vx[i], vy[i], vz[i], fx[i], fy[i], fz[i], omegax[i], omegay[i], omegaz[i]
-    atom vector = id, mass, type, mol, x, y, z, vx, vy, vz, fx, fy, fz, omegax, omegay, omegaz
+    atom value = id[i], mass[i], radius[i], mol[i], type[i], x[i], y[i], z[i], vx[i], vy[i], vz[i], fx[i], fy[i], fz[i], omegax[i], omegay[i], omegaz[i], q[i]
+    atom vector = id, mass, type, mol, x, y, z, vx, vy, vz, fx, fy, fz, omegax, omegay, omegaz, q
     compute references = c_ID, c_ID[i], c_ID[i][j]
     fix references = f_ID, f_ID[i], f_ID[i][j]
     variable references = v_name, v_name[i] 
@@ -368,13 +368,13 @@ references to other variables.
 <TR><TD >Number</TD><TD > 0.2, 100, 1.0e20, -15.4, etc</TD></TR>
 <TR><TD >Constant</TD><TD > PI</TD></TR>
 <TR><TD >Thermo keywords</TD><TD > vol, pe, ebond, etc</TD></TR>
-<TR><TD >Math operators</TD><TD > (), -x, x+y, x-y, x*y, x/y, x^y, x==y, x!=y, x<y, x<=y, x>y, x>=y, x&&y, x||y, !x</TD></TR>
+<TR><TD >Math operators</TD><TD > (), -x, x+y, x-y, x*y, x/y, x^y, x%y, x==y, x!=y, x<y, x<=y, x>y, x>=y, x&&y, x||y, !x</TD></TR>
 <TR><TD >Math functions</TD><TD > sqrt(x), exp(x), ln(x), log(x), abs(x), sin(x), cos(x), tan(x), asin(x), acos(x), atan(x), atan2(y,x), random(x,y,z), normal(x,y,z), ceil(x), floor(x), round(x), ramp(x,y), stagger(x,y), logfreq(x,y,z), stride(x,y,z), vdisplace(x,y), swiggle(x,y,z), cwiggle(x,y,z)</TD></TR>
 <TR><TD >Group functions</TD><TD > count(ID), mass(ID), charge(ID), xcm(ID,dim),                  vcm(ID,dim), fcm(ID,dim), bound(ID,dir), 		 gyration(ID), ke(ID), angmom(ID,dim), torque(ID,dim), 		 inertia(ID,dimdim), omega(ID,dim)</TD></TR>
 <TR><TD >Region functions</TD><TD > count(ID,IDR), mass(ID,IDR), charge(ID,IDR), 		  xcm(ID,dim,IDR), vcm(ID,dim,IDR), fcm(ID,dim,IDR), 		  bound(ID,dir,IDR), gyration(ID,IDR), ke(ID,IDR), 		  angmom(ID,dim,IDR), torque(ID,dim,IDR),                   inertia(ID,dimdim,IDR), omega(ID,dim,IDR)</TD></TR>
 <TR><TD >Special functions</TD><TD > sum(x), min(x), max(x), ave(x), trap(x), slope(x), gmask(x), rmask(x), grmask(x,y), next(x)</TD></TR>
-<TR><TD >Atom values</TD><TD > id[i], mass[i], type[i], mol[i], x[i], y[i], z[i],              vx[i], vy[i], vz[i], fx[i], fy[i], fz[i]</TD></TR>
-<TR><TD >Atom vectors</TD><TD > id, mass, type, mol, x, y, z, vx, vy, vz, fx, fy, fz</TD></TR>
+<TR><TD >Atom values</TD><TD > id[i], mass[i], type[i], mol[i], x[i], y[i], z[i],              vx[i], vy[i], vz[i], fx[i], fy[i], fz[i], q[i]</TD></TR>
+<TR><TD >Atom vectors</TD><TD > id, mass, type, mol, x, y, z, vx, vy, vz, fx, fy, fz, q</TD></TR>
 <TR><TD >Compute references</TD><TD > c_ID, c_ID[i], c_ID[i][j]</TD></TR>
 <TR><TD >Fix references</TD><TD > f_ID, f_ID[i], f_ID[i][j]</TD></TR>
 <TR><TD >Other variables</TD><TD > v_name, v_name[i] 
@@ -428,13 +428,13 @@ vectors of y and z velocities.
 <P>Operators are evaluated left to right and have the usual C-style
 precedence: unary minus and unary logical NOT operator "!" have the
 highest precedence, exponentiation "^" is next; multiplication and
-division are next; addition and subtraction are next; the 4 relational
-operators "<", "<=", ">", and ">=" are next; the two remaining
-relational operators "==" and "!=" are next; then the logical AND
-operator "&&"; and finally the logical OR operator "||" has the lowest
-precedence.  Parenthesis can be used to group one or more portions of
-a formula and/or enforce a different order of evaluation than what
-would occur with the default precedence.
+division and the modulo operator "%" are next; addition and
+subtraction are next; the 4 relational operators "<", "<=", ">", and
+">=" are next; the two remaining relational operators "==" and "!="
+are next; then the logical AND operator "&&"; and finally the logical
+OR operator "||" has the lowest precedence.  Parenthesis can be used
+to group one or more portions of a formula and/or enforce a different
+order of evaluation than what would occur with the default precedence.
 </P>
 <P>IMPORTANT NOTE: Because a unary minus is higher precedence than
 exponentiation, the formula "-2^2" will evaluate to 4, not -4.  This
@@ -695,18 +695,26 @@ operates.
 
 <H4>Atom Values and Vectors 
 </H4>
-<P>Atom values take a single integer argument I from 1 to N, where I is
-the an atom-ID, e.g. x[243], which means use the x coordinate of the
-atom with ID = 243.
+<P>Atom values take an integer argument I from 1 to N, where I is the an
+atom-ID, e.g. x[243], which means use the x coordinate of the atom
+with ID = 243.  Or they can take a variable name, specified as v_name,
+where name is the name of the variable, like x[v_myIndex].  The
+variable can be of any style except atom or atom-file variables.  The
+variable is evaluated and the result is expected to be numeric and is
+cast to an integer (i.e. 3.4 becomes 3), to use an an index, which
+must be a value from 1 to N.  Note that a "formula" cannot be used as
+the argument between the brackets, e.g. x[243+10] or
+x[v_myIndex+1] are not allowed.  To do this a single variable can be
+defined that contains the needed formula.
 </P>
 <P>Atom vectors generate one value per atom, so that a reference like
 "vx" means the x-component of each atom's velocity will be used when
 evaluating the variable.
 </P>
 <P>The meaning of the different atom values and vectors is mostly
-self-explanatory.  Mol refernces the molecule ID of an atom, and is
-only defined if an <A HREF = "atom_style.html">atom_style</A> is being used
-that defines molecule IDs.
+self-explanatory.  Mol refers to the molecule ID of an atom, and is
+only defined if an <A HREF = "atom_style.html">atom_style</A> is being used that
+defines molecule IDs.
 </P>
 <P>Note that many other atom attributes can be used as inputs to a
 variable by using the <A HREF = "compute_property_atom.html">compute
@@ -741,10 +749,14 @@ only produce global or per-atom quantities, never both.
 <TR><TD >c_ID[I][J]</TD><TD > I,J element of global array, or atom I's Jth value in per-atom array 
 </TD></TR></TABLE></DIV>
 
-<P>If a variable containing a compute is evaluated
-directly in an input script (not during a run), then the values
-accessed by the compute must be current.  See the discussion below
-about "Variable Accuracy".
+<P>For I and J, integers can be specified or a variable name, specified
+as v_name, where name is the name of the variable.  The rules for this
+syntax are the same as for the "Atom Values and Vectors" discussion
+above.
+</P>
+<P>If a variable containing a compute is evaluated directly in an input
+script (not during a run), then the values accessed by the compute
+must be current.  See the discussion below about "Variable Accuracy".
 </P>
 <HR>
 
@@ -774,6 +786,11 @@ since fixes only produce global or per-atom quantities, never both.
 <TR><TD >f_ID[I][J]</TD><TD > I,J element of global array, or atom I's Jth value in per-atom array 
 </TD></TR></TABLE></DIV>
 
+<P>For I and J, integers can be specified or a variable name, specified
+as v_name, where name is the name of the variable.  The rules for this
+syntax are the same as for the "Atom Values and Vectors" discussion
+above.
+</P>
 <P>If a variable containing a fix is evaluated directly in an input
 script (not during a run), then the values accessed by the fix should
 be current.  See the discussion below about "Variable Accuracy".
@@ -814,13 +831,10 @@ produce only a global scalar or a per-atom vector, never both.
 <TR><TD >v_name[I]</TD><TD > atom I's value in per-atom vector 
 </TD></TR></TABLE></DIV>
 
-<P>IMPORTANT NOTE: If you define variables in circular manner like this:
-</P>
-<PRE>variable a equal v_b
-variable b equal v_a
-print $a 
-</PRE>
-<P>then LAMMPS may run for a while when the print statement is invoked!
+<P>For I, an integer can be specified or a variable name, specified as
+v_name, where name is the name of the variable.  The rules for this
+syntax are the same as for the "Atom Values and Vectors" discussion
+above.
 </P>
 <HR>
 
@@ -833,9 +847,9 @@ a variable command.  The input script parser evaluates the reference
 variable immediately and substitutes its value into the command.  As
 explained in <A HREF = "Section_commands.html#3_2">Section commands 3.2</A> for
 "Parsing rules", you can also use un-named "immediate" variables for
-this purpose.  An variable reference such as
-$((xlo+xhi)/2+sqrt(v_area)) evaluates the string between the
-parenthesis as an equal-style variable.
+this purpose.  For example, a string like this
+$((xlo+xhi)/2+sqrt(v_area)) in an input script command evaluates the
+string between the parenthesis as an equal-style variable formula.
 </P>
 <P>Referencing a variable with a leading "v_" is an optional or required
 kind of argument for some commands (e.g. the <A HREF = "fix_ave_spatial.html">fix

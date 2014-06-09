@@ -490,6 +490,7 @@ void Neighbor::init()
     // wait to allocate initial pages until copy lists are detected
 
     for (i = 0; i < nrequest; i++) {
+      requests[i]->unprocessed = 0;
       if (requests[i]->kokkos_host || requests[i]->kokkos_device) continue;
       lists[i] = new NeighList(lmp);
       lists[i]->index = i;
@@ -859,20 +860,20 @@ void Neighbor::init()
 
   // set ptrs to topology build functions
 
-  if (bond_off) bond_build = &Neighbor::bond_partial;
-  else if (atom->molecular == 2) bond_build = &Neighbor::bond_template;
+  if (atom->molecular == 2) bond_build = &Neighbor::bond_template;
+  else if (bond_off) bond_build = &Neighbor::bond_partial;
   else bond_build = &Neighbor::bond_all;
 
-  if (angle_off) angle_build = &Neighbor::angle_partial;
-  else if (atom->molecular == 2) angle_build = &Neighbor::angle_template;
+  if (atom->molecular == 2) angle_build = &Neighbor::angle_template;
+  else if (angle_off) angle_build = &Neighbor::angle_partial;
   else angle_build = &Neighbor::angle_all;
 
-  if (dihedral_off) dihedral_build = &Neighbor::dihedral_partial;
-  else if (atom->molecular == 2) dihedral_build = &Neighbor::dihedral_template;
+  if (atom->molecular == 2) dihedral_build = &Neighbor::dihedral_template;
+  else if (dihedral_off) dihedral_build = &Neighbor::dihedral_partial;
   else dihedral_build = &Neighbor::dihedral_all;
 
-  if (improper_off) improper_build = &Neighbor::improper_partial;
-  else if (atom->molecular == 2) improper_build = &Neighbor::improper_template;
+  if (atom->molecular == 2) improper_build = &Neighbor::improper_template;
+  else if (improper_off) improper_build = &Neighbor::improper_partial;
   else improper_build = &Neighbor::improper_all;
 
   // set topology neighbor list counts to 0
@@ -1292,7 +1293,7 @@ void Neighbor::print_lists_of_lists()
 int Neighbor::decide()
 {
   if (must_check) {
-    int n = update->ntimestep;
+    bigint n = update->ntimestep;
     if (restart_check && n == output->next_restart) return 1;
     for (int i = 0; i < fix_check; i++)
       if (n == modify->fix[fixchecklist[i]]->next_reneighbor) return 1;

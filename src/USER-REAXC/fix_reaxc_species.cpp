@@ -53,6 +53,7 @@ FixReaxCSpecies::FixReaxCSpecies(LAMMPS *lmp, int narg, char **arg) :
 
   vector_flag = 1;
   size_vector = 2;
+  extvector = 0;
 
   peratom_flag = 1;
   size_peratom_cols = 0;
@@ -486,17 +487,15 @@ AtomCoord chAnchor(AtomCoord in1, AtomCoord in2)
 
 void FixReaxCSpecies::FindMolecule ()
 {
-  int i,j,ii,jj,inum,jnum,n,itype,jtype,itag,jtag,loop,looptot;
+  int i,j,ii,jj,inum,itype,jtype,loop,looptot;
   int change,done,anychange;
   int *mask = atom->mask;
-  int *ilist, *jlist, *numneigh, **firstneigh;
+  int *ilist;
   double bo_tmp,bo_cut;
   double **spec_atom = f_SPECBOND->array_atom;
 
   inum = reaxc->list->inum;
   ilist = reaxc->list->ilist;
-  numneigh = reaxc->list->numneigh;
-  firstneigh = reaxc->list->firstneigh;
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -568,7 +567,7 @@ void FixReaxCSpecies::SortMolecule(int &Nmole)
   memory->destroy(molmap);
   molmap = NULL;
 
-  int m, n, idlo, idhi;
+  int n, idlo, idhi;
   int *mask =atom->mask;
   int lo = ntotal;
   int hi = -ntotal;
@@ -636,8 +635,7 @@ void FixReaxCSpecies::SortMolecule(int &Nmole)
 
 void FixReaxCSpecies::FindSpecies(int Nmole, int &Nspec)
 {
-  int inum, *ilist;
-  int i, j, k, l, m, n, itype, cid;
+  int k, l, m, n, itype, cid;
   int flag_identity, flag_mol, flag_spec;
   int flag_tmp;
   int *mask =atom->mask;

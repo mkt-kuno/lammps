@@ -48,7 +48,7 @@ class FixRigidSmall : public Fix {
   void grow_arrays(int);
   void copy_arrays(int, int, int);
   void set_arrays(int);
-  void set_molecule(int, tagint, double *, double *, double *);
+  void set_molecule(int, tagint, int, double *, double *, double *);
 
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
@@ -78,7 +78,7 @@ class FixRigidSmall : public Fix {
   double MINUSPI,TWOPI;
 
   char *infile;             // file to read rigid body attributes from
-  int firstflag;            // 1 for first-time setup of rigid bodies
+  int staticflag;           // 1 if static body properties are setup, else 0
   int commflag;             // various modes of forward/reverse comm
   int nbody;                // total # of rigid bodies
   tagint maxmol;            // max mol-ID
@@ -97,7 +97,8 @@ class FixRigidSmall : public Fix {
     double ez_space[3];
     double angmom[3];         // space-frame angular momentum of body
     double omega[3];          // space-frame omega of body
-    imageint image;             // image flags of xcm
+    double conjqm[4];         // conjugate quaternion momentum
+    imageint image;           // image flags of xcm
     int remapflag[4];         // PBC remap flags
     int ilocal;               // index of owning atom
   };
@@ -151,9 +152,26 @@ class FixRigidSmall : public Fix {
   int maxlang;                      // max size of langextra
   class RanMars *random;            // RNG
 
+  int tstat_flag,pstat_flag;        // 0/1 = no/yes thermostat/barostat
+  
+  int t_chain,t_iter,t_order;
+
+  double p_start[3],p_stop[3];
+  double p_period[3],p_freq[3];
+  int p_flag[3];  
+  int pcouple,pstyle;
+  int p_chain;
+
+  int allremap;              // remap all atoms
+  int dilate_group_bit;      // mask for dilation group
+  char *id_dilate;           // group name to dilate
+
+  double p_current[3],p_target[3];
+
   // molecules added on-the-fly as rigid bodies
 
-  class Molecule *onemol;
+  class Molecule **onemols;
+  int nmol;
 
   // class data used by ring communication callbacks
 

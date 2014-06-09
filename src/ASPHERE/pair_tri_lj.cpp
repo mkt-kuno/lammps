@@ -515,8 +515,6 @@ double PairTriLJ::init_one(int i, int j)
 void PairTriLJ::discretize(int i, double sigma,
                           double *c1, double *c2, double *c3)
 {
-  double c1c2[3],c2c3[3],c1c3[3];
-
   double centroid[3],dc1[3],dc2[3],dc3[3];
 
   centroid[0] = (c1[0] + c2[0] + c3[0]) / 3.0;
@@ -534,7 +532,7 @@ void PairTriLJ::discretize(int i, double sigma,
 
   // if sigma sphere overlaps all corner points, add particle at centroid
 
-  if (len1sq <= sigmasq && len2sq <= sigmasq & len3sq <= sigmasq) {
+  if ((len1sq <= sigmasq) && (len2sq <= sigmasq) && (len3sq <= sigmasq)) {
     if (ndiscrete == dmax) {
       dmax += DELTA;
       discrete = (Discrete *)

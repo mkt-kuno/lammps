@@ -206,9 +206,9 @@ void ReadData::command(int narg, char **arg)
       domain->box_exist = 1;
       update->ntimestep = 0;
     
-      // insure extra settings are applied before grow(),
-      //   even if no topology in file
-      // if topology is in file, realloc and another grow() is done below
+      // apply extra settings before grow(), even if no topology in file
+      // deallocate() insures new settings are used for topology arrays
+      // if per-atom topology is in file, another grow() is done below
 
       atom->bond_per_atom = atom->extra_bond_per_atom;
       atom->angle_per_atom = atom->extra_angle_per_atom;
@@ -220,6 +220,7 @@ void ReadData::command(int narg, char **arg)
       else n = static_cast<int> (LB_FACTOR * atom->natoms / comm->nprocs);
 
       atom->allocate_type_arrays();
+      atom->deallocate_topology();
       atom->avec->grow(n);
 
       domain->print_box("  ");
@@ -497,49 +498,11 @@ void ReadData::command(int narg, char **arg)
     firstpass = 0;
 
     // reallocate bond,angle,diehdral,improper arrays via grow()
-    // use new bond,angle,dihedral,improper per-atom values from 1st pass
-    // should leave other atom arrays unchanged, since already nmax in length
-    // if bonds/etc not in data file, initialize per-atom size 
-    //   with extra settings before grow() of these topology arrays
+    // will use new bond,angle,dihedral,improper per-atom values from 1st pass
+    // will also observe extra settings even if bond/etc topology not in file
+    // leaves other atom arrays unchanged, since already nmax in length
 
-    if (bondflag) {
-      memory->destroy(atom->bond_type);
-      memory->destroy(atom->bond_atom);
-      atom->bond_type = NULL;
-      atom->bond_atom = NULL;
-    }
-
-    if (angleflag) {
-      memory->destroy(atom->angle_type);
-      memory->destroy(atom->angle_atom1);
-      memory->destroy(atom->angle_atom2);
-      memory->destroy(atom->angle_atom3);
-      atom->angle_type = NULL;
-      atom->angle_atom1 = atom->angle_atom2 = atom->angle_atom3 = NULL;
-    }
-
-    if (dihedralflag) {
-      memory->destroy(atom->dihedral_type);
-      memory->destroy(atom->dihedral_atom1);
-      memory->destroy(atom->dihedral_atom2);
-      memory->destroy(atom->dihedral_atom3);
-      memory->destroy(atom->dihedral_atom4);
-      atom->dihedral_type = NULL;
-      atom->dihedral_atom1 = atom->dihedral_atom2 = 
-        atom->dihedral_atom3 = atom->dihedral_atom4 = NULL;
-    }
-
-    if (improperflag) {
-      memory->destroy(atom->improper_type);
-      memory->destroy(atom->improper_atom1);
-      memory->destroy(atom->improper_atom2);
-      memory->destroy(atom->improper_atom3);
-      memory->destroy(atom->improper_atom4);
-      atom->improper_type = NULL;
-      atom->improper_atom1 = atom->improper_atom2 = 
-        atom->improper_atom3 = atom->improper_atom4 = NULL;
-    }
-
+    atom->deallocate_topology();
     atom->avec->grow(atom->nmax);
   }
 
@@ -949,12 +912,13 @@ void ReadData::bonds(int firstpass)
     for (int i = 0; i < nlocal; i++) max = MAX(max,count[i]);
     int maxall;
     MPI_Allreduce(&max,&maxall,1,MPI_INT,MPI_MAX,world);
+    maxall += atom->extra_bond_per_atom;
 
     if (me == 0) {
       if (screen) fprintf(screen,"  %d = max bonds/atom\n",maxall);
       if (logfile) fprintf(logfile,"  %d = max bonds/atom\n",maxall);
     }
-    atom->bond_per_atom = maxall + atom->extra_bond_per_atom;
+    atom->bond_per_atom = maxall;
     memory->destroy(count);
     return;
   }
@@ -1023,12 +987,13 @@ void ReadData::angles(int firstpass)
     for (int i = 0; i < nlocal; i++) max = MAX(max,count[i]);
     int maxall;
     MPI_Allreduce(&max,&maxall,1,MPI_INT,MPI_MAX,world);
+    maxall += atom->extra_angle_per_atom;
 
     if (me == 0) {
       if (screen) fprintf(screen,"  %d = max angles/atom\n",maxall);
       if (logfile) fprintf(logfile,"  %d = max angles/atom\n",maxall);
     }
-    atom->angle_per_atom = maxall + atom->extra_angle_per_atom;
+    atom->angle_per_atom = maxall;
     memory->destroy(count);
     return;
   }
@@ -1097,12 +1062,13 @@ void ReadData::dihedrals(int firstpass)
     for (int i = 0; i < nlocal; i++) max = MAX(max,count[i]);
     int maxall;
     MPI_Allreduce(&max,&maxall,1,MPI_INT,MPI_MAX,world);
+    maxall += atom->extra_dihedral_per_atom;
 
     if (me == 0) {
       if (screen) fprintf(screen,"  %d = max dihedrals/atom\n",maxall);
       if (logfile) fprintf(logfile,"  %d = max dihedrals/atom\n",maxall);
     }
-    atom->dihedral_per_atom = maxall + atom->extra_dihedral_per_atom;
+    atom->dihedral_per_atom = maxall;
     memory->destroy(count);
     return;
   }
@@ -1171,12 +1137,13 @@ void ReadData::impropers(int firstpass)
     for (int i = 0; i < nlocal; i++) max = MAX(max,count[i]);
     int maxall;
     MPI_Allreduce(&max,&maxall,1,MPI_INT,MPI_MAX,world);
+    maxall += atom->extra_improper_per_atom;
 
     if (me == 0) {
       if (screen) fprintf(screen,"  %d = max impropers/atom\n",maxall);
       if (logfile) fprintf(logfile,"  %d = max impropers/atom\n",maxall);
     }
-    atom->improper_per_atom = maxall + atom->extra_improper_per_atom;
+    atom->improper_per_atom = maxall;
     memory->destroy(count);
     return;
   }

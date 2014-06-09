@@ -33,7 +33,7 @@ class Variable : protected Pointers {
   double compute_equal(int);
   double compute_equal(char *);
   void compute_atom(int, int, double *, int, int);
-  int int_between_brackets(char *&);
+  int int_between_brackets(char *&, int);
   double evaluate_boolean(char *);
 
   unsigned int data_mask(int ivar);
@@ -90,8 +90,6 @@ class Variable : protected Pointers {
   void atom_vector(char *, Tree **, Tree **, int &);
   int is_constant(char *);
   double constant(char *);
-  double numeric(char *);
-  int inumeric(char *);
   char *find_next_comma(char *);
   void print_tree(Tree *, int);
 };

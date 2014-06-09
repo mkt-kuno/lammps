@@ -20,7 +20,6 @@ namespace LAMMPS_NS {
 
 class Compute : protected Pointers {
  public:
-
   char *id,*style;
   int igroup,groupbit;
 
@@ -75,17 +74,19 @@ class Compute : protected Pointers {
 
   double dof;         // degrees-of-freedom for temperature
 
-  int comm_forward;   // size of forward communication (0 if none)
-  int comm_reverse;   // size of reverse communication (0 if none)
+  int comm_forward;         // size of forward communication (0 if none)
+  int comm_reverse;         // size of reverse communication (0 if none)
+  int dynamic_group_allow;  // 1 if can be used with dynamic group, else 0
 
   unsigned int datamask;
   unsigned int datamask_ext;
 
-  int cudable;        // 1 if compute is CUDA-enabled
+  int cudable;              // 1 if compute is CUDA-enabled
 
   Compute(class LAMMPS *, int, char **);
   virtual ~Compute();
   void modify_params(int, char **);
+  void adjust_dof_fix();
   void reset_extra_dof();
 
   virtual void init() = 0;
@@ -102,6 +103,7 @@ class Compute : protected Pointers {
   virtual int pack_reverse_comm(int, int, double *) {return 0;}
   virtual void unpack_reverse_comm(int, int *, double *) {}
 
+  virtual void dof_remove_pre() {}
   virtual int dof_remove(int) {return 0;}
   virtual void remove_bias(int, double *) {}
   virtual void remove_bias_all() {}
@@ -125,6 +127,7 @@ class Compute : protected Pointers {
 
  protected:
   int extra_dof;               // extra DOF for temperature computes
+  int fix_dof;                 // DOF due to fixes
   int dynamic;                 // recount atoms for temperature computes
   int thermoflag;              // 1 if include fix PE for PE computes
 
@@ -139,6 +142,17 @@ class Compute : protected Pointers {
   inline int sbmask(int j) {
     return j >> SBBITS & 3;
   }
+
+  // union data struct for packing 32-bit and 64-bit ints into double bufs
+  // see atom_vec.h for documentation
+
+  union ubuf {
+    double d;
+    int64_t i;
+    ubuf(double arg) : d(arg) {}
+    ubuf(int64_t arg) : i(arg) {}
+    ubuf(int arg) : i(arg) {}
+  };
 };
 
 }

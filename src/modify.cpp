@@ -217,6 +217,23 @@ void Modify::init()
   }
   addstep_compute_all(update->ntimestep);
 
+  // error if any fix or compute is using a dynamic group when not allowed
+
+  for (i = 0; i < nfix; i++)
+    if (!fix[i]->dynamic_group_allow && group->dynamic[fix[i]->igroup]) {
+      char str[128];
+      sprintf(str,"Fix %s does not allow use of dynamic group",fix[i]->id);
+      error->all(FLERR,str);
+    }
+
+  for (i = 0; i < ncompute; i++)
+    if (!compute[i]->dynamic_group_allow && 
+        group->dynamic[compute[i]->igroup]) {
+      char str[128];
+      sprintf(str,"Compute %s does not allow use of dynamic group",fix[i]->id);
+      error->all(FLERR,str);
+    }
+
   // warn if any particle is time integrated more than once
 
   int nlocal = atom->nlocal;
@@ -254,7 +271,7 @@ void Modify::init()
 void Modify::setup(int vflag)
 {
   // compute setup needs to come before fix setup
-  // b/c NH fixes need use DOF of temperature computes
+  // b/c NH fixes need DOF of temperature computes
 
   for (int i = 0; i < ncompute; i++) compute[i]->setup();
 
@@ -420,8 +437,8 @@ void Modify::post_run()
 
 void Modify::setup_pre_force_respa(int vflag, int ilevel)
 {
-  for (int i = 0; i < n_pre_force; i++)
-    fix[list_pre_force[i]]->setup_pre_force_respa(vflag,ilevel);
+  for (int i = 0; i < n_pre_force_respa; i++)
+    fix[list_pre_force_respa[i]]->setup_pre_force_respa(vflag,ilevel);
 }
 
 /* ----------------------------------------------------------------------
@@ -713,11 +730,6 @@ void Modify::add_fix(int narg, char **arg, char *suffix)
 
   if (fix[ifix] == NULL) error->all(FLERR,"Invalid fix style");
 
-  // set fix mask values and increment nfix (if new)
-
-  fmask[ifix] = fix[ifix]->setmask();
-  if (newflag) nfix++;
-
   // check if Fix is in restart_global list
   // if yes, pass state info to the Fix so it can reset itself
 
@@ -749,6 +761,16 @@ void Modify::add_fix(int narg, char **arg, char *suffix)
         if (logfile) fprintf(logfile,str,fix[ifix]->id,fix[ifix]->style);
       }
     }
+
+  // increment nfix (if new)
+  // set fix mask values
+  // post_construct() allows new fix to create other fixes
+  // nfix increment comes first so that recursive call to add_fix within
+  //   post_constructor() will see updated nfix
+
+  if (newflag) nfix++;
+  fmask[ifix] = fix[ifix]->setmask();
+  fix[ifix]->post_constructor();
 }
 
 /* ----------------------------------------------------------------------

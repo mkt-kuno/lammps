@@ -118,11 +118,9 @@ PairMEAM::~PairMEAM()
 void PairMEAM::compute(int eflag, int vflag)
 {
   int i,j,ii,n,inum_half,errorflag;
-  double evdwl;
   int *ilist_half,*numneigh_half,**firstneigh_half;
   int *numneigh_full,**firstneigh_full;
 
-  evdwl = 0.0;
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = eflag_global = vflag_global =
          eflag_atom = vflag_atom = 0;
@@ -520,7 +518,7 @@ void PairMEAM::read_files(char *globalfile, char *userfile)
 
     // strip comment, skip line if blank
 
-    if (ptr = strchr(line,'#')) *ptr = '\0';
+    if ((ptr = strchr(line,'#'))) *ptr = '\0';
     nwords = atom->count_words(line);
     if (nwords == 0) continue;
 
@@ -539,7 +537,7 @@ void PairMEAM::read_files(char *globalfile, char *userfile)
       if (eof) break;
       MPI_Bcast(&n,1,MPI_INT,0,world);
       MPI_Bcast(line,n,MPI_CHAR,0,world);
-      if (ptr = strchr(line,'#')) *ptr = '\0';
+      if ((ptr = strchr(line,'#'))) *ptr = '\0';
       nwords = atom->count_words(line);
     }
 
@@ -551,7 +549,7 @@ void PairMEAM::read_files(char *globalfile, char *userfile)
 
     nwords = 0;
     words[nwords++] = strtok(line,"' \t\n\r\f");
-    while (words[nwords++] = strtok(NULL,"' \t\n\r\f")) continue;
+    while ((words[nwords++] = strtok(NULL,"' \t\n\r\f"))) continue;
 
     // skip if element name isn't in element list
 
@@ -676,7 +674,7 @@ void PairMEAM::read_files(char *globalfile, char *userfile)
 
     // strip comment, skip line if blank
 
-    if (ptr = strchr(line,'#')) *ptr = '\0';
+    if ((ptr = strchr(line,'#'))) *ptr = '\0';
     nparams = atom->count_words(line);
     if (nparams == 0) continue;
 

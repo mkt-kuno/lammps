@@ -139,6 +139,8 @@ void Variable::set(int narg, char **arg)
 {
   if (narg < 2) error->all(FLERR,"Illegal variable command");
 
+  int replaceflag = 0;
+
   // DELETE
   // doesn't matter if variable no longer exists
 
@@ -262,24 +264,28 @@ void Variable::set(int narg, char **arg)
                    "All universe/uloop variables must have same # of values");
 
   // STRING
-  // remove pre-existing var if also style STRING (allows it to be reset)
+  // replace pre-existing var if also style STRING (allows it to be reset)
   // num = 1, which = 1st value
   // data = 1 value, string to eval
 
   } else if (strcmp(arg[1],"string") == 0) {
     if (narg != 3) error->all(FLERR,"Illegal variable command");
-    if (find(arg[0]) >= 0) {
-      if (style[find(arg[0])] != STRING)
+    int ivar = find(arg[0]);
+    if (ivar >= 0) {
+      if (style[ivar] != STRING)
         error->all(FLERR,"Cannot redefine variable as a different style");
-      remove(find(arg[0]));
+      delete [] data[ivar][0];
+      copy(1,&arg[2],data[ivar]);
+      replaceflag = 1;
+    } else {
+      if (nvar == maxvar) grow();
+      style[nvar] = STRING;
+      num[nvar] = 1;
+      which[nvar] = 0;
+      pad[nvar] = 0;
+      data[nvar] = new char*[num[nvar]];
+      copy(1,&arg[2],data[nvar]);
     }
-    if (nvar == maxvar) grow();
-    style[nvar] = STRING;
-    num[nvar] = 1;
-    which[nvar] = 0;
-    pad[nvar] = 0;
-    data[nvar] = new char*[num[nvar]];
-    copy(1,&arg[2],data[nvar]);
 
   // GETENV
   // remove pre-existing var if also style GETENV (allows it to be reset)
@@ -357,51 +363,62 @@ void Variable::set(int narg, char **arg)
     data[nvar][2] = NULL;
 
   // EQUAL
-  // remove pre-existing var if also style EQUAL (allows it to be reset)
+  // replace pre-existing var if also style EQUAL (allows it to be reset)
   // num = 2, which = 1st value
   // data = 2 values, 1st is string to eval, 2nd is filled on retrieval
 
   } else if (strcmp(arg[1],"equal") == 0) {
     if (narg != 3) error->all(FLERR,"Illegal variable command");
-    if (find(arg[0]) >= 0) {
-      if (style[find(arg[0])] != EQUAL)
+    int ivar = find(arg[0]);
+    if (ivar >= 0) {
+      if (style[ivar] != EQUAL)
         error->all(FLERR,"Cannot redefine variable as a different style");
-      remove(find(arg[0]));
+      delete [] data[ivar][0];
+      if (data[ivar][1]) delete [] data[ivar][1];
+      copy(1,&arg[2],data[ivar]);
+      data[ivar][1] = NULL;
+      replaceflag = 1;
+    } else {
+      if (nvar == maxvar) grow();
+      style[nvar] = EQUAL;
+      num[nvar] = 2;
+      which[nvar] = 0;
+      pad[nvar] = 0;
+      data[nvar] = new char*[num[nvar]];
+      copy(1,&arg[2],data[nvar]);
+      data[nvar][1] = NULL;
     }
-    if (nvar == maxvar) grow();
-    style[nvar] = EQUAL;
-    num[nvar] = 2;
-    which[nvar] = 0;
-    pad[nvar] = 0;
-    data[nvar] = new char*[num[nvar]];
-    copy(1,&arg[2],data[nvar]);
-    data[nvar][1] = NULL;
 
   // ATOM
-  // remove pre-existing var if also style ATOM (allows it to be reset)
+  // replace pre-existing var if also style ATOM (allows it to be reset)
   // num = 1, which = 1st value
   // data = 1 value, string to eval
 
   } else if (strcmp(arg[1],"atom") == 0) {
     if (narg != 3) error->all(FLERR,"Illegal variable command");
-    if (find(arg[0]) >= 0) {
-      if (style[find(arg[0])] != ATOM)
+    int ivar = find(arg[0]);
+    if (ivar >= 0) {
+      if (style[ivar] != ATOM)
         error->all(FLERR,"Cannot redefine variable as a different style");
-      remove(find(arg[0]));
+      delete [] data[ivar][0];
+      copy(1,&arg[2],data[ivar]);
+      replaceflag = 1;
+    } else {
+      if (nvar == maxvar) grow();
+      style[nvar] = ATOM;
+      num[nvar] = 1;
+      which[nvar] = 0;
+      pad[nvar] = 0;
+      data[nvar] = new char*[num[nvar]];
+      copy(1,&arg[2],data[nvar]);
     }
-    if (nvar == maxvar) grow();
-    style[nvar] = ATOM;
-    num[nvar] = 1;
-    which[nvar] = 0;
-    pad[nvar] = 0;
-    data[nvar] = new char*[num[nvar]];
-    copy(1,&arg[2],data[nvar]);
 
   } else error->all(FLERR,"Illegal variable command");
 
-  // set name of variable
-  // must come at end, since STRING/EQUAL/ATOM reset may have removed name
+  // set name of variable, if not replacing (STRING/EQUAL/ATOM)
   // name must be all alphanumeric chars or underscores
+
+  if (replaceflag) return;
 
   int n = strlen(arg[0]) + 1;
   names[nvar] = new char[n];
@@ -647,11 +664,12 @@ char *Variable::retrieve(char *name)
 
 double Variable::compute_equal(int ivar)
 {
-  // eval_in_progress used to detect circle dependencies
-  // could extend this later to check v_a = c_b + v_a constructs?
-
+  if (eval_in_progress[ivar]) 
+    error->all(FLERR,"Variable has circular dependency");
   eval_in_progress[ivar] = 1;
+
   double value = evaluate(data[ivar][0],NULL);
+
   eval_in_progress[ivar] = 0;
   return value;
 }
@@ -679,6 +697,10 @@ void Variable::compute_atom(int ivar, int igroup,
   Tree *tree;
   double *vstore;
   
+  if (eval_in_progress[ivar]) 
+    error->all(FLERR,"Variable has circular dependency");
+  eval_in_progress[ivar] = 1;
+
   if (style[ivar] == ATOM) {
     evaluate(data[ivar][0],&tree);
     collapse_tree(tree);
@@ -724,6 +746,8 @@ void Variable::compute_atom(int ivar, int igroup,
   }
 
   if (style[ivar] == ATOM) free_tree(tree);
+
+  eval_in_progress[ivar] = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -975,12 +999,12 @@ double Variable::evaluate(char *str, Tree **tree)
         else {
           nbracket = 1;
           ptr = &str[i];
-          index1 = int_between_brackets(ptr);
+          index1 = int_between_brackets(ptr,1);
           i = ptr-str+1;
           if (str[i] == '[') {
             nbracket = 2;
             ptr = &str[i];
-            index2 = int_between_brackets(ptr);
+            index2 = int_between_brackets(ptr,1);
             i = ptr-str+1;
           }
         }
@@ -1189,12 +1213,12 @@ double Variable::evaluate(char *str, Tree **tree)
         else {
           nbracket = 1;
           ptr = &str[i];
-          index1 = int_between_brackets(ptr);
+          index1 = int_between_brackets(ptr,1);
           i = ptr-str+1;
           if (str[i] == '[') {
             nbracket = 2;
             ptr = &str[i];
-            index2 = int_between_brackets(ptr);
+            index2 = int_between_brackets(ptr,1);
             i = ptr-str+1;
           }
         }
@@ -1361,7 +1385,7 @@ double Variable::evaluate(char *str, Tree **tree)
         else {
           nbracket = 1;
           ptr = &str[i];
-          index = int_between_brackets(ptr);
+          index = int_between_brackets(ptr,1);
           i = ptr-str+1;
         }
 
@@ -1467,7 +1491,7 @@ double Variable::evaluate(char *str, Tree **tree)
                        "Variable evaluation before simulation box is defined");
 
           ptr = &str[i];
-          int id = int_between_brackets(ptr);
+          int id = int_between_brackets(ptr,1);
           i = ptr-str+1;
 
           peratom2global(0,word,NULL,0,id,
@@ -2450,25 +2474,59 @@ int Variable::find_matching_paren(char *str, int i,char *&contents)
    find int between brackets and return it
    ptr initially points to left bracket
    return it pointing to right bracket
-   error if no right bracket or brackets are empty
-   error if any between-bracket chars are non-digits or value == 0
+   error if no right bracket or brackets are empty or index = 0
+   if varallow = 0: error if any between-bracket chars are non-digits
+   if varallow = 1: also allow for v_name, where name is variable name
 ------------------------------------------------------------------------- */
 
-int Variable::int_between_brackets(char *&ptr)
+int Variable::int_between_brackets(char *&ptr, int varallow)
 {
+  int varflag,index;
+
   char *start = ++ptr;
 
-  while (*ptr && *ptr != ']') {
-    if (!isdigit(*ptr))
-      error->all(FLERR,"Non digit character between brackets in variable");
-    ptr++;
+  if (varallow && strstr(ptr,"v_") == ptr) {
+    varflag = 1;
+    while (*ptr && *ptr != ']') {
+      if (!isalnum(*ptr) && *ptr != '_')
+        error->all(FLERR,"Variable name between brackets must be "
+                   "alphanumeric or underscore characters");
+      ptr++;
+    }
+
+  } else {
+    varflag = 0;
+    while (*ptr && *ptr != ']') {
+      if (!isdigit(*ptr))
+        error->all(FLERR,"Non digit character between brackets in variable");
+      ptr++;
+    }
   }
 
   if (*ptr != ']') error->all(FLERR,"Mismatched brackets in variable");
   if (ptr == start) error->all(FLERR,"Empty brackets in variable");
 
   *ptr = '\0';
-  int index = atoi(start);
+
+  // evaluate index as variable or as simple integer via atoi()
+
+  if (varflag) {
+    char *id = start+2;
+    int ivar = find(id);
+    if (ivar < 0)
+      error->all(FLERR,"Invalid variable name in variable formula");
+    if (eval_in_progress[ivar])
+      error->all(FLERR,"Variable has circular dependency");
+
+    char *var = retrieve(id);
+    if (var == NULL)
+      error->all(FLERR,"Invalid variable evaluation in variable formula");
+    index = static_cast<int> (atof(var));
+
+  } else {
+    index = atoi(start);
+  }
+
   *ptr = ']';
 
   if (index == 0)
@@ -3182,7 +3240,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
       ptr1 = strchr(arg1,'[');
       if (ptr1) {
         ptr2 = ptr1;
-        index = int_between_brackets(ptr2);
+        index = int_between_brackets(ptr2,0);
         *ptr1 = '\0';
       } else index = 0;
 
@@ -3221,7 +3279,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
       ptr1 = strchr(arg1,'[');
       if (ptr1) {
         ptr2 = ptr1;
-        index = int_between_brackets(ptr2);
+        index = int_between_brackets(ptr2,0);
         *ptr1 = '\0';
       } else index = 0;
 
@@ -3348,6 +3406,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
       error->all(FLERR,"Invalid special function in variable formula");
 
     int iregion = region_function(arg1);
+    domain->regions[iregion]->prematch();
 
     Tree *newtree = new Tree();
     newtree->type = RMASK;
@@ -3365,6 +3424,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
     if (igroup == -1)
       error->all(FLERR,"Group ID in variable formula does not exist");
     int iregion = region_function(arg2);
+    domain->regions[iregion]->prematch();
 
     Tree *newtree = new Tree();
     newtree->type = GRMASK;
@@ -3439,7 +3499,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
    id = positive global ID of atom, converted to local index
    push result onto tree or arg stack
    customize by adding an atom vector:
-     id, mass,type,mol,radius,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
+     id, mass,type,mol,radius,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz,q
 ------------------------------------------------------------------------- */
 
 void Variable::peratom2global(int flag, char *word,
@@ -3481,8 +3541,11 @@ void Variable::peratom2global(int flag, char *word,
       else if (strcmp(word,"omegax") == 0) mine = atom->omega[index][0];
       else if (strcmp(word,"omegay") == 0) mine = atom->omega[index][1];
       else if (strcmp(word,"omegaz") == 0) mine = atom->omega[index][2];
-
-
+      else if (strcmp(word,"q") == 0) {
+        if (!atom->q_flag) 
+          error->one(FLERR,"Variable uses atom property that isn't allocated");
+        mine = atom->q[index];
+      }
       else error->one(FLERR,"Invalid atom vector in variable formula");
 
     } else mine = vector[index*nstride];
@@ -3505,7 +3568,7 @@ void Variable::peratom2global(int flag, char *word,
    check if word matches an atom vector
    return 1 if yes, else 0
    customize by adding an atom vector:
-     id,mass,radius,type,mol,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
+     id,mass,radius,type,mol,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz,q
 ------------------------------------------------------------------------- */
 
 int Variable::is_atom_vector(char *word)
@@ -3527,6 +3590,7 @@ int Variable::is_atom_vector(char *word)
   if (strcmp(word,"omegax") == 0) return 1;
   if (strcmp(word,"omegay") == 0) return 1;
   if (strcmp(word,"omegaz") == 0) return 1;
+  if (strcmp(word,"q") == 0) return 1;
   return 0;
 }
 
@@ -3535,7 +3599,7 @@ int Variable::is_atom_vector(char *word)
    push result onto tree
    word = atom vector
    customize by adding an atom vector:
-     id,mass,radius,type,mol,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz
+     id,mass,radius,type,mol,x,y,z,vx,vy,vz,fx,fy,fz,omegax,omegay,omegaz,q
 ------------------------------------------------------------------------- */
 
 void Variable::atom_vector(char *word, Tree **tree,
@@ -3603,6 +3667,11 @@ void Variable::atom_vector(char *word, Tree **tree,
   else if (strcmp(word,"omegax") == 0) newtree->array = &atom->omega[0][0];
   else if (strcmp(word,"omegay") == 0) newtree->array = &atom->omega[0][1];
   else if (strcmp(word,"omegaz") == 0) newtree->array = &atom->omega[0][2];
+
+  else if (strcmp(word,"q") == 0) {
+    newtree->nstride = 1;
+    newtree->array = atom->q;
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -3626,41 +3695,6 @@ double Variable::constant(char *word)
 {
   if (strcmp(word,"PI") == 0) return MY_PI;
   return 0.0;
-}
-
-/* ----------------------------------------------------------------------
-   read a floating point value from a string
-   generate an error if not a legitimate floating point value
-------------------------------------------------------------------------- */
-
-double Variable::numeric(char *str)
-{
-  int n = strlen(str);
-  for (int i = 0; i < n; i++) {
-    if (isdigit(str[i])) continue;
-    if (str[i] == '-' || str[i] == '+' || str[i] == '.') continue;
-    if (str[i] == 'e' || str[i] == 'E') continue;
-    error->all(FLERR,
-               "Expected floating point parameter in variable definition");
-  }
-
-  return atof(str);
-}
-
-/* ----------------------------------------------------------------------
-   read an integer value from a string
-   generate an error if not a legitimate integer value
-------------------------------------------------------------------------- */
-
-int Variable::inumeric(char *str)
-{
-  int n = strlen(str);
-  for (int i = 0; i < n; i++) {
-    if (isdigit(str[i]) || str[i] == '-' || str[i] == '+') continue;
-    error->all(FLERR,"Expected integer parameter in variable definition");
-  }
-
-  return atoi(str);
 }
 
 /* ----------------------------------------------------------------------

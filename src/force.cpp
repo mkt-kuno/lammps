@@ -523,6 +523,10 @@ void Force::create_kspace(int narg, char **arg, const char *suffix)
     kspace_style = new char[n];
     strcpy(kspace_style,arg[0]);
   }
+
+  if (comm->style == 1 && !kspace_match("ewald",0))
+    error->all(FLERR,
+               "Cannot yet use KSpace solver with grid with comm style tiled");
 }
 
 /* ----------------------------------------------------------------------
@@ -583,11 +587,11 @@ void Force::set_special(int narg, char **arg)
 {
   if (narg == 0) error->all(FLERR,"Illegal special_bonds command");
 
-  // defaults
+  // defaults, but do not reset special_extra
 
   special_lj[1] = special_lj[2] = special_lj[3] = 0.0;
   special_coul[1] = special_coul[2] = special_coul[3] = 0.0;
-  special_angle = special_dihedral = special_extra = 0;
+  special_angle = special_dihedral = 0;
 
   int iarg = 0;
   while (iarg < narg) {
@@ -747,7 +751,14 @@ void Force::boundsbig(char *str, bigint nmax, bigint &nlo, bigint &nhi,
 
 double Force::numeric(const char *file, int line, char *str)
 {
+  if (!str)
+    error->all(file,line,"Expected floating point parameter "
+               "in input script or data file");
   int n = strlen(str);
+  if (n == 0)
+    error->all(file,line,"Expected floating point parameter "
+               "in input script or data file");
+
   for (int i = 0; i < n; i++) {
     if (isdigit(str[i])) continue;
     if (str[i] == '-' || str[i] == '+' || str[i] == '.') continue;
@@ -767,7 +778,14 @@ double Force::numeric(const char *file, int line, char *str)
 
 int Force::inumeric(const char *file, int line, char *str)
 {
+  if (!str) 
+    error->all(file,line,
+               "Expected integer parameter in input script or data file");
   int n = strlen(str);
+  if (n == 0) 
+    error->all(file,line,
+               "Expected integer parameter in input script or data file");
+
   for (int i = 0; i < n; i++) {
     if (isdigit(str[i]) || str[i] == '-' || str[i] == '+') continue;
     error->all(file,line,
@@ -785,14 +803,46 @@ int Force::inumeric(const char *file, int line, char *str)
 
 bigint Force::bnumeric(const char *file, int line, char *str)
 {
+  if (!str) 
+    error->all(file,line,
+               "Expected integer parameter in input script or data file");
   int n = strlen(str);
+  if (n == 0) 
+    error->all(file,line,
+               "Expected integer parameter in input script or data file");
+
   for (int i = 0; i < n; i++) {
     if (isdigit(str[i]) || str[i] == '-' || str[i] == '+') continue;
     error->all(file,line,
                "Expected integer parameter in input script or data file");
   }
 
-  return ATOLL(str);
+  return ATOBIGINT(str);
+}
+
+/* ----------------------------------------------------------------------
+   read a tag integer value from a string
+   generate an error if not a legitimate integer value
+   called by various commands to check validity of their arguments
+------------------------------------------------------------------------- */
+
+tagint Force::tnumeric(const char *file, int line, char *str)
+{
+  if (!str) 
+    error->all(file,line,
+               "Expected integer parameter in input script or data file");
+  int n = strlen(str);
+  if (n == 0) 
+    error->all(file,line,
+               "Expected integer parameter in input script or data file");
+
+  for (int i = 0; i < n; i++) {
+    if (isdigit(str[i]) || str[i] == '-' || str[i] == '+') continue;
+    error->all(file,line,
+               "Expected integer parameter in input script or data file");
+  }
+
+  return ATOTAGINT(str);
 }
 
 /* ----------------------------------------------------------------------

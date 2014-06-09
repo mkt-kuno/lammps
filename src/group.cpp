@@ -162,6 +162,7 @@ void Group::assign(int narg, char **arg)
     int iregion = domain->find_region(arg[2]);
     if (iregion == -1) error->all(FLERR,"Group region ID does not exist");
     domain->regions[iregion]->init();
+    domain->regions[iregion]->prematch();
 
     for (i = 0; i < nlocal; i++)
       if (domain->regions[iregion]->match(x[i][0],x[i][1],x[i][2]))
@@ -185,6 +186,7 @@ void Group::assign(int narg, char **arg)
     if (narg > 3 &&
         (strcmp(arg[2],"<") == 0 || strcmp(arg[2],">") == 0 ||
          strcmp(arg[2],"<=") == 0 || strcmp(arg[2],">=") == 0 ||
+         strcmp(arg[2],"==") == 0 || strcmp(arg[2],"!=") == 0 ||
          strcmp(arg[2],"<>") == 0)) {
 
       int condition = -1;
@@ -198,18 +200,12 @@ void Group::assign(int narg, char **arg)
       else error->all(FLERR,"Illegal group command");
       
       tagint bound1,bound2;
-      if (sizeof(tagint) == sizeof(smallint))
-        bound1 = force->inumeric(FLERR,arg[3]);
-      else
-        bound1 = force->bnumeric(FLERR,arg[3]);
+      bound1 = force->tnumeric(FLERR,arg[3]);
       bound2 = -1;
 
       if (condition == BETWEEN) {
         if (narg != 5) error->all(FLERR,"Illegal group command");
-        if (sizeof(tagint) == sizeof(smallint))
-          bound2 = force->inumeric(FLERR,arg[4]);
-        else
-          bound2 = force->bnumeric(FLERR,arg[4]);
+        bound2 = force->tnumeric(FLERR,arg[4]);
       } else if (narg != 4) error->all(FLERR,"Illegal group command");
 
       int *attribute = NULL;
@@ -284,13 +280,15 @@ void Group::assign(int narg, char **arg)
 
       for (int iarg = 2; iarg < narg; iarg++) {
         if (strchr(arg[iarg],':')) {
-          start = ATOTAGINT(strtok(arg[iarg],":")); 
-          stop = ATOTAGINT(strtok(NULL,":"));
+          ptr = strtok(arg[iarg],":"); 
+          start = force->tnumeric(FLERR,ptr); 
+          ptr = strtok(NULL,":"); 
+          stop = force->tnumeric(FLERR,ptr); 
           ptr = strtok(NULL,":");
-          if (ptr) delta = ATOTAGINT(ptr);
+          if (ptr) delta = force->tnumeric(FLERR,ptr);
           else delta = 1;
         } else {
-          start = stop = ATOTAGINT(arg[iarg]);
+          start = stop = force->tnumeric(FLERR,arg[iarg]);
           delta = 1;
         }
 
@@ -503,8 +501,8 @@ void Group::assign(int narg, char **arg)
 
   if (me == 0) {
     if (dynamic[igroup]) {
-      if (screen) fprintf(screen,"dynamic group %s\n",names[igroup]);
-      if (logfile) fprintf(logfile,"dynamic group %s\n",names[igroup]);
+      if (screen) fprintf(screen,"dynamic group %s defined\n",names[igroup]);
+      if (logfile) fprintf(logfile,"dynamic group %s defined\n",names[igroup]);
     } else {
       if (screen) 
         fprintf(screen,"%.15g atoms in group %s\n",all,names[igroup]);
@@ -665,6 +663,7 @@ bigint Group::count(int igroup, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   int *mask = atom->mask;
@@ -719,6 +718,7 @@ double Group::mass(int igroup, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   double *mass = atom->mass;
@@ -773,6 +773,7 @@ double Group::charge(int igroup, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   double *q = atom->q;
@@ -841,6 +842,7 @@ void Group::bounds(int igroup, double *minmax, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double extent[6];
   extent[0] = extent[2] = extent[4] = BIG;
@@ -940,6 +942,7 @@ void Group::xcm(int igroup, double masstotal, double *cm, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   int *mask = atom->mask;
@@ -1039,6 +1042,7 @@ void Group::vcm(int igroup, double masstotal, double *cm, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   double **v = atom->v;
@@ -1110,6 +1114,7 @@ void Group::fcm(int igroup, double *cm, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   double **f = atom->f;
@@ -1172,6 +1177,7 @@ double Group::ke(int igroup, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   double **v = atom->v;
@@ -1250,6 +1256,7 @@ double Group::gyration(int igroup, double masstotal, double *cm, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   int *mask = atom->mask;
@@ -1331,6 +1338,7 @@ void Group::angmom(int igroup, double *cm, double *lmom, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   double **v = atom->v;
@@ -1409,6 +1417,7 @@ void Group::torque(int igroup, double *cm, double *tq, int iregion)
 {
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   double **f = atom->f;
@@ -1496,6 +1505,7 @@ void Group::inertia(int igroup, double *cm, double itensor[3][3], int iregion)
 
   int groupbit = bitmask[igroup];
   Region *region = domain->regions[iregion];
+  region->prematch();
 
   double **x = atom->x;
   int *mask = atom->mask;
@@ -1537,7 +1547,7 @@ void Group::inertia(int igroup, double *cm, double itensor[3][3], int iregion)
 
 /* ----------------------------------------------------------------------
    compute angular velocity omega from L = Iw, inverting I to solve for w
-   really not a group operation, but L and I were computed for a group
+   really not a group/region operation, but L,I were computed for a group/region
 ------------------------------------------------------------------------- */
 
 void Group::omega(double *angmom, double inertia[3][3], double *w)

@@ -24,6 +24,8 @@
 #include "atom.h"
 #include "atom_vec.h"
 #include "comm.h"
+#include "comm_brick.h"
+#include "comm_tiled.h"
 #include "group.h"
 #include "domain.h"
 #include "output.h"
@@ -553,7 +555,8 @@ int Input::execute_command()
   else if (!strcmp(command,"bond_style")) bond_style();
   else if (!strcmp(command,"boundary")) boundary();
   else if (!strcmp(command,"box")) box();
-  else if (!strcmp(command,"communicate")) communicate();
+  else if (!strcmp(command,"comm_modify")) comm_modify();
+  else if (!strcmp(command,"comm_style")) comm_style();
   else if (!strcmp(command,"compute")) compute();
   else if (!strcmp(command,"compute_modify")) compute_modify();
   else if (!strcmp(command,"dielectric")) dielectric();
@@ -893,7 +896,7 @@ void Input::partition()
 {
   if (narg < 3) error->all(FLERR,"Illegal partition command");
 
-  int yesflag=-1;
+  int yesflag;
   if (strcmp(arg[0],"yes") == 0) yesflag = 1;
   else if (strcmp(arg[0],"no") == 0) yesflag = 0;
   else error->all(FLERR,"Illegal partition command");
@@ -1145,9 +1148,31 @@ void Input::box()
 
 /* ---------------------------------------------------------------------- */
 
-void Input::communicate()
+void Input::comm_modify()
 {
-  comm->set(narg,arg);
+  comm->modify_params(narg,arg);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void Input::comm_style()
+{
+  if (narg < 1) error->all(FLERR,"Illegal comm_style command");
+  if (strcmp(arg[0],"brick") == 0) {
+    if (comm->layout)
+      error->all(FLERR,
+                 "Cannot switch to comm style brick from "
+                 "irregular tiling of proc domains");
+    comm = new CommBrick(lmp);
+    // NOTE: this will lose load balancing info in old CommBrick
+    if (domain->box_exist) {
+      comm->set_proc_grid();
+      domain->set_local_box();
+    }
+  } else if (strcmp(arg[0],"tiled") == 0) {
+    error->all(FLERR,"Comm_style tiled not yet supported");
+    comm = new CommTiled(lmp);
+  } else error->all(FLERR,"Illegal comm_style command");
 }
 
 /* ---------------------------------------------------------------------- */

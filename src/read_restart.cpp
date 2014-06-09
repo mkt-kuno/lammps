@@ -151,6 +151,7 @@ void ReadRestart::command(int narg, char **arg)
   else n = static_cast<int> (LB_FACTOR * atom->natoms / nprocs);
 
   atom->allocate_type_arrays();
+  atom->deallocate_topology();
   atom->avec->grow(n);
   n = atom->nmax;
 
@@ -428,13 +429,14 @@ void ReadRestart::command(int narg, char **arg)
     }
 
     // move atoms to new processors via irregular()
+    // turn sorting on in migrate_atoms() to avoid non-reproducible restarts
     // in case read by different proc than wrote restart file
     // first do map_init() since irregular->migrate_atoms() will do map_clear()
 
     if (atom->map_style) atom->map_init();
     if (domain->triclinic) domain->x2lamda(atom->nlocal);
     Irregular *irregular = new Irregular(lmp);
-    irregular->migrate_atoms();
+    irregular->migrate_atoms(1);
     delete irregular;
     if (domain->triclinic) domain->lamda2x(atom->nlocal);
 
@@ -469,7 +471,7 @@ void ReadRestart::command(int narg, char **arg)
   }
 
   if (natoms != atom->natoms)
-    error->all(FLERR,"Did not assign all atoms correctly");
+    error->all(FLERR,"Did not assign all restart atoms correctly");
 
   if (me == 0) {
     if (atom->nbonds) {

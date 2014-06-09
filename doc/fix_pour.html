@@ -57,6 +57,8 @@
     vy = y velocity (2d) assigned to inserted particles (velocity units)
   <I>mol</I> value = template-ID
     template-ID = ID of molecule template specified in a separate <A HREF = "molecule.html">molecule</A> command
+  <I>molfrac</I> values = f1 f2 ... fN
+    f1 to fN = relative probability of creating each of N molecules in template-ID
   <I>rigid</I> value = fix-ID
     fix-ID = ID of <A HREF = "fix_rigid.html">fix rigid/small</A> command
   <I>shake</I> value = fix-ID
@@ -84,8 +86,10 @@ or molecule is referred to as a "particle".
 specified atom type.  If they are molecules, the type of each atom in
 the inserted molecule is specified in the file read by the
 <A HREF = "molecule.html">molecule</A> command, and those values are added to the
-specified atom type.  E.g. if <I>type</I> = 2, and the file specifies atom
-types 1,2,3, then the inserted molecule will have atom types 3,4,5.
+specified atom type.  E.g. if the file specifies atom types 1,2,3, and
+those are the atom types you want for inserted molecules, then specify
+<I>type</I> = 0.  If you specify <I>type</I> = 2, the in the inserted molecule
+will have atom types 3,4,5.
 </P>
 <P>All atoms in the inserted particle are assigned to two groups: the
 default group "all" and the group specified in the fix pour command
@@ -106,6 +110,13 @@ information for the molecule can be specified in the molecule file.
 See the <A HREF = "molecule.html">molecule</A> command for details.  The only
 settings required to be in this file are the coordinates and types of
 atoms in the molecule.
+</P>
+<P>If the molecule template contains more than one molecule, the relative
+probability of depositing each molecule can be specified by the
+<I>molfrac</I> keyword.  N relative probablities, each from 0.0 to 1.0, are
+specified, where N is the number of molecules in the template.  Each
+time a molecule is inserted, a random number is used to sample from
+the list of relative probabilities.  The N values must sum to 1.0.
 </P>
 <P>If you wish to insert molecules via the <I>mol</I> keyword, that will be
 treated as rigid bodies, use the <I>rigid</I> keyword, specifying as its
@@ -172,6 +183,12 @@ insertions, it prints a warning.
 or y direction (2d).  This enables pouring particles from a
 successively higher height over time.
 </P>
+<P>IMPORTANT NOTE: If you are monitoring the temperature of a system
+where the particle count is changing due to adding particles, you
+typically should use the <A HREF = "compute_modify.html">compute_modify dynamic
+yes</A> command for the temperature compute you are
+using.
+</P>
 <HR>
 
 <P><B>Restart, fix_modify, output, run start/stop, minimize info:</B>
@@ -218,7 +235,10 @@ defined by the <A HREF = "region.html">region</A> command.
 </P>
 <P><B>Default:</B>
 </P>
-<P>The option defaults are diam = one 1.0, dens = 1.0 1.0, vol = 0.25 50,
-rate = 0.0, vel = 0.0 0.0 0.0 0.0 0.0.
+<P>Insertions are performed for individual particles, i.e. no <I>mol</I>
+setting is defined.  If the <I>mol</I> keyword is used, the default for
+<I>molfrac</I> is an equal probabilities for all molecules in the template.
+Additional option defaults are diam = one 1.0, dens = 1.0 1.0, vol =
+0.25 50, rate = 0.0, vel = 0.0 0.0 0.0 0.0 0.0.
 </P>
 </HTML>

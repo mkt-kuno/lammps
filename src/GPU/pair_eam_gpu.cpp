@@ -94,19 +94,13 @@ double PairEAMGPU::memory_usage()
 
 void PairEAMGPU::compute(int eflag, int vflag)
 {
-  int i,j,ii,jj,m,jnum,itype,jtype;
-  double evdwl,*coeff;
-
-  evdwl = 0.0;
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = eflag_global = eflag_atom = 0;
 
-  int nlocal = atom->nlocal;
-  int newton_pair = force->newton_pair;
-
   // compute density on each atom on GPU
 
-  int nall = atom->nlocal + atom->nghost;
+  int nlocal = atom->nlocal;
+  int nall = nlocal + atom->nghost;
   int inum, host_start, inum_dev;
 
   bool success = true;

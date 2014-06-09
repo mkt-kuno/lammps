@@ -26,6 +26,7 @@ class AtomVec : protected Pointers {
   int dihedrals_allow,impropers_allow; // 1 if dihedrals, impropers used
   int mass_type;                       // 1 if per-type masses
   int dipole_type;                     // 1 if per-type dipole moments
+  int forceclearflag;                  // 1 if has forceclear() method
 
   int comm_x_only;                     // 1 if only exchange x in forward comm
   int comm_f_only;                     // 1 if only exchange f in reverse comm
@@ -59,6 +60,7 @@ class AtomVec : protected Pointers {
   virtual void grow_reset() = 0;
   virtual void copy(int, int, int) = 0;
   virtual void clear_bonus() {}
+  virtual void force_clear(int, size_t) {}
 
   virtual int pack_comm(int, int *, double *, int, int *) = 0;
   virtual int pack_comm_vel(int, int *, double *, int, int *) = 0;
@@ -103,7 +105,6 @@ class AtomVec : protected Pointers {
   virtual void write_vel(FILE *, int, double **);
   virtual int write_vel_hybrid(FILE *, double *) {return 0;}
 
-  void reset();
   int pack_bond(tagint **);
   void write_bond(FILE *, int, tagint **, int);
   int pack_angle(tagint **);
@@ -112,6 +113,9 @@ class AtomVec : protected Pointers {
   void write_dihedral(FILE *, int, tagint **, int);
   void pack_improper(tagint **);
   void write_improper(FILE *, int, tagint **, int);
+ 
+  virtual int property_atom(char *) {return -1;}
+  virtual void pack_property_atom(int, double *, int, int) {}
 
   virtual bigint memory_usage() = 0;
 
@@ -139,6 +143,9 @@ class AtomVec : protected Pointers {
     ubuf(int64_t arg) : i(arg) {}
     ubuf(int arg) : i(arg) {}
   };
+
+  void grow_nmax();
+  int grow_nmax_bonus(int);
 };
 
 }

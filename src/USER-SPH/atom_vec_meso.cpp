@@ -11,6 +11,7 @@
  See the README file in the top-level LAMMPS directory.
  ------------------------------------------------------------------------- */
 
+#include "string.h"
 #include "stdlib.h"
 #include "atom_vec_meso.h"
 #include "atom.h"
@@ -23,14 +24,13 @@
 
 using namespace LAMMPS_NS;
 
-#define DELTA 10000
-
 /* ---------------------------------------------------------------------- */
 
 AtomVecMeso::AtomVecMeso(LAMMPS *lmp) : AtomVec(lmp)
 {
   molecular = 0;
   mass_type = 1;
+  forceclearflag = 1;
 
   comm_x_only = 0; // we communicate not only x forward but also vest ...
   comm_f_only = 0; // we also communicate de and drho in reverse direction
@@ -50,15 +50,14 @@ AtomVecMeso::AtomVecMeso(LAMMPS *lmp) : AtomVec(lmp)
 
 /* ----------------------------------------------------------------------
    grow atom arrays
-   n = 0 grows arrays by DELTA
+   n = 0 grows arrays by a chunk
    n > 0 allocates arrays to size n
    ------------------------------------------------------------------------- */
 
-void AtomVecMeso::grow(int n) {
-  if (n == 0)
-    nmax += DELTA;
-  else
-    nmax = n;
+void AtomVecMeso::grow(int n)
+{
+  if (n == 0) grow_nmax();
+  else nmax = n;
   atom->nmax = nmax;
   if (nmax < 0 || nmax > MAXSMALLINT)
     error->one(FLERR,"Per-processor system is too big");
@@ -130,6 +129,14 @@ void AtomVecMeso::copy(int i, int j, int delflag) {
   if (atom->nextra_grow)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
       modify->fix[atom->extra_grow[iextra]]->copy_arrays(i, j,delflag);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void AtomVecMeso::force_clear(int n, size_t nbytes)
+{
+  memset(&de[n],0,nbytes);
+  memset(&drho[n],0,nbytes);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -475,7 +482,7 @@ int AtomVecMeso::pack_border_vel(int n, int *list, double *buf, int pbc_flag,
                                  int *pbc)
 {
   int i,j,m;
-  double dx,dy,dz,dvx,dvy,dvz;
+  double dx,dy,dz;
 
   m = 0;
   if (pbc_flag == 0) {
@@ -527,9 +534,6 @@ int AtomVecMeso::pack_border_vel(int n, int *list, double *buf, int pbc_flag,
         buf[m++] = vest[j][2];
       }
     } else {
-      dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
-      dvy = pbc[1]*h_rate[1] + pbc[3]*h_rate[3];
-      dvz = pbc[2]*h_rate[2];
       for (i = 0; i < n; i++) {
         j = list[i];
         buf[m++] = x[j][0] + dx;
@@ -937,6 +941,66 @@ int AtomVecMeso::write_data_hybrid(FILE *fp, double *buf)
 {
   fprintf(fp," %-1.16e %-1.16e %-1.16e",buf[0],buf[1],buf[2]);
   return 3;
+}
+
+/* ----------------------------------------------------------------------
+   assign an index to named atom property and return index
+   return -1 if name is unknown to this atom style
+------------------------------------------------------------------------- */
+
+int AtomVecMeso::property_atom(char *name)
+{
+  if (strcmp(name,"rho") == 0) return 0;
+  if (strcmp(name,"drho") == 0) return 1;
+  if (strcmp(name,"e") == 0) return 2;
+  if (strcmp(name,"de") == 0) return 3;
+  if (strcmp(name,"cv") == 0) return 4;
+  return -1;
+}
+
+/* ----------------------------------------------------------------------
+   pack per-atom data into buf for ComputePropertyAtom
+   index maps to data specific to this atom style
+------------------------------------------------------------------------- */
+
+void AtomVecMeso::pack_property_atom(int index, double *buf, 
+                                     int nvalues, int groupbit)
+{
+  int *mask = atom->mask;
+  int nlocal = atom->nlocal;
+  int n = 0;
+
+  if (index == 0) {
+    for (int i = 0; i < nlocal; i++) {
+      if (mask[i] & groupbit) buf[n] = rho[i];
+      else buf[n] = 0.0;
+      n += nvalues;
+    }
+  } else if (index == 1) {
+    for (int i = 0; i < nlocal; i++) {
+      if (mask[i] & groupbit) buf[n] = drho[i];
+      else buf[n] = 0.0;
+      n += nvalues;
+    }
+  } else if (index == 2) {
+    for (int i = 0; i < nlocal; i++) {
+      if (mask[i] & groupbit) buf[n] = e[i];
+      else buf[n] = 0.0;
+      n += nvalues;
+    }
+  } else if (index == 3) {
+    for (int i = 0; i < nlocal; i++) {
+      if (mask[i] & groupbit) buf[n] = de[i];
+      else buf[n] = 0.0;
+      n += nvalues;
+    }
+  } else if (index == 4) {
+    for (int i = 0; i < nlocal; i++) {
+      if (mask[i] & groupbit) buf[n] = cv[i];
+      else buf[n] = 0.0;
+      n += nvalues;
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------

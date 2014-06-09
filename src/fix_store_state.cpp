@@ -467,8 +467,9 @@ void FixStoreState::end_of_step()
 
       // evaluate atom-style variable
 
-      } else if (which[m] == VARIABLE)
+      } else if (which[m] == VARIABLE) {
         input->variable->compute_atom(n,igroup,&values[0][m],nvalues,0);
+      }
     }
   }
 

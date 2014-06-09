@@ -72,6 +72,7 @@ void CreateAtoms::command(int narg, char **arg)
     if (nregion == -1) error->all(FLERR,
                                   "Create_atoms region ID does not exist");
     domain->regions[nregion]->init();
+    domain->regions[nregion]->prematch();
     iarg = 3;;
   } else if (strcmp(arg[1],"single") == 0) {
     style = SINGLE;
@@ -91,6 +92,7 @@ void CreateAtoms::command(int narg, char **arg)
       if (nregion == -1) error->all(FLERR,
                                     "Create_atoms region ID does not exist");
       domain->regions[nregion]->init();
+      domain->regions[nregion]->prematch();
     }
     iarg = 5;
   } else error->all(FLERR,"Illegal create_atoms command");
@@ -398,7 +400,7 @@ void CreateAtoms::command(int narg, char **arg)
     if (domain->triclinic) domain->x2lamda(atom->nlocal);
     domain->reset_box();
     Irregular *irregular = new Irregular(lmp);
-    irregular->migrate_atoms();
+    irregular->migrate_atoms(1);
     delete irregular;
     if (domain->triclinic) domain->lamda2x(atom->nlocal);
   }

@@ -127,7 +127,7 @@ void Rerun::command(int narg, char **arg)
   // perform the psuedo run
   // invoke lmp->init() only once
   // read all relevant snapshots
-  // uset setup_minimal() since atoms are already owned by correct procs
+  // use setup_minimal() since atoms are already owned by correct procs
   // addstep_compute_all() insures energy/virial computed on every snapshot
 
   update->whichflag = 1;
@@ -163,6 +163,8 @@ void Rerun::command(int narg, char **arg)
 
     firstflag = 0;
     ntimestep = rd->next(ntimestep,last,nevery,nskip);
+    if (stopflag && ntimestep > stop)
+      error->all(FLERR,"Read rerun dump file timestep > specified stop");
     if (ntimestep < 0) break;
   }
 

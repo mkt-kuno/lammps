@@ -46,6 +46,7 @@ class Fix : protected Pointers {
                                  //      so write_restart must remap to PBC
   int wd_header;                 // # of header values fix writes to data file
   int wd_section;                // # of sections fix writes to data file
+  int dynamic_group_allow;       // 1 if can be used with dynamic group, else 0
   int cudable_comm;              // 1 if fix has CUDA-enabled communication
 
   int scalar_flag;               // 0/1 if compute_scalar() function exists
@@ -100,6 +101,7 @@ class Fix : protected Pointers {
 
   virtual int setmask() = 0;
 
+  virtual void post_constructor() {}
   virtual void init() {}
   virtual void init_list(int, class NeighList *) {}
   virtual void setup(int) {}
@@ -124,7 +126,7 @@ class Fix : protected Pointers {
   virtual void copy_arrays(int, int, int) {}
   virtual void set_arrays(int) {}
   virtual void update_arrays(int, int) {}
-  virtual void set_molecule(int, tagint, double *, double *, double *) {}
+  virtual void set_molecule(int, tagint, int, double *, double *, double *) {}
 
   virtual int pack_border(int, int *, double *) {return 0;}
   virtual int unpack_border(int, int, double *) {return 0;}

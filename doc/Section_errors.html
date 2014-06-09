@@ -69,12 +69,26 @@ that you think it should flag, please send an email to the
 <P>If you get an error message about an invalid command in your input
 script, you can determine what command is causing the problem by
 looking in the log.lammps file or using the <A HREF = "echo.html">echo command</A>
-to see it on the screen.  For a given command, LAMMPS expects certain
-arguments in a specified order.  If you mess this up, LAMMPS will
-often flag the error, but it may read a bogus argument and assign a
-value that is valid, but not what you wanted.  E.g. trying to read the
-string "abc" as an integer value and assigning the associated variable
-a value of 0.
+to see it on the screen.  If you get an error like "Invalid ...
+style", with ... being fix, compute, pair, etc, it means that you
+mistyped the style name or that the command is part of an optional
+package which was not compiled into your executable.  The list of
+available styles in your executable can be listed by using <A HREF = "Section_start.html#start_7">the -h
+command-line argument</A>.  The installation
+and compilation of optional packages is explained in the <A HREF = "Section_start.html#start_3">installation
+instructions</A>.
+</P>
+<P>For a given command, LAMMPS expects certain arguments in a specified
+order.  If you mess this up, LAMMPS will often flag the error, but it
+may also simply read a bogus argument and assign a value that is
+valid, but not what you wanted.  E.g. trying to read the string "abc"
+as an integer value of 0.  Careful reading of the associated doc page
+for the command should allow you to fix these problems.  Note that
+some commands allow for variables to be specified in place of numeric
+constants so that the value can be evaluated and change over the
+course of a run.  This is typically done with the syntax <I>v_name</I> for
+a parameter, where name is the name of the variable.  This is only
+allowed if the command documentation says it is.
 </P>
 <P>Generally, LAMMPS will print a message to the screen and logfile and
 exit gracefully when it encounters a fatal error.  Sometimes it will
@@ -4374,7 +4388,7 @@ it turns off bonds that should contribute to the energy.
 
 <DT><I>Fix srd requires ghost atoms store velocity</I> 
 
-<DD>Use the communicate vel yes command to enable this. 
+<DD>Use the comm_modify vel yes command to enable this. 
 
 <DT><I>Fix srd requires newton pair on</I> 
 
@@ -6835,7 +6849,7 @@ rRESPA cutoffs.
 
 <DT><I>Pair dpd requires ghost atoms store velocity</I> 
 
-<DD>Use the communicate vel yes command to enable this. 
+<DD>Use the comm_modify vel yes command to enable this. 
 
 <DT><I>Pair gayberne epsilon a,b,c coeffs are not all set</I> 
 
@@ -6864,7 +6878,7 @@ have these 3 coefficients set at least once.
 
 <DT><I>Pair granular requires ghost atoms store velocity</I> 
 
-<DD>Use the communicate vel yes command to enable this. 
+<DD>Use the comm_modify vel yes command to enable this. 
 
 <DT><I>Pair granular with shear history requires newton pair off</I> 
 
@@ -6904,7 +6918,7 @@ rRESPA cutoffs.
 
 <DT><I>Pair lubricate requires ghost atoms store velocity</I> 
 
-<DD>Use the communicate vel yes command to enable this. 
+<DD>Use the comm_modify vel yes command to enable this. 
 
 <DT><I>Pair lubricate requires monodisperse particles</I> 
 
@@ -6920,7 +6934,7 @@ rRESPA cutoffs.
 
 <DT><I>Pair lubricate/poly requires ghost atoms store velocity</I> 
 
-<DD>Use the communicate vel yes command to enable this. 
+<DD>Use the comm_modify vel yes command to enable this. 
 
 <DT><I>Pair lubricate/poly requires newton pair off</I> 
 
@@ -6932,7 +6946,7 @@ rRESPA cutoffs.
 
 <DT><I>Pair lubricateU requires ghost atoms store velocity</I> 
 
-<DD>Use the communicate vel yes command to enable this. 
+<DD>Use the comm_modify vel yes command to enable this. 
 
 <DT><I>Pair lubricateU requires monodisperse particles</I> 
 
@@ -6940,7 +6954,7 @@ rRESPA cutoffs.
 
 <DT><I>Pair lubricateU/poly requires ghost atoms store velocity</I> 
 
-<DD>Use the communicate vel yes command to enable this. 
+<DD>Use the comm_modify vel yes command to enable this. 
 
 <DT><I>Pair lubricateU/poly requires newton pair off</I> 
 

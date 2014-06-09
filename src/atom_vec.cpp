@@ -21,6 +21,9 @@
 
 using namespace LAMMPS_NS;
 
+#define DELTA 16384
+#define DELTA_BONUS 8192
+
 /* ---------------------------------------------------------------------- */
 
 AtomVec::AtomVec(LAMMPS *lmp) : Pointers(lmp)
@@ -28,6 +31,7 @@ AtomVec::AtomVec(LAMMPS *lmp) : Pointers(lmp)
   nmax = 0;
   bonds_allow = angles_allow = dihedrals_allow = impropers_allow = 0;
   mass_type = dipole_type = 0;
+  forceclearflag = 0;
   size_data_bonus = 0;
   cudable = kokkosable = 0;
 
@@ -77,17 +81,31 @@ void AtomVec::init()
   deform_groupbit = domain->deform_groupbit;
   h_rate = domain->h_rate;
 
-  if (lmp->cuda != NULL && cudable == false)
+  if (lmp->cuda != NULL && !cudable)
     error->all(FLERR,"USER-CUDA package requires a cuda enabled atom_style");
+  if (lmp->kokkos != NULL && !kokkosable)
+    error->all(FLERR,"KOKKOS package requires a kokkos enabled atom_style");
 }
 
 /* ----------------------------------------------------------------------
-   reset nmax = 0, called by Atom::create_avec() when new atom style created
+   grow nmax so it is a multiple of DELTA
 ------------------------------------------------------------------------- */
 
-void AtomVec::reset()
+void AtomVec::grow_nmax()
 {
-  nmax = 0;
+  nmax = nmax/DELTA * DELTA;
+  nmax += DELTA;
+}
+
+/* ----------------------------------------------------------------------
+   grow nmax_bonus so it is a multiple of DELTA_BONUS
+------------------------------------------------------------------------- */
+
+int AtomVec::grow_nmax_bonus(int nmax_bonus)
+{
+  nmax_bonus = nmax_bonus/DELTA_BONUS * DELTA_BONUS;
+  nmax_bonus += DELTA_BONUS;
+  return nmax_bonus;
 }
 
 /* ----------------------------------------------------------------------

@@ -91,7 +91,7 @@ void PairPeriVES::compute(int eflag, int vflag)
   int i,j,ii,jj,inum,jnum,itype,jtype;
   double xtmp,ytmp,ztmp,delx,dely,delz;
   double xtmp0,ytmp0,ztmp0,delx0,dely0,delz0,rsq0;
-  double rsq,r,dr,dr1,rk,evdwl,fpair,fbond;
+  double rsq,r,dr,rk,evdwl,fpair,fbond;
   double deltaed,fbondViscoElastic,fbondFinal;
   double decay,betai,lambdai,edbNp1,rkNew;
   int *ilist,*jlist,*numneigh,**firstneigh;
@@ -217,12 +217,10 @@ void PairPeriVES::compute(int eflag, int vflag)
     memory->create(theta,nmax,"pair:theta");
   }
 
-  // compute the dilatation on each particle
-
+  // Compute the dilatation on each particle
   compute_dilatation();
 
   // communicate dilatation (theta) of each particle
-
   comm->forward_comm_pair(this);
 
   // communicate weighted volume (wvolume) upon every reneighbor
@@ -310,7 +308,6 @@ void PairPeriVES::compute(int eflag, int vflag)
       else fbond = 0.0;
 
       // for viscoelasticity
-
       lambdai=m_lambdai[itype][itype];
       double taui = m_taubi[itype][itype];  
       double c1 = taui/timestepsize;
@@ -349,12 +346,12 @@ void PairPeriVES::compute(int eflag, int vflag)
 
       // since I-J is double counted, set newton off & use 1/2 factor and I,I
 
-      if (eflag) evdwl =  (0.5 * 15 * (shearmodulus[itype][itype]/wvolume[i]) *
+      if (eflag) evdwl =  ((0.5 * 15 * (1 - lambdai) * shearmodulus[itype][itype]/wvolume[i] *
                     omega_plus * deviatoric_extension * 
                     deviatoric_extension) + 
-                    (0.5 * 15 * (shearmodulus[itype][itype]/wvolume[i]) *
+                    (0.5 * 15 * lambdai * shearmodulus[itype][itype]/wvolume[i] *
                     omega_plus * (deviatoric_extension-edbNp1) * 
-                    (deviatoric_extension-edbNp1)) * vfrac[j] * vfrac_scale;
+                    (deviatoric_extension-edbNp1))) * vfrac[j] * vfrac_scale;
       if (evflag) ev_tally(i,i,nlocal,0,0.5*evdwl,0.0,
                            0.5*fbond*vfrac[i],delx,dely,delz);
 
@@ -378,7 +375,7 @@ void PairPeriVES::compute(int eflag, int vflag)
                          (alpha[itype][jtype] * stretch));
 
       first = false;
-    }
+    }  
   }
 
   // store new s0
@@ -620,6 +617,7 @@ void PairPeriVES::compute_dilatation()
   double lc = domain->lattice->xlattice;
   double half_lc = 0.5*lc;
 
+
   double **r0   = ((FixPeriNeigh *) modify->fix[ifix_peri])->r0;
   tagint **partner = ((FixPeriNeigh *) modify->fix[ifix_peri])->partner;
   int *npartner = ((FixPeriNeigh *) modify->fix[ifix_peri])->npartner;
@@ -692,6 +690,7 @@ void PairPeriVES::compute_dilatation()
     else theta[i] = 0;
   }
 }
+
 
 /* ----------------------------------------------------------------------
    communication routines

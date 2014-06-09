@@ -83,11 +83,10 @@ void PairLJCutTIP4PLong::compute(int eflag, int vflag)
   int iH1,iH2,jH1,jH2;
   double qtmp,xtmp,ytmp,ztmp,delx,dely,delz,evdwl,ecoul;
   double fraction,table;
-  double delxOM, delyOM, delzOM;
   double r,r2inv,r6inv,forcecoul,forcelj,cforce;
   double factor_coul,factor_lj;
-  double grij,expm2,prefactor,t,erfc,ddotf;
-  double xiM[3],xjM[3],fO[3],fH[3],fd[3],f1[3],v[6],xH1[3],xH2[3];
+  double grij,expm2,prefactor,t,erfc;
+  double fO[3],fH[3],fd[3],v[6],xH1[3],xH2[3];
   double *x1,*x2;
   int *ilist,*jlist,*numneigh,**firstneigh;
   double rsq;
@@ -587,6 +586,9 @@ void *PairLJCutTIP4PLong::extract(const char *str, int &dim)
   if (strcmp(str,"typeA") == 0) return (void *) &typeA;
   if (strcmp(str,"typeB") == 0) return (void *) &typeB;
   if (strcmp(str,"cut_coul") == 0) return (void *) &cut_coul;
+  dim = 2;
+  if (strcmp(str,"epsilon") == 0) return (void *) epsilon;
+  if (strcmp(str,"sigma") == 0) return (void *) sigma;
   return NULL;
 }
 

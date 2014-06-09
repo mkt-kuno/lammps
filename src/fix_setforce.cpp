@@ -38,6 +38,7 @@ FixSetForce::FixSetForce(LAMMPS *lmp, int narg, char **arg) :
 {
   if (narg < 6) error->all(FLERR,"Illegal fix setforce command");
 
+  dynamic_group_allow = 1;
   vector_flag = 1;
   size_vector = 3;
   global_freq = 1;
@@ -98,8 +99,8 @@ FixSetForce::FixSetForce(LAMMPS *lmp, int narg, char **arg) :
   force_flag = 0;
   foriginal[0] = foriginal[1] = foriginal[2] = 0.0;
 
-  maxatom = 0;
-  sforce = NULL;
+  maxatom = atom->nmax;
+  memory->create(sforce,maxatom,3,"setforce:sforce");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -218,6 +219,14 @@ void FixSetForce::post_force(int vflag)
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
+  // update region if necessary
+
+  Region *region = NULL;
+  if (iregion >= 0) {
+    region = domain->regions[iregion];
+    region->prematch();
+  }
+
   // reallocate sforce array if necessary
 
   if (varflag == ATOM && nlocal > maxatom) {
@@ -232,10 +241,7 @@ void FixSetForce::post_force(int vflag)
   if (varflag == CONSTANT) {
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit) {
-        if (iregion >= 0 &&
-            !domain->regions[iregion]->match(x[i][0],x[i][1],x[i][2]))
-          continue;
-
+        if (region && !region->match(x[i][0],x[i][1],x[i][2])) continue;
         foriginal[0] += f[i][0];
         foriginal[1] += f[i][1];
         foriginal[2] += f[i][2];
@@ -251,23 +257,20 @@ void FixSetForce::post_force(int vflag)
     modify->clearstep_compute();
 
     if (xstyle == EQUAL) xvalue = input->variable->compute_equal(xvar);
-    else if (xstyle == ATOM && sforce)
+    else if (xstyle == ATOM)
       input->variable->compute_atom(xvar,igroup,&sforce[0][0],3,0);
     if (ystyle == EQUAL) yvalue = input->variable->compute_equal(yvar);
-    else if (ystyle == ATOM && sforce)
+    else if (ystyle == ATOM)
       input->variable->compute_atom(yvar,igroup,&sforce[0][1],3,0);
     if (zstyle == EQUAL) zvalue = input->variable->compute_equal(zvar);
-    else if (zstyle == ATOM && sforce)
+    else if (zstyle == ATOM)
       input->variable->compute_atom(zvar,igroup,&sforce[0][2],3,0);
 
     modify->addstep_compute(update->ntimestep + 1);
 
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit) {
-        if (iregion >= 0 &&
-            !domain->regions[iregion]->match(x[i][0],x[i][1],x[i][2]))
-          continue;
-
+        if (region && !region->match(x[i][0],x[i][1],x[i][2])) continue;
         foriginal[0] += f[i][0];
         foriginal[1] += f[i][1];
         foriginal[2] += f[i][2];
@@ -289,12 +292,20 @@ void FixSetForce::post_force_respa(int vflag, int ilevel, int iloop)
 
   if (ilevel == nlevels_respa-1) post_force(vflag);
   else {
+    Region *region = NULL;
+    if (iregion >= 0) {
+      region = domain->regions[iregion];
+      region->prematch();
+    }
+
+    double **x = atom->x;
     double **f = atom->f;
     int *mask = atom->mask;
     int nlocal = atom->nlocal;
 
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit) {
+        if (region && !region->match(x[i][0],x[i][1],x[i][2])) continue;
         if (xstyle) f[i][0] = 0.0;
         if (ystyle) f[i][1] = 0.0;
         if (zstyle) f[i][2] = 0.0;
