@@ -73,6 +73,7 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   // wall/particle coefficients
 
   //~ Make special allowances for shm pairstyle [KH - 30 October 2013]
+  int iarg = 9;
   double Geq, Poiseq;
   if (force->pair_match("gran/shm/history",1)) {
     Geq = force->numeric(FLERR,arg[3]);
@@ -88,6 +89,7 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     //~ Set dummy values for the remaining variables [KH - 9 January 2014]
     gamman = gammat = 0.0;
     dampflag = 0;
+    iarg = 6; //~ Reduce number of args for SHM pairstyle [KH - 10 June 2014]
   } else {
     kn = force->numeric(FLERR,arg[3]);
     if (strcmp(arg[4],"NULL") == 0) kt = kn * 2.0/7.0;
@@ -115,7 +117,6 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   
   // wallstyle args
 
-  int iarg = 9;
   if (force->pair_match("gran/shm/history",1)) iarg = 6; //~ [KH - 30 October 2013]
 
   if (strcmp(arg[iarg],"xplane") == 0) {
