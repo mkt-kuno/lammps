@@ -47,6 +47,10 @@ int born_gpu_init(const int ntypes, double **cutsq, double **host_rhoinv,
                   const int inum, const int nall, const int max_nbors,
                   const int maxspecial, const double cell_size, 
                   int &gpu_mode, FILE *screen);
+void born_gpu_reinit(const int ntypes, double **host_rhoinv,
+                     double **host_born1, double **host_born2, double **host_born3,
+                     double **host_a, double **host_c, double **host_d,
+                     double **offset);
 void born_gpu_clear();
 int ** born_gpu_compute_n(const int ago, const int inum_full, 
                           const int nall, double **host_x, int *host_type, 
@@ -160,6 +164,16 @@ void PairBornGPU::init_style()
     neighbor->requests[irequest]->half = 0;
     neighbor->requests[irequest]->full = 1;
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairBornGPU::reinit()
+{
+  Pair::reinit();
+  
+  born_gpu_reinit(atom->ntypes+1, rhoinv, born1, born2, born3,
+                  a, c, d, offset);
 }
 
 /* ---------------------------------------------------------------------- */

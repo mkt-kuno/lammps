@@ -45,6 +45,8 @@ int soft_gpu_init(const int ntypes, double **cutsq, double **prefactor,
                    double **cut, double *special_lj, const int nlocal,
                    const int nall, const int max_nbors, const int maxspecial,
                    const double cell_size, int &gpu_mode, FILE *screen);
+void soft_gpu_reinit(const int ntypes, double **cutsq, double **host_prefactor,
+                     double **host_cut);
 void soft_gpu_clear();
 int ** soft_gpu_compute_n(const int ago, const int inum,
                            const int nall, double **host_x, int *host_type, 
@@ -160,6 +162,15 @@ void PairSoftGPU::init_style()
     neighbor->requests[irequest]->half = 0;
     neighbor->requests[irequest]->full = 1;
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairSoftGPU::reinit()
+{
+  Pair::reinit();
+  
+  soft_gpu_reinit(atom->ntypes+1, cutsq, prefactor, cut);
 }
 
 /* ---------------------------------------------------------------------- */

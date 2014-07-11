@@ -45,6 +45,9 @@ int lje_gpu_init(const int ntypes, double **cutsq, double **host_lj1,
                  const int nlocal, const int nall, const int max_nbors,
                  const int maxspecial, const double cell_size, int &gpu_mode,
                  FILE *screen);
+int lje_gpu_reinit(const int ntypes, double **cutsq, double **host_lj1,
+                   double **host_lj2, double **host_lj3, double **host_lj4,
+                   double **offset, double **shift);
 void lje_gpu_clear();
 int ** lje_gpu_compute_n(const int ago, const int inum, const int nall,
                          double **host_x, int *host_type, double *sublo,
@@ -157,6 +160,15 @@ void PairLJExpandGPU::init_style()
     neighbor->requests[irequest]->half = 0;
     neighbor->requests[irequest]->full = 1;
   }
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairLJExpandGPU::reinit()
+{
+  Pair::reinit();
+  
+  lje_gpu_reinit(atom->ntypes+1, cutsq, lj1, lj2, lj3, lj4, offset, shift);
 }
 
 /* ---------------------------------------------------------------------- */
