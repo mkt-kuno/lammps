@@ -116,9 +116,6 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   }
   
   // wallstyle args
-
-  if (force->pair_match("gran/shm/history",1)) iarg = 6; //~ [KH - 30 October 2013]
-
   if (strcmp(arg[iarg],"xplane") == 0) {
     if (narg < iarg+3) error->all(FLERR,"Illegal fix wall/gran command");
     wallstyle = XPLANE;
