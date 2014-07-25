@@ -103,7 +103,7 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
   size_vector = narg-3;
   vector = new double[size_vector];
 
-  wallactive = -1; //~ Increased later if walls are present in the simulation
+  wallactive = 0; //~ Increased later if walls are present in the simulation
   wallcheck = 0; //~ 0 indicates the check for walls must still be done
 
   dampactive[0] = dampactive[1] = -1; //~ Increased later if damping present
@@ -176,6 +176,7 @@ void ComputeEnergyGran::compute_vector()
 
 double ComputeEnergyGran::pair_extract(const char *str)
 {
+  int wallsfound = 0;
   double singleproc;
   double gathered = 0.0;
 
@@ -183,15 +184,21 @@ double ComputeEnergyGran::pair_extract(const char *str)
   Pair *pair = force->pair_match("gran",0);
   singleproc = *((double *) pair->extract(str,dim));
 
-  //~ If walls are being used, also need energy for ball-wall contacts
+  /*~ If walls are being used, also need energy for ball-wall contacts.
+    wallactive stores number of walls present [KH - 25 July 2014]*/
   if (!wallcheck) {
     for (int i = 0; i < modify->nfix; i++)
-      if (strcmp(modify->fix[i]->style,"wall/gran") == 0) wallactive = i;
+      if (strcmp(modify->fix[i]->style,"wall/gran") == 0) wallactive++;
     wallcheck = 1;
   }
 
-  if (wallactive >= 0)
-    singleproc += *((double *) modify->fix[wallactive]->extract(str,dim));
+  if (wallactive > 0) //~ There is at least one wall
+    for (int i = 0; i < modify->nfix; i++)
+      if (strcmp(modify->fix[i]->style,"wall/gran") == 0) {
+	singleproc += *((double *) modify->fix[i]->extract(str,dim));
+	wallsfound++;
+	if (wallactive == wallsfound) break;
+      }
 
   //~ Accumulate the data from all processors
   MPI_Allreduce(&singleproc,&gathered,1,MPI_DOUBLE,MPI_SUM,world);

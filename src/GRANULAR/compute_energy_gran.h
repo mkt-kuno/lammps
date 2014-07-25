@@ -61,7 +61,7 @@ class ComputeEnergyGran : public Compute {
  private:
   int nmax, dim;
   int length_enum; //~ The length of an enumeration
-  int wallactive; //~ The ID of fix wall/gran, if present
+  int wallactive; //~ The number of walls that are active
   int wallcheck; //~ 1 if the check for walls has been done
   int dampactive[2]; //~ The IDs of fix damp/local and fix viscous
   int dampcheck[2]; //~ 1 if the check for local/viscous damping done
