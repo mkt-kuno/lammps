@@ -17,13 +17,14 @@
 </PRE>
 <UL><LI>one or more keyword/value pairs may be listed 
 
-<LI>keyword = <I>pair</I> or <I>shift</I> or <I>mix</I> or <I>table</I> or <I>table/disp</I> or <I>tabinner</I> or <I>tabinner/disp</I> or <I>tail</I> or <I>compute</I> 
+<LI>keyword = <I>pair</I> or <I>shift</I> or <I>mix</I> or <I>rolling</I> or <I>table</I> or <I>table/disp</I> or <I>tabinner</I> or <I>tabinner/disp</I> or <I>tail</I> or <I>compute</I> 
 
 <PRE>  <I>pair</I> values = sub-style N
     sub-style = sub-style of <A HREF = "pair_hybrid.html">pair hybrid</A>
     N = which instance of sub-style (only if sub-style is used multiple times)
   <I>mix</I> value = <I>geometric</I> or <I>arithmetic</I> or <I>sixthpower</I>
   <I>shift</I> value = <I>yes</I> or <I>no</I>
+  <I>rolling</I> takes four mandatory arguments: <I>model_type</I>, <I>delta</I>, <I>kappa</I>, <I>post_limit_index</I>
   <I>table</I> value = N
     2^N = # of values in table
   <I>table/disp</I> value = N
@@ -42,6 +43,7 @@
 <PRE>pair_modify shift yes mix geometric
 pair_modify tail yes
 pair_modify table 12 
+pair_modify rolling 1 5.0 0.5 1 
 </PRE>
 <P><B>Description:</B>
 </P>
@@ -102,6 +104,37 @@ pairwise interaction which will be included in the thermodynamic
 output, but does not affect pair forces or atom trajectories.  See the
 doc page for individual pair styles to see which ones support this
 option.
+</P>
+<P>The <I>rolling</I> keyword is used to add a rolling/twisting resistance model
+to the granular pairstyles. As mentioned above, it takes four mandatory
+arguments. The first of these, <I>model_type</I>, is an integer which allows
+combinations of options to be specified using prime numbers. For example,
+if options a, b and c are assigned the integers 2, 3 and 5 (first 3 
+primes), then <I>model_type</I> == 6 means that a and b are active but not c; 
+<I>model_type</I> == 10 means that a and c are active but not b; and <I>model_type</I>
+== 1 means that no options are active. The options available at present
+are:
+</P>
+<PRE>    1  | Use common radius defined by Ai et al. (2012)  
+</PRE>
+<PRE>    3  | Use common radius defined by Iwashita and Oda (1998, 2000)  
+</PRE>
+<PRE>    5  | Use common radius defined by Jiang et al. (2005)  
+</PRE>
+<PRE>    7  | Disable rolling resistance part of model  
+</PRE>
+<PRE>    11 | Disable twisting resistance part of model  
+</PRE>
+<P>The positive <I>delta</I> parameter is related to surface roughness. Contact
+radius is multiplied by this number in the calculations to give a 
+corrected contact area. <I>kappa</I> reflects the strength of the material 
+asperities and is restricted to lie between 0.0 and 1.0. Finally, 
+<I>post_limit_index</I> defines what happens once the limiting value of
+rolling resistance has been reached. It can have two possible values:
+0 or 1. If <I>post_limit_index</I> == 0, the rolling resistance is dropped
+to zero whereas if <I>post_limit_index</I> == 1, it is held constant at
+the limiting value. The latter is always adopted for twisting 
+resistance because of its frictional nature.
 </P>
 <P>The <I>table</I> and <I>table/disp</I> keywords apply to pair styles with a
 long-range Coulombic term or long-range dispersion term respectively;
@@ -199,6 +232,9 @@ conflicting options.  You cannot use <I>tail</I> yes with 2d simulations.
 </P>
 <P>The option defaults are mix = geometric, shift = no, table = 12,
 tabinner = sqrt(2.0), tail = no, and compute = yes.
+</P>
+<P>If <I>rolling</I> is not specified, the rolling/twisting resistance
+model is inactive.
 </P>
 <P>Note that some pair styles perform mixing, but only a certain style of
 mixing.  See the doc pages for individual pair styles for details.
