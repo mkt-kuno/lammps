@@ -143,6 +143,10 @@ void Pair::modify_params(int narg, char **arg)
       rolling = 1;
       model_type = atoi(arg[iarg+1]);
       rolling_delta = atof(arg[iarg+2]);
+      kappa = atof(arg[iarg+3]);
+      //~ Convert to a double here
+      int input_value = atoi(arg[iarg+4]);
+      post_limit_index = static_cast<double>(input_value);
 
       //~ Check whether these are reasonable
       if (rolling_delta < 0.0)
@@ -151,7 +155,13 @@ void Pair::modify_params(int narg, char **arg)
       if (model_type < 1)
 	error->all(FLERR,"model_type must be a positive integer in rolling resistance model");
 
-      iarg += 3;
+      if (kappa < 0.0 || kappa > 1.0)
+	error->all(FLERR,"kappa must be between zero and one in rolling resistance model");
+
+      if (input_value != 0 && input_value != 1)
+	error->all(FLERR,"post_limit_index must be zero or one in rolling resistance model");
+
+      iarg += 5;
     } else if (strcmp(arg[iarg],"trace_energy") == 0) {
       //~ This pair_modify option was added [KH - 6 March 2014]
       trace_energy = 1;

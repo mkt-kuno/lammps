@@ -63,13 +63,13 @@ class FixShearHistory : public Fix {
   //~ ----------------- without energy tracing ----------------------
   double (**shearpartner3)[3]; //~ hooke/history or hertz/history
   double (**shearpartner4)[4]; //~ shm/history
-  double (**shearpartner16)[16]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner17)[17]; //~ shm/history with rolling
+  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling
+  double (**shearpartner19)[19]; //~ shm/history with rolling
   //~ ----------------- with energy tracing ----------------------
   double (**shearpartner7)[7]; //~ hooke/history or hertz/history
   double (**shearpartner8)[8]; //~ shm/history
-  double (**shearpartner20)[20]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner21)[21]; //~ shm/history with rolling
+  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
+  double (**shearpartner23)[23]; //~ shm/history with rolling
 
   int num_quants;               // the number of extra quantities for each partner (i.e. contact) modified GM
   int maxtouch;                 // max # of touching partners for my atoms
@@ -86,10 +86,10 @@ class FixShearHistory : public Fix {
   MyPage<double[4]> *dpage4;
   MyPage<double[7]> *dpage7;
   MyPage<double[8]> *dpage8;
-  MyPage<double[16]> *dpage16;
-  MyPage<double[17]> *dpage17;
-  MyPage<double[20]> *dpage20;
-  MyPage<double[21]> *dpage21;
+  MyPage<double[18]> *dpage18;
+  MyPage<double[19]> *dpage19;
+  MyPage<double[22]> *dpage22;
+  MyPage<double[23]> *dpage23;
 
   void allocate_pages();
 };

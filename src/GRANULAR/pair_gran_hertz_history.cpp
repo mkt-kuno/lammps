@@ -144,11 +144,11 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
   //~ Initialise the non-accumulated strain energy terms to zero
   normalstrain = 0.0;
 
-  /*~ The number of shear quantities is 16 if rolling resistance
-    is active [KH - 25 October 2013]*/
+  /*~ The number of shear quantities is 18 if rolling resistance
+    is active [KH - 29 July 2014]*/
   /*~ Another 4 shear quantities were added for per-contact energy
     tracing [KH - 6 March 2014]*/
-  int numshearquants = 3 + 13*rolling + 4*trace_energy;
+  int numshearquants = 3 + 15*rolling + 4*trace_energy;
 
   //~ Use tags to consider contacts only once [KH - 28 February 2014]
   tagint *tag = atom->tag; 
@@ -456,7 +456,7 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
 
   /*~ The number of optional entries in svector for energy
     tracing and/or rolling resistance [KH - 6 March 2014]*/
-  int optionalq = 4*trace_energy + 25*rolling;
+  int optionalq = 4*trace_energy + 27*rolling;
 
   if (rsq >= radsum*radsum) {
     fforce = 0.0;
@@ -476,11 +476,11 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
       strain energy, shear component of strain energy, other
       contributions (e.g., from rolling resistance model)
 
-      25 optional entries for the rolling resistance model 
-      [KH - 25 October 2013]. Order: 
+      27 optional entries for the rolling resistance model 
+      [KH - 29 July 2014]. Order: 
       dUr[*], accumulated dUr[*], dUs[*], accumulated dUs[*], 
       localdM[*], accumulated localdM[*], globaldM[*], accumulated 
-      globaldM[*],ksbar*/
+      globaldM[*], ksbar, (K+1)_rolling, (K+1)_twisting*/
     if (optionalq > 0)
       for (int q = 0; q < optionalq; q++) svector[q+14] = 0.0;
 
@@ -591,11 +591,11 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
     if (touch[neighprev] == j) break;
   }
 
- /*~ The number of shear quantities is 16 if rolling resistance
-    is active [KH - 25 October 2013]*/
+ /*~ The number of shear quantities is 18 if rolling resistance
+    is active [KH - 29 July 2014]*/
   /*~ Another 4 shear quantities were added for per-contact energy
     tracing [KH - 6 March 2014]*/
-  int numshearquants = 3 + 13*rolling + 4*trace_energy;
+  int numshearquants = 3 + 15*rolling + 4*trace_energy;
   double *shear = &allshear[numshearquants*neighprev];
 
   // rotate shear displacements - not needed- shear already updated by compute!
@@ -666,7 +666,9 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
       svector[q+nq+32] = globaldM[q];
       svector[q+nq+35] = shear[q+nq+12];
     }
-    svector[nq+38] = shear[numshearquants-1];
+    svector[nq+38] = shear[numshearquants-3]; //~ ksbar
+    svector[nq+39] = shear[numshearquants-2]; //~ stored rolling (kappa+1)
+    svector[nq+40] = shear[numshearquants-1]; //~ stored twisting (kappa+1)
   }
 
   return 0.0;

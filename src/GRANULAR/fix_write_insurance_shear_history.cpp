@@ -86,9 +86,9 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
   if (force->pair_match("shm",0)) numshearquants++;
 
   /*~ Adding a rolling resistance model causes the number of
-    shear quantities to be increased by 13 [KH - 25 October 2013]*/
+    shear quantities to be increased by 15 [KH - 29 July 2014]*/
   int *rolling = (int *) pair->extract("rolling",dim);
-  if (*rolling) numshearquants += 13;
+  if (*rolling) numshearquants += 15;
 
   /*~ Per-contact energy tracing causes the number of shear quantities
     to increase by 4 [KH - 6 March 2014]*/

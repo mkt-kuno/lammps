@@ -215,9 +215,13 @@ class Pair : protected Pointers {
     rolling resistance is active, while rolling_delta gives the delta
     value in Xin's model. model_type is an integer which can be used
     to specify combinations of options for the rolling resistance model
-    using prime numbers [KH - 25 October 2013]*/
+    using prime numbers. kappa is a strength parameter defining the limit
+    for the model. post_limit_index defines what happens after the strength
+    limit is reached. If post_limit_index == 0, the accumulated moment
+    drops to zero after the limit is reached; if it == 1, it remains constant
+    at the limit [KH - 29 July 2014]*/
   int rolling,model_type;
-  double rolling_delta;
+  double rolling_delta,kappa,post_limit_index;
 
   /*~ Added flag which indicates whether per-contact energy tracing is
     active or not [KH - 6 March 2014]*/

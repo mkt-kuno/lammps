@@ -68,7 +68,7 @@ class FixWallGran : public Fix {
   int time_origin;
   int numshearquants; //~ The number of shear quantities [KH - 30 October 2013]
   int *rolling,*model_type; //~ Quantities for rolling resistance model [KH - 30 October 2013]
-  double *rolling_delta;
+  double *rolling_delta,*kappa,*post_limit_index;
   int lastwarning[2]; //~ Used to control frequencies at which warnings about failures to calculate contact stiffnesses are output in the rolling resistance model [KH - 6 November 2013]
 
   //~ Add quantities for tracing global energy [KH - 20 February 2014]
@@ -97,7 +97,7 @@ class FixWallGran : public Fix {
   void move_wall();
   void velscontrol();
   void ev_tally_wall(int, double, double, double, double, double, double, double);
-  void rolling_resistance(int, int, double, double, double, double, double, double, double, double, double *, double *); //~ Added this function [KH - 30 October 2013]
+  void rolling_resistance(int, int, double, double, double, double, double, double, double, double, double *, double *, double *, double *, double *); //~ Added this function [KH - 30 October 2013]
 };
 
 }
