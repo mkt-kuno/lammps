@@ -347,11 +347,11 @@ As the warning states, it is of paramount importance that you are in the common 
 \end{alltt}
 One of two things will occur. Either the merge will work perfectly or else a message about a \emph{merge conflict} will be returned. If the merge works perfectly, git automatically commits the file changes so you don't need to do this yourself. Dealing with merge conflicts is the subject of \prettyref{ssec:rmc}. You need to make the necessary modifications to the files identified in \prettyref{ssec:bm} regardless of whether a merge conflict occurs or not.
 
-It is also possible to do a partial merge; this means that you merge only up to a specified commit on the master branch. On the master branch, take note of the relevant \emph{commit ID}. A commit ID is a long alphanumeric string, unique to each commit, which looks like this: \texttt{c7c3787bbbf2fb71670e0f509ce004c2ad9cc970}. The commit ID can be found easily using \texttt{git log} or \texttt{gitk} (as ``SHA1 ID'' on the left-hand side). Assuming you have the commit ID, a partial merge can be done by appending this ID to the usual \texttt{git merge} command:
+It is also possible to do a partial merge; this means that you merge only up to a specified commit on the master branch. On the master branch, take note of the relevant \emph{commit ID}. A commit ID is a long alphanumeric string, unique to each commit, which looks like this: \texttt{c7c3787bbbf2fb71670e0f509ce004c2ad9cc970}. The commit ID can be found easily using \texttt{git log} or \texttt{gitk} (as ``SHA1 ID'' on the left-hand side). A partial merge can be done by appending this commit ID to the usual \texttt{git merge} command instead of specifying a branch:
 \begin{alltt}
 [user \(\sim\)]\$ cd \(\sim\)/Documents/gitLAMMPS/
 [user gitLAMMPS]\$ git checkout common
-[user gitLAMMPS]\$ git merge master \sout{c7c3787bbbf2fb71670e0f509ce004c2ad9cc970}
+[user gitLAMMPS]\$ git merge \sout{c7c3787bbbf2fb71670e0f509ce004c2ad9cc970}
 \end{alltt}
 
 \subsection{Resolving merge conflicts}\label{ssec:rmc}
