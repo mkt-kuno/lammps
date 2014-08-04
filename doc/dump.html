@@ -57,7 +57,7 @@
       f_ID[N] = Nth column of local array calculated by a fix with ID 
 </PRE>
 <PRE>  <I>custom</I> of <I>custom/mpiio</I> args = list of atom attributes
-    possible attributes = id, mol, type, element, mass,
+    possible attributes = id, mol, proc, procp1, type, element, mass,
 			  x, y, z, xs, ys, zs, xu, yu, zu, 
 			  xsu, ysu, zsu, ix, iy, iz,
 			  vx, vy, vz, fx, fy, fz,
@@ -69,6 +69,7 @@
 <PRE>      id = atom ID
       mol = molecule ID
       proc = ID of processor that owns atom
+      procp1 = ID+1 of processor that owns atom
       type = atom type
       element = name of atom element, as defined by <A HREF = "dump_modify.html">dump_modify</A> command
       mass = atom mass
@@ -90,7 +91,9 @@
       c_ID[N] = Nth column of per-atom array calculated by a compute with ID
       f_ID = per-atom vector calculated by a fix with ID
       f_ID[N] = Nth column of per-atom array calculated by a fix with ID
-      v_name = per-atom vector calculated by an atom-style variable with name 
+      v_name = per-atom vector calculated by an atom-style variable with name
+      d_name = per-atom floating point vector with name, managed by fix property/atom
+      i_name = per-atom integer vector with name, managed by fix property/atom 
 </PRE>
 
 </UL>
@@ -460,18 +463,20 @@ dump 1 all local 1000 tmp.dump index c_1[1] c_1[2] c_1[3] c_2[1] c_2[2]
 <P>This section explains the atom attributes that can be specified as
 part of the <I>custom</I> and <I>cfg</I> styles.
 </P>
-<P>The <I>id</I>, <I>mol</I>, <I>proc</I>, <I>type</I>, <I>element</I>, <I>mass</I>, <I>vx</I>, <I>vy</I>, <I>vz</I>,
-<I>fx</I>, <I>fy</I>, <I>fz</I>, <I>q</I> attributes are self-explanatory.
+<P>The <I>id</I>, <I>mol</I>, <I>proc</I>, <I>procp1</I>, <I>type</I>, <I>element</I>, <I>mass</I>, <I>vx</I>,
+<I>vy</I>, <I>vz</I>, <I>fx</I>, <I>fy</I>, <I>fz</I>, <I>q</I> attributes are self-explanatory.
 </P>
 <P><I>Id</I> is the atom ID.  <I>Mol</I> is the molecule ID, included in the data
 file for molecular systems.  <I>Proc</I> is the ID of the processor (0 to
-Nprocs-1) that currently owns the atom.  <I>Type</I> is the atom type.
-<I>Element</I> is typically the chemical name of an element, which you must
-assign to each type via the <A HREF = "dump_modify.html">dump_modify element</A>
-command.  More generally, it can be any string you wish to associated
-with an atom type.  <I>Mass</I> is the atom mass.  <I>Vx</I>, <I>vy</I>, <I>vz</I>, <I>fx</I>,
-<I>fy</I>, <I>fz</I>, and <I>q</I> are components of atom velocity and force and
-atomic charge.
+Nprocs-1) that currently owns the atom.  <I>Procp1</I> is the proc ID+1,
+which can be convenient in place of a <I>type</I> attribute (1 to Ntypes)
+for coloring atoms in a visualization program.  <I>Type</I> is the atom
+type (1 to Ntypes).  <I>Element</I> is typically the chemical name of an
+element, which you must assign to each type via the <A HREF = "dump_modify.html">dump_modify
+element</A> command.  More generally, it can be any
+string you wish to associated with an atom type.  <I>Mass</I> is the atom
+mass.  <I>Vx</I>, <I>vy</I>, <I>vz</I>, <I>fx</I>, <I>fy</I>, <I>fz</I>, and <I>q</I> are components of
+atom velocity and force and atomic charge.
 </P>
 <P>There are several options for outputting atom coordinates.  The <I>x</I>,
 <I>y</I>, <I>z</I> attributes write atom coordinates "unscaled", in the
@@ -564,6 +569,10 @@ invoke other computes, fixes, or variables when they are evaluated, so
 this is a very general means of creating quantities to output to a
 dump file.
 </P>
+<P>The <I>d_name</I> and <I>i_name</I> attributes allow to output custom per atom
+floating point or integer properties that are managed by
+<A HREF = "fix_property_atom.html">fix property/atom</A>.
+</P>
 <P>See <A HREF = "Section_modify.html">Section_modify</A> of the manual for information
 on how to add new compute and fix styles to LAMMPS to calculate
 per-atom quantities which could then be output into dump files.
@@ -605,7 +614,7 @@ machines.
 </P>
 <P><B>Default:</B>
 </P>
-<P>The defaults for the image style are listed on the <A HREF = "dump_image.html">dump
-image</A> doc page.
+<P>The defaults for the <I>image</I> and <I>movie</I> styles are listed on the
+<A HREF = "dump_image.html">dump image</A> doc page.
 </P>
 </HTML>
