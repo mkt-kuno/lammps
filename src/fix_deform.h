@@ -37,6 +37,7 @@ class FixDeform : public Fix {
   void init();
   void pre_exchange();
   void end_of_step();
+  double memory_usage();
 
   /*~ Added *param_export to allow the calling function to access 
     details of the rates of boundary movement [KH - 9 November 2011]*/

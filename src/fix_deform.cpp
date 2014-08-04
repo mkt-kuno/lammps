@@ -1095,3 +1095,14 @@ double *FixDeform::param_export()
 
   return erates;
 }
+
+/* ----------------------------------------------------------------------
+   memory usage of Irregular
+------------------------------------------------------------------------- */
+
+double FixDeform::memory_usage()
+{
+  double bytes = 0.0;
+  if (irregular) bytes += irregular->memory_usage();
+  return bytes;
+}
