@@ -334,7 +334,8 @@ void ComputeStressAtom::compute_peratom()
   }
 
   // convert to stress*volume units = -pressure*volume
-
+  /*~ The minus sign enforces a 'compression positive' sign
+    convention for stress [KH - 4 August 2014]*/
   double nktv2p = -force->nktv2p;
   for (i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
