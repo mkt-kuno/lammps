@@ -1422,12 +1422,12 @@ void FixWallGran::ev_tally_wall(int i, double fx, double fy, double fz,
             else
                 error->all(FLERR,"Cannot read correct dimension");
 
-            vatom[i][0] += dx * fx / volume;
-            vatom[i][1] += dy * fy / volume;
-            vatom[i][2] += dz * fz / volume;
-            vatom[i][3] += dx * fy / volume;
-            vatom[i][4] += dx * fz / volume;
-            vatom[i][5] += dy * fz / volume;
+            vatom[i][0] -= dx * fx / volume;
+            vatom[i][1] -= dy * fy / volume;
+            vatom[i][2] -= dz * fz / volume;
+            vatom[i][3] -= dx * fy / volume;
+            vatom[i][4] -= dx * fz / volume;
+            vatom[i][5] -= dy * fz / volume;
           //}
         }
     //}
