@@ -1,0 +1,113 @@
+<HTML>
+<CENTER><A HREF = "http://lammps.sandia.gov">LAMMPS WWW Site</A> - <A HREF = "Manual.html">LAMMPS Documentation</A> - <A HREF = "Section_commands.html#comm">LAMMPS Commands</A> 
+</CENTER>
+
+
+
+
+
+
+<HR>
+
+<H3>compute energy/gran command 
+</H3>
+<P><B>Syntax:</B>
+</P>
+<PRE>compute ID group-ID energy/gran term_1 term_2 ... 
+</PRE>
+<UL><LI>ID, group-ID are documented in <A HREF = "compute.html">compute</A> command 
+
+<LI>energy/gran = style name of this compute command 
+
+<LI>input = one or more of the following energy terms: 
+
+<PRE>     friction = energy dissipated by friction
+     rotational_kinetic = rotational kinetic energy
+     translational_kinetic = translational kinetic energy
+     kinetic = total kinetic energy
+     boundary = energy added/removed by boundary work
+     normal_strain = normal spring contribution to strain energy
+     shear_strain = shear spring contribution to strain energy
+     strain = total strain energy
+     local_damping = energy dissipated by local damping
+     viscous_damping = energy dissipated by viscous damping
+     damping = total energy dissipated by damping 
+</PRE>
+
+</UL>
+<P><B>Examples:</B>
+</P>
+<PRE>compute 1 all energy/gran translational_kinetic friction kinetic rotational_kinetic normal_strain shear_strain boundary strain damping
+compute 1 all energy/gran strain friction kinetic 
+</PRE>
+<P><B>Description:</B>
+</P>
+<P>Define a computation that allows various specified components of
+energy to be written out periodically during a simulation. This
+compute requires a granular pairstyle to be defined. When <I>boundary</I>
+work is listed among the energy terms, a helper fix, FixEnergyBoundary,
+is implicitly created in the code.
+</P>
+<P>At present, this compute is applicable to all granular pairstyles and
+boundary conditions with one exception. When rigid walls are present 
+AND they are moving (an unusual combination), <I>boundary</I> is not currently 
+calculated. If this capability is needed, the framework and all of the
+hooks are already present in FixEnergyBoundary so it should be reasonably
+easy to add. Strain energy for particle-wall overlaps is seamlessly
+integrated with the strain energy for particle-particle overlaps.
+</P>
+<P>The input energy terms can be listed in any order. A term cannot be
+duplicated (but there is no reason to do this anyway).
+</P>
+<P><B>Output info:</B>
+</P>
+<P>This compute provides three types of output. Firstly, the specified total
+energy terms for the whole system are available to be written to a file
+using <A HREF = "fix_print.html">fix_print</A>. For example:
+</P>
+<PRE>	compute		2 all energy/gran translational_kinetic friction kinetic normal_strain shear_strain boundary 
+</PRE>
+<PRE>	variable 	step equal step
+	variable	tke equal c_2[1]
+	variable	friction equal c_2[2]
+	variable	ke equal c_2[3]
+	variable	nstr equal c_2[4]
+	variable	sstr equal c_2[5]
+	variable	boundary equal c_2[6] 
+</PRE>
+<PRE>	fix 		5 all print 1000 "${step} ${friction} ${boundary} ${tke} ${ke} ${nstr} ${sstr}" file Energy_Terms.txt screen no 
+</PRE>
+<P>It is noted that the order of the variables in <A HREF = "fix_print.html">fix_print</A> does not
+need to correspond to the order in the compute. The second type of
+output is a per-atom vector/array of kinetic energies. If one or more
+kinetic energy terms (<I>rotational_kinetic</I>, <I>translational_kinetic</I> or
+<I>kinetic</I>) are defined in the compute, these can be accessed using 
+<A HREF = "dump_custom.html">dump_custom</A>. The order of the per-particle kinetic energies is the 
+same as their order among the compute arguments. In the example shown
+above, two kinetic energies are defined: (1) translational_kinetic; 
+(2) kinetic. These can be written to dump files using the following
+command:
+</P>
+<PRE>	dump		1 all custom 100000 dump.ke_* c_2[1] c_2[2] 
+</PRE>
+<P>Finally, per-contact energy terms are available via <A HREF = "dump_local.html">dump_local</A> if at
+least one of the following energy terms is specified in the compute: 
+<I>friction</I>, <I>rotational_kinetic</I>, <I>translational_kinetic</I>, <I>kinetic</I>,
+<I>normal_strain</I>, <I>shear_strain</I> or <I>strain</I>. As described
+in <A HREF = "USER/gran/Interpreting_ComputePairLocal_Output.doc">Interpreting_ComputePairLocal_Output.doc</A>, 
+the last four slots are 
+available for energy components, though the last of these is currently 
+unused. Continuing this example, write out the atom tags and three defined
+energy components using the following syntax:
+</P>
+<PRE>	compute 	1 all pair/local p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 p15 p16 p17 p18
+	dump		2 all local 100000 dump.per_contact_energy_* c_1[5] c_1[6] c_1[15] c_1[16] c_1[17] 
+</PRE>
+<P>A simple input script, in.compute_energy_gran, which demonstrates all of these output 
+options and a MATLAB plotting script are provided with the other documentation.
+</P>
+<P><B>Restrictions:</B> A granular pairstyle must be defined.
+</P>
+<P><B>Default:</B> none
+</P>
+</HTML>
