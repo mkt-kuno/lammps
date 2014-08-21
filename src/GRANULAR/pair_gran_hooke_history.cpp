@@ -1017,8 +1017,8 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
 
 /* ---------------------------------------------------------------------- */
 
-int PairGranHookeHistory::pack_comm(int n, int *list,
-                                    double *buf, int pbc_flag, int *pbc)
+int PairGranHookeHistory::pack_forward_comm(int n, int *list, double *buf, 
+                                            int pbc_flag, int *pbc)
 {
   int i,j,m;
 
@@ -1027,12 +1027,12 @@ int PairGranHookeHistory::pack_comm(int n, int *list,
     j = list[i];
     buf[m++] = mass_rigid[j];
   }
-  return 1;
+  return m;
 }
 
 /* ---------------------------------------------------------------------- */
 
-void PairGranHookeHistory::unpack_comm(int n, int first, double *buf)
+void PairGranHookeHistory::unpack_forward_comm(int n, int first, double *buf)
 {
   int i,m,last;
 

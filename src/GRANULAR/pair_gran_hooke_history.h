@@ -42,8 +42,8 @@ class PairGranHookeHistory : public Pair {
   virtual void read_restart_settings(FILE *); //~ Made virtual
   void reset_dt();
   virtual double single(int, int, int, int, double, double, double, double &);
-  int pack_comm(int, int *, double *, int, int *);
-  void unpack_comm(int, int, double *);
+  int pack_forward_comm(int, int *, double *, int, int *);
+  void unpack_forward_comm(int, int, double *);
   void *extract(const char *, int &);
   void rolling_resistance(int, int, int, int, double, double, double, double, double, double, double, double, double **, double *, double *, double *, double *, double *); //~ Added these two functions [KH - 24 October 2013]
   void add_old_omega_fix();

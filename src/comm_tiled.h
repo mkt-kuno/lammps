@@ -57,16 +57,16 @@ class CommTiled : public Comm {
 
   // forward/reverse comm info, proc lists include self
 
-  int *nsendproc,*nrecvproc;    // # of procs to send/recv to/from in each swap
-  int *sendother;               // 1 if send to any other proc in each swap
-  int *sendself;                // 1 if send to self in each swap
-  int *nprocmax;                // current max # of send procs for each swap
+  int *nsendproc,*nrecvproc;    // # of procs to send/recv to/from per swap
+  int *sendother,*recvother;    // 1 if send/recv to/from other proc per swap
+  int *sendself;                // 1 if send to self per swap
+  int *nprocmax;                // current max # of send procs per swap
   int **sendproc,**recvproc;    // procs to send/recv to/from per swap
   int **sendnum,**recvnum;      // # of atoms to send/recv per swap/proc
   int **size_forward_recv;      // # of values to recv in each forward swap/proc
   int **firstrecv;              // where to put 1st recv atom per swap/proc
-  int **size_reverse_send;      // # to send in each reverse comm per swap/proc
-  int **size_reverse_recv;      // # to recv in each reverse comm per swap/proc
+  int **size_reverse_send;      // # of values to send in each reverse swap/proc
+  int **size_reverse_recv;      // # of values to recv in each reverse swap/proc
   int **forward_recv_offset;  // forward comm offsets in buf_recv per swap/proc
   int **reverse_recv_offset;  // reverse comm offsets in buf_recv per swap/proc
 
@@ -82,7 +82,7 @@ class CommTiled : public Comm {
   int *nexchproc;               // # of procs to send/recv to/from in each exch
   int *nexchprocmax;            // current max # of exch procs for each exch
   int **exchproc;               // procs to exchange with per exch
-  int **exchnum;                // # of atoms received per exch/proc
+  int **exchnum;                // # of values received per exch/proc
 
   double *buf_send;             // send buffer for all comm
   double *buf_recv;             // recv buffer for all comm
@@ -100,7 +100,7 @@ class CommTiled : public Comm {
 
   struct RCBinfo {
     double mysplit[3][2];      // fractional RCB bounding box for one proc
-    double cut;        	       // position of cut this proc owns
+    double cutfrac;    	       // fractional position of cut this proc owns
     int dim;	               // dimension = 0/1/2 of cut
   };
 
@@ -113,6 +113,7 @@ class CommTiled : public Comm {
   double *prd;                 // local ptrs to Domain attributes
   double *boxlo,*boxhi;
   double *sublo,*subhi;
+  int dimension;
 
   void init_buffers();
 
@@ -147,6 +148,12 @@ class CommTiled : public Comm {
   void grow_swap_send(int, int, int);  // grow swap arrays for send and recv
   void grow_swap_recv(int, int);
   void deallocate_swap(int);           // deallocate swap arrays
+
+
+  // DEBUG
+
+  void bounds(double, double, double, double, double, double,
+              int &,int &,int &,int &,int &,int &);
 };
 
 }
