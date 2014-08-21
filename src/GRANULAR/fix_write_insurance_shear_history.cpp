@@ -73,6 +73,8 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
     pair = force->pair_match("gran/hertz/history",1);
   else if (force->pair_match("gran/shm/history",1))
     pair = force->pair_match("gran/shm/history",1);
+  else if (force->pair_match("gran/CM/history",1))
+    pair = force->pair_match("gran/CM/history",1);
   else error->all(FLERR,"fix_write_insurance_shear_history not defined for the chosen pairstyle");
 
   int dim;  
@@ -84,6 +86,7 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
 
   //~ pair/gran/shm/history has 4 shear quantities
   if (force->pair_match("shm",0)) numshearquants++;
+  if (force->pair_match("CM",0)) numshearquants += 2;
 
   /*~ Adding a rolling resistance model causes the number of
     shear quantities to be increased by 15 [KH - 29 July 2014]*/

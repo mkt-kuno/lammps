@@ -50,14 +50,19 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
   partner = NULL;
 
   //~ Number of shear quantities can vary [KH - 9 January 2014]
+  /*~~ shearpartner5 is added [MO - 4 June 2014] ~~*/ 
   shearpartner3 = NULL;
   shearpartner4 = NULL;
+  shearpartner5 = NULL;
   shearpartner7 = NULL;
   shearpartner8 = NULL;
+  shearpartner9 = NULL;
   shearpartner18 = NULL;
   shearpartner19 = NULL;
+  shearpartner20 = NULL;
   shearpartner22 = NULL;
   shearpartner23 = NULL;
+  shearpartner24 = NULL;
 
   grow_arrays(atom->nmax);
   atom->add_callback(0);
@@ -66,14 +71,19 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
   ipage = NULL;
 
   //~ Also the case here [KH - 9 January 2014]
+  /*~~ dpage5 is added [MO - 4 June 2014] ~~*/ 
   dpage3 = NULL;
   dpage4 = NULL;
+  dpage5 = NULL;
   dpage7 = NULL;
   dpage8 = NULL;
+  dpage9 = NULL;
   dpage18 = NULL;
   dpage19 = NULL;
+  dpage20 = NULL;
   dpage22 = NULL;
   dpage23 = NULL;
+  dpage24 = NULL;
 
   pgsize = oneatom = 0;
 
@@ -100,23 +110,31 @@ FixShearHistory::~FixShearHistory()
 
   memory->sfree(shearpartner3); //~ [KH - 9 January 2014]
   memory->sfree(shearpartner4);
+  memory->sfree(shearpartner5); /*~~ 5 is added [MO - 4 June 2014] ~~*/ 
   memory->sfree(shearpartner7);
   memory->sfree(shearpartner8);
+  memory->sfree(shearpartner9);
   memory->sfree(shearpartner18);
   memory->sfree(shearpartner19);
+  memory->sfree(shearpartner20);
   memory->sfree(shearpartner22);
   memory->sfree(shearpartner23);
+  memory->sfree(shearpartner24);
 
   delete [] ipage;
 
   delete [] dpage3; //~ [KH - 9 January 2014]
   delete [] dpage4;
+  delete [] dpage5; /*~~ 5 is added [MO - 4 June 2014] ~~*/ 
   delete [] dpage7;
   delete [] dpage8;
+  delete [] dpage9; /*~~ 9 is added [MO - 5 June 2014] ~~*/ 
   delete [] dpage18;
   delete [] dpage19;
+  delete [] dpage20; /*~~ 20 is added [MO - 5 June 2014] ~~*/ 
   delete [] dpage22;
   delete [] dpage23;
+  delete [] dpage24; /*~~ 24 is added [MO - 5 June 2014] ~~*/ 
 }
 
 /* ---------------------------------------------------------------------- */
@@ -181,6 +199,12 @@ void FixShearHistory::allocate_pages()
       for (int i = 0; i < nmypage; i++)
 	dpage3[i].init(oneatom,pgsize);
       break;
+    case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+      delete [] dpage5;
+      dpage5 = new MyPage<double[5]>[nmypage];
+      for (int i = 0; i < nmypage; i++)
+	dpage5[i].init(oneatom,pgsize);
+      break;
     case 18:
       delete [] dpage18;
       dpage18 = new MyPage<double[18]>[nmypage];
@@ -193,11 +217,23 @@ void FixShearHistory::allocate_pages()
       for (int i = 0; i < nmypage; i++)
 	dpage19[i].init(oneatom,pgsize);
       break;
+    case 20: /*~~ 20 is added for the CM model [MO - 5 June 2014] ~~*/
+      delete [] dpage20;
+      dpage20 = new MyPage<double[20]>[nmypage];
+      for (int i = 0; i < nmypage; i++)
+	dpage20[i].init(oneatom,pgsize);
+      break;
     case 8:
       delete [] dpage8;
       dpage8 = new MyPage<double[8]>[nmypage];
       for (int i = 0; i < nmypage; i++)
 	dpage8[i].init(oneatom,pgsize);
+      break;
+    case 9: /*~~ 9 is added for the CM model [MO - 5 June 2014] ~~*/
+      delete [] dpage9;
+      dpage9 = new MyPage<double[9]>[nmypage];
+      for (int i = 0; i < nmypage; i++)
+	dpage9[i].init(oneatom,pgsize);
       break;
     case 7:
       delete [] dpage7;
@@ -216,6 +252,12 @@ void FixShearHistory::allocate_pages()
       dpage23 = new MyPage<double[23]>[nmypage];
       for (int i = 0; i < nmypage; i++)
 	dpage23[i].init(oneatom,pgsize);
+      break;
+    case 24: /*~~ 24 is added for the CM model [MO - 5 June 2014] ~~*/
+      delete [] dpage23;
+      dpage24 = new MyPage<double[24]>[nmypage];
+      for (int i = 0; i < nmypage; i++)
+	dpage24[i].init(oneatom,pgsize);
       break;
     default:
       //~ If no cases matched, there is a problem
@@ -275,15 +317,22 @@ void FixShearHistory::pre_exchange()
     break;
   case 3: //~ 3 is next most likely
     dpage3->reset();
+  case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    dpage5->reset();
     break;
   case 18:
     dpage18->reset();
     break;
   case 19:
     dpage19->reset();
+  case 20:
+    dpage20->reset();
     break;
   case 8:
     dpage8->reset();
+    break;
+  case 9:
+    dpage9->reset();
     break;
   case 7:
     dpage7->reset();
@@ -293,6 +342,9 @@ void FixShearHistory::pre_exchange()
     break;
   case 23:
     dpage23->reset();
+    break;
+  case 24:
+    dpage24->reset();
     break;
   }
 
@@ -351,6 +403,15 @@ void FixShearHistory::pre_exchange()
       if (partner[i] == NULL || shearpartner3[i] == NULL)
 	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
+   case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      n = npartner[i];
+      partner[i] = ipage->get(n);
+      shearpartner5[i] = dpage5->get(n);
+      if (partner[i] == NULL || shearpartner5[i] == NULL)
+	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
+    }
     break;
   case 18:
     for (ii = 0; ii < inum; ii++) {
@@ -372,6 +433,16 @@ void FixShearHistory::pre_exchange()
 	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
     break;
+  case 20:
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      n = npartner[i];
+      partner[i] = ipage->get(n);
+      shearpartner20[i] = dpage20->get(n);
+      if (partner[i] == NULL || shearpartner20[i] == NULL)
+	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
+    }
+    break;
   case 8:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
@@ -379,6 +450,16 @@ void FixShearHistory::pre_exchange()
       partner[i] = ipage->get(n);
       shearpartner8[i] = dpage8->get(n);
       if (partner[i] == NULL || shearpartner8[i] == NULL)
+	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
+    }
+    break;
+  case 9:
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      n = npartner[i];
+      partner[i] = ipage->get(n);
+      shearpartner9[i] = dpage9->get(n);
+      if (partner[i] == NULL || shearpartner9[i] == NULL)
 	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
     break;
@@ -409,6 +490,16 @@ void FixShearHistory::pre_exchange()
       partner[i] = ipage->get(n);
       shearpartner23[i] = dpage23->get(n);
       if (partner[i] == NULL || shearpartner23[i] == NULL)
+	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
+    }
+    break;
+  case 24:
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      n = npartner[i];
+      partner[i] = ipage->get(n);
+      shearpartner24[i] = dpage24->get(n);
+      if (partner[i] == NULL || shearpartner24[i] == NULL)
 	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
     break;
@@ -485,6 +576,36 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
+  case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      jlist = firstneigh[i];
+      allshear = firstshear[i];
+      jnum = numneigh[i];
+      touch = firsttouch[i];
+
+      for (jj = 0; jj < jnum; jj++) {
+	if (touch[jj]) {
+	  shear = &allshear[5*jj];
+	  j = jlist[jj];
+	  j &= NEIGHMASK;
+	  m = npartner[i];
+	  partner[i][m] = tag[j];
+	  for (int kk = 0; kk < 5; kk++)
+	    shearpartner5[i][m][kk] = shear[kk];
+	  npartner[i]++;
+	  if (j < nlocal_neigh) {
+	    m = npartner[j];
+	    partner[j][m] = tag[i];
+	    for (int kk = 0; kk < 5; kk++) {
+	      shearpartner5[j][m][kk] = -shear[kk];
+	    }
+	    npartner[j]++;
+	  }
+	}
+      }
+    }
+    break;
   case 18:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
@@ -543,6 +664,35 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
+  case 20:
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      jlist = firstneigh[i];
+      allshear = firstshear[i];
+      jnum = numneigh[i];
+      touch = firsttouch[i];
+
+      for (jj = 0; jj < jnum; jj++) {
+	if (touch[jj]) {
+	  shear = &allshear[20*jj];
+	  j = jlist[jj];
+	  j &= NEIGHMASK;
+	  m = npartner[i];
+	  partner[i][m] = tag[j];
+	  for (int kk = 0; kk < 20; kk++)
+	    shearpartner20[i][m][kk] = shear[kk];
+	  npartner[i]++;
+	  if (j < nlocal_neigh) {
+	    m = npartner[j];
+	    partner[j][m] = tag[i];
+	    for (int kk = 0; kk < 20; kk++)
+	      shearpartner20[j][m][kk] = -shear[kk];
+	    npartner[j]++;
+	  }
+	}
+      }
+    }
+    break;
   case 8:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
@@ -579,7 +729,7 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
-  case 7:
+  case 9:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       jlist = firstneigh[i];
@@ -589,13 +739,13 @@ void FixShearHistory::pre_exchange()
 
       for (jj = 0; jj < jnum; jj++) {
 	if (touch[jj]) {
-	  shear = &allshear[7*jj];
+	  shear = &allshear[9*jj];
 	  j = jlist[jj];
 	  j &= NEIGHMASK;
 	  m = npartner[i];
 	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 7; kk++)
-	    shearpartner7[i][m][kk] = shear[kk];
+	  for (int kk = 0; kk < 9; kk++)
+	    shearpartner9[i][m][kk] = shear[kk];
 	  npartner[i]++;
 	  if (j < nlocal_neigh) {
 	    m = npartner[j];
@@ -604,11 +754,11 @@ void FixShearHistory::pre_exchange()
 	    /*~ This was modified to prevent energy terms
 	      becoming negative which is not sensible
 	      [KH - 11 March 2014]*/
-	    for (int kk = 0; kk < 3; kk++)
-	      shearpartner7[j][m][kk] = -shear[kk];
+	    for (int kk = 0; kk < 5; kk++)
+	      shearpartner9[j][m][kk] = -shear[kk];
 
-	    for (int kk = 3; kk < 7; kk++)
-	      shearpartner7[j][m][kk] = shear[kk]; //~ Positive
+	    for (int kk = 5; kk < 9; kk++)
+	      shearpartner9[j][m][kk] = shear[kk]; //~ Positive
 	    npartner[j]++;
 	  }
 	}
@@ -693,6 +843,45 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
+  case 24:
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      jlist = firstneigh[i];
+      allshear = firstshear[i];
+      jnum = numneigh[i];
+      touch = firsttouch[i];
+
+      for (jj = 0; jj < jnum; jj++) {
+	if (touch[jj]) {
+	  shear = &allshear[24*jj];
+	  j = jlist[jj];
+	  j &= NEIGHMASK;
+	  m = npartner[i];
+	  partner[i][m] = tag[j];
+	  for (int kk = 0; kk < 24; kk++)
+	    shearpartner24[i][m][kk] = shear[kk];
+	  npartner[i]++;
+	  if (j < nlocal_neigh) {
+	    m = npartner[j];
+	    partner[j][m] = tag[i];
+
+	    /*~ This was modified to prevent energy terms
+	      becoming negative which is not sensible
+	      [KH - 11 March 2014]*/
+	    for (int kk = 0; kk < 5; kk++)
+	      shearpartner24[j][m][kk] = -shear[kk];
+
+	    for (int kk = 5; kk < 9; kk++)
+	      shearpartner24[j][m][kk] = shear[kk]; //~ Positive
+
+	    for (int kk = 9; kk < 24; kk++)
+	      shearpartner24[j][m][kk] = -shear[kk];
+	    npartner[j]++;
+	  }
+	}
+      }
+    }
+    break;
   }
 
   // set maxtouch = max # of partners of any owned atom
@@ -742,14 +931,23 @@ double FixShearHistory::memory_usage()
     case 3: //~ 3 is next most likely
       bytes += dpage3[i].size();
       break;
+    case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+      bytes += dpage5[i].size();
+      break;
     case 18:
       bytes += dpage18[i].size();
       break;
     case 19:
       bytes += dpage19[i].size();
       break;
+    case 20:
+      bytes += dpage20[i].size();
+      break;
     case 8:
       bytes += dpage8[i].size();
+      break;
+    case 9:
+      bytes += dpage9[i].size();
       break;
     case 7:
       bytes += dpage7[i].size();
@@ -759,6 +957,9 @@ double FixShearHistory::memory_usage()
       break;
     case 23:
       bytes += dpage23[i].size();
+      break;
+    case 24:
+      bytes += dpage24[i].size();
       break;
     }
   }
@@ -779,12 +980,16 @@ void FixShearHistory::grow_arrays(int nmax)
   //~  Added more typedefs [KH - 9 January 2014]
   typedef double (*sptype3)[3];
   typedef double (*sptype4)[4];
+  typedef double (*sptype5)[5]; /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
   typedef double (*sptype7)[7];
   typedef double (*sptype8)[8];
+  typedef double (*sptype9)[9];
   typedef double (*sptype18)[18];
   typedef double (*sptype19)[19];
+  typedef double (*sptype20)[20];
   typedef double (*sptype22)[22];
   typedef double (*sptype23)[23];
+  typedef double (*sptype24)[24];
   
   //~ Use a switch-case structure [KH - 9 January 2014]
   switch (num_quants) {
@@ -798,6 +1003,11 @@ void FixShearHistory::grow_arrays(int nmax)
       memory->srealloc(shearpartner3,nmax*sizeof(sptype3),
 		       "shear_history:shearpartner3");
     break;
+  case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    shearpartner5 = (sptype5 *) 
+      memory->srealloc(shearpartner5,nmax*sizeof(sptype5),
+		       "shear_history:shearpartner5");
+    break;
   case 18:
     shearpartner18 = (sptype18 *) 
       memory->srealloc(shearpartner18,nmax*sizeof(sptype18),
@@ -808,10 +1018,20 @@ void FixShearHistory::grow_arrays(int nmax)
       memory->srealloc(shearpartner19,nmax*sizeof(sptype19),
 		       "shear_history:shearpartner19");
     break;
+  case 20:
+    shearpartner20 = (sptype20 *) 
+      memory->srealloc(shearpartner20,nmax*sizeof(sptype20),
+		       "shear_history:shearpartner20");
+    break;
   case 8:
     shearpartner8 = (sptype8 *) 
       memory->srealloc(shearpartner8,nmax*sizeof(sptype8),
 		       "shear_history:shearpartner8");
+    break;
+  case 9:
+    shearpartner9 = (sptype9 *) 
+      memory->srealloc(shearpartner9,nmax*sizeof(sptype9),
+		       "shear_history:shearpartner9");
     break;
   case 7:
     shearpartner7 = (sptype7 *) 
@@ -827,6 +1047,11 @@ void FixShearHistory::grow_arrays(int nmax)
     shearpartner23 = (sptype23 *) 
       memory->srealloc(shearpartner23,nmax*sizeof(sptype23),
 		       "shear_history:shearpartner23");
+    break;
+  case 24:
+    shearpartner24 = (sptype24 *) 
+      memory->srealloc(shearpartner24,nmax*sizeof(sptype24),
+		       "shear_history:shearpartner24");
     break;
   }
 }
@@ -853,6 +1078,9 @@ void FixShearHistory::copy_arrays(int i, int j, int delflag)
     break;
   case 3:
     shearpartner3[j] = shearpartner3[i];
+    break; 
+  case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    shearpartner5[j] = shearpartner5[i];
     break;
   case 18:
     shearpartner18[j] = shearpartner18[i];
@@ -860,8 +1088,14 @@ void FixShearHistory::copy_arrays(int i, int j, int delflag)
   case 19:
     shearpartner19[j] = shearpartner19[i];
     break;
+  case 20:
+    shearpartner20[j] = shearpartner20[i];
+    break;
   case 8:
     shearpartner8[j] = shearpartner8[i];
+    break;
+  case 9:
+    shearpartner9[j] = shearpartner9[i];
     break;
   case 7:
     shearpartner7[j] = shearpartner7[i];
@@ -871,6 +1105,9 @@ void FixShearHistory::copy_arrays(int i, int j, int delflag)
     break;
   case 23:
     shearpartner23[j] = shearpartner23[i];
+    break;
+  case 24:
+    shearpartner24[j] = shearpartner24[i];
     break;
   }
 }
@@ -912,6 +1149,13 @@ int FixShearHistory::pack_exchange(int i, double *buf)
 	buf[m++] = shearpartner3[i][n][k];
     }
     break;
+  case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 5; k++)
+	buf[m++] = shearpartner5[i][n][k];
+    }
+    break;
   case 18:
     for (int n = 0; n < npartner[i]; n++) {
       buf[m++] = partner[i][n];
@@ -926,11 +1170,25 @@ int FixShearHistory::pack_exchange(int i, double *buf)
 	buf[m++] = shearpartner19[i][n][k];
     }
     break;
+  case 20:
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 20; k++)
+	buf[m++] = shearpartner20[i][n][k];
+    }
+    break;
   case 8:
     for (int n = 0; n < npartner[i]; n++) {
       buf[m++] = partner[i][n];
       for (int k = 0; k < 8; k++)
 	buf[m++] = shearpartner8[i][n][k];
+    }
+    break;
+  case 9:
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 9; k++)
+	buf[m++] = shearpartner9[i][n][k];
     }
     break;
   case 7:
@@ -952,6 +1210,13 @@ int FixShearHistory::pack_exchange(int i, double *buf)
       buf[m++] = partner[i][n];
       for (int k = 0; k < 23; k++)
 	buf[m++] = shearpartner23[i][n][k];
+    }
+    break;
+  case 24:
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 24; k++)
+	buf[m++] = shearpartner24[i][n][k];
     }
     break;
   }
@@ -989,6 +1254,14 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
 	shearpartner3[nlocal][n][k] = buf[m++];
     }
     break;
+  case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    shearpartner5[nlocal] = dpage5->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
+      for (int k = 0; k < 5; k++)
+	shearpartner5[nlocal][n][k] = buf[m++];
+    }
+    break;
   case 18:
     shearpartner18[nlocal] = dpage18->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
@@ -1005,12 +1278,28 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
 	shearpartner19[nlocal][n][k] = buf[m++];
     }
     break;
+  case 20:
+    shearpartner20[nlocal] = dpage20->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
+      for (int k = 0; k < 20; k++)
+	shearpartner20[nlocal][n][k] = buf[m++];
+    }
+    break;
   case 8:
     shearpartner8[nlocal] = dpage8->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
       partner[nlocal][n] = static_cast<tagint> (buf[m++]);
       for (int k = 0; k < 8; k++)
 	shearpartner8[nlocal][n][k] = buf[m++];
+    }
+    break;
+  case 9:
+    shearpartner9[nlocal] = dpage9->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
+      for (int k = 0; k < 9; k++)
+	shearpartner9[nlocal][n][k] = buf[m++];
     }
     break;
   case 7:
@@ -1035,6 +1324,14 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
       partner[nlocal][n] = static_cast<tagint> (buf[m++]);
       for (int k = 0; k < 23; k++)
 	shearpartner23[nlocal][n][k] = buf[m++];
+    }
+    break;
+  case 24:
+    shearpartner24[nlocal] = dpage24->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
+      for (int k = 0; k < 24; k++)
+	shearpartner24[nlocal][n][k] = buf[m++];
     }
     break;
   }
@@ -1067,6 +1364,13 @@ int FixShearHistory::pack_restart(int i, double *buf)
 	buf[m++] = shearpartner3[i][n][k];
     }
     break;
+  case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 5; k++)
+	buf[m++] = shearpartner5[i][n][k];
+    }
+    break;
   case 18:
     for (int n = 0; n < npartner[i]; n++) {
       buf[m++] = partner[i][n];
@@ -1081,11 +1385,25 @@ int FixShearHistory::pack_restart(int i, double *buf)
 	buf[m++] = shearpartner19[i][n][k];
     }
     break;
+  case 20:
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 20; k++)
+	buf[m++] = shearpartner20[i][n][k];
+    }
+    break;
   case 8:
     for (int n = 0; n < npartner[i]; n++) {
       buf[m++] = partner[i][n];
       for (int k = 0; k < 8; k++)
 	buf[m++] = shearpartner8[i][n][k];
+    }
+    break;
+  case 9:
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 9; k++)
+	buf[m++] = shearpartner9[i][n][k];
     }
     break;
   case 7:
@@ -1107,6 +1425,13 @@ int FixShearHistory::pack_restart(int i, double *buf)
       buf[m++] = partner[i][n];
       for (int k = 0; k < 23; k++)
 	buf[m++] = shearpartner23[i][n][k];
+    }
+    break;
+  case 24:
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 24; k++)
+	buf[m++] = shearpartner24[i][n][k];
     }
     break;
   }
@@ -1155,6 +1480,14 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
 	shearpartner3[nlocal][n][k] = extra[nlocal][m++];
     }
     break;
+  case 5: /*~~ 5 is added for the CM model [MO - 4 June 2014] ~~*/
+    shearpartner5[nlocal] = dpage5->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
+      for (int k = 0; k < 5; k++)
+	shearpartner5[nlocal][n][k] = extra[nlocal][m++];
+    }
+    break;
   case 18:
     shearpartner18[nlocal] = dpage18->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
@@ -1171,12 +1504,28 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
 	shearpartner19[nlocal][n][k] = extra[nlocal][m++];
     }
     break;
+  case 20:
+    shearpartner20[nlocal] = dpage20->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
+      for (int k = 0; k < 20; k++)
+	shearpartner20[nlocal][n][k] = extra[nlocal][m++];
+    }
+    break;
   case 8:
     shearpartner8[nlocal] = dpage8->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
       partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
       for (int k = 0; k < 8; k++)
 	shearpartner8[nlocal][n][k] = extra[nlocal][m++];
+    }
+    break;
+  case 9:
+    shearpartner9[nlocal] = dpage9->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
+      for (int k = 0; k < 9; k++)
+	shearpartner9[nlocal][n][k] = extra[nlocal][m++];
     }
     break;
   case 7:
@@ -1201,6 +1550,14 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
       partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
       for (int k = 0; k < 23; k++)
 	shearpartner23[nlocal][n][k] = extra[nlocal][m++];
+    }
+    break;
+  case 24:
+    shearpartner24[nlocal] = dpage24->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
+      for (int k = 0; k < 24; k++)
+	shearpartner24[nlocal][n][k] = extra[nlocal][m++];
     }
     break;
   }

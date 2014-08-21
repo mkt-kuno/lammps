@@ -1671,7 +1671,7 @@ double Input::auto_timestep()
   int calc_method;
   if (force->pair_match("gran/hooke/history",1))
     calc_method = 1;
-  else if (force->pair_match("gran/hertz/history",1) || force->pair_match("gran/shm/history",1))
+  else if (force->pair_match("gran/hertz/history",1) || force->pair_match("gran/shm/history",1) || force->pair_match("gran/CM/history",1)|| force->pair_match("gran/HMD/history",1))
     calc_method = 2;
   else error->all(FLERR,"A granular pairstyle with shear history must be defined before timestep auto");
 
@@ -1712,7 +1712,7 @@ double Input::auto_timestep()
     } else {
       a = kn*radius[i]*sqrt(foverlap);
       fin = 2.0*a*foverlap*radius[i];
-      b = (2.0/(2.0-pr))*pow(3.0*smod*smod*(1-pr)*radius[i]*fin,0.3333333333);
+      b = (2.0/(2.0-pr))*pow(3.0*smod*smod*(1.0-pr)*radius[i]*fin,0.3333333333);
       a > b ? c = a : c = b; //~ Find the largest stiffness
     }
     

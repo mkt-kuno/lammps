@@ -50,7 +50,8 @@ FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
 
   //~ pair/gran/shm/history has 4 shear quantities
   if (force->pair_match("shm",0)) numshearquants++;
-
+  if (force->pair_match("CM",0)) numshearquants += 2;
+  if (force->pair_match("HMD",0)) numshearquants += 13;   // Addded this [21 July 2014]
   /*~ Adding a rolling resistance model causes the number of
     shear quantities to be increased by 15. Gain access to
     arrays in pairstyle using pair->extract [KH - 6 February 2014]*/
@@ -62,6 +63,10 @@ FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
     pair = force->pair_match("gran/hertz/history",1);
   else if (force->pair_match("gran/shm/history",1))
     pair = force->pair_match("gran/shm/history",1);
+  else if (force->pair_match("gran/CM/history",1))
+    pair = force->pair_match("gran/CM/history",1);
+  else if (force->pair_match("gran/HMD/history",1)) // Addded this [21 July 2014]
+    pair = force->pair_match("gran/HMD/history",1);
   else error->all(FLERR,"fix_read_shear not defined for the chosen pairstyle");
 
   int dim;
@@ -88,11 +93,12 @@ FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"Input file not found by fix read shear");
   else 
     while(!inputfile.eof()) {
-      double tagi,tagj,shear0,shear1,shear2,shear3;
+      double tagi,tagj,shear0,shear1,shear2,shear3,shear4;
 
       if (numshearquants == 3)
 	inputfile >> tagi >> tagj >> shear0 >> shear1 >> shear2;
-      else inputfile >> tagi >> tagj >> shear0 >> shear1 >> shear2 >> shear3;
+      else if (numshearquants == 4) inputfile >> tagi >> tagj >> shear0 >> shear1 >> shear2 >> shear3;
+      else inputfile >> tagi >> tagj >> shear0 >> shear1 >> shear2 >> shear3 >> shear4;
       
       if (nrows > 1) //~ Extend the sheardata array
 	memory->grow(sheardata,nrows,ncols,"FixReadShear:sheardata");
@@ -103,6 +109,10 @@ FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
       sheardata[nrows-1][3] = shear1;
       sheardata[nrows-1][4] = shear2;
       if (numshearquants == 4) sheardata[nrows-1][5] = shear3;
+      if (numshearquants == 5) {
+	sheardata[nrows-1][5] = shear3;
+	sheardata[nrows-1][6] = shear4;
+      }
       nrows++;
     }
 }
@@ -148,6 +158,10 @@ void FixReadShear::setup_pre_force(int vflag)
     pair = force->pair_match("gran/hertz/history",1);
   else if (force->pair_match("gran/shm/history",1))
     pair = force->pair_match("gran/shm/history",1);
+  else if (force->pair_match("gran/CM/history",1))
+    pair = force->pair_match("gran/CM/history",1);
+  else if (force->pair_match("gran/HMD/history",1))  // Addded this [21 July 2014]
+    pair = force->pair_match("gran/HMD/history",1);
   else error->all(FLERR,"fix read shear not defined for the chosen pairstyle");
 
   int dim;
@@ -201,7 +215,10 @@ void FixReadShear::setup_pre_force(int vflag)
 	  
 	  //~ shear[3] >= 0.0 always
 	  if (numshearquants == 4) shear[3] = sheardata[q][5];
-	  
+	  if (numshearquants == 5) {
+	    shear[3] = sheardata[q][5];
+	    shear[4] = sheardata[q][6];
+	  }
 	  break;
 	}
       }  

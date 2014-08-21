@@ -29,6 +29,8 @@ class FixShearHistory : public Fix {
   friend class Neighbor;
   friend class PairGranHookeHistory;
   friend class PairGranShmHistory; //~ Added this [KH - 23 November 2012]
+  friend class PairGranCMHistory; //~ Added this [MO - 05 June 2014]
+  friend class PairGranHMDHistory; //~ Added this [MO - 21 July 2014]
 
  public:
   FixShearHistory(class LAMMPS *, int, char **);
@@ -63,13 +65,17 @@ class FixShearHistory : public Fix {
   //~ ----------------- without energy tracing ----------------------
   double (**shearpartner3)[3]; //~ hooke/history or hertz/history
   double (**shearpartner4)[4]; //~ shm/history
-  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling
+  double (**shearpartner5)[5]; //~ CM/history [MO 04 June 2014]
+  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling or HMD/history [21 July 2014]
   double (**shearpartner19)[19]; //~ shm/history with rolling
+  double (**shearpartner20)[20]; //~ CM/history with rolling [MO 04 June 2014]
   //~ ----------------- with energy tracing ----------------------
   double (**shearpartner7)[7]; //~ hooke/history or hertz/history
-  double (**shearpartner8)[8]; //~ shm/history
-  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner23)[23]; //~ shm/history with rolling
+  double (**shearpartner8)[8]; //~ shm/history 
+  double (**shearpartner9)[9]; //~ CM/history [MO 04 June 2014]
+  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling or HMD/history [21 July 2014]
+  double (**shearpartner23)[23]; //~ shm/history with rolling 
+  double (**shearpartner24)[24]; //~ CM/history with rolling [MO 04 June 2014]
 
   int num_quants;               // the number of extra quantities for each partner (i.e. contact) modified GM
   int maxtouch;                 // max # of touching partners for my atoms
@@ -84,12 +90,16 @@ class FixShearHistory : public Fix {
     2014]*/
   MyPage<double[3]> *dpage3;     // pages of shear history with partners
   MyPage<double[4]> *dpage4;
+  MyPage<double[5]> *dpage5; //~ CM/history [MO 04 June 2014]
   MyPage<double[7]> *dpage7;
   MyPage<double[8]> *dpage8;
+  MyPage<double[9]> *dpage9; //~ CM/history [MO 04 June 2014]
   MyPage<double[18]> *dpage18;
   MyPage<double[19]> *dpage19;
+  MyPage<double[20]> *dpage20; //~ CM/history [MO 04 June 2014]
   MyPage<double[22]> *dpage22;
   MyPage<double[23]> *dpage23;
+  MyPage<double[24]> *dpage24; //~ CM/history [MO 04 June 2014]
 
   void allocate_pages();
 };

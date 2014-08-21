@@ -45,7 +45,7 @@ using namespace FixConst;
 using namespace MathConst;
 
 enum{XPLANE=0,YPLANE=1,ZPLANE=2,ZCYLINDER};    // XYZ PLANE need to be 0,1,2
-enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,SHM_HISTORY}; //~ Added SHM_HISTORY option [KH - 30 October 2013]
+enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,SHM_HISTORY,CM_HISTORY}; //~ Added SHM_HISTORY option [KH - 30 October 2013] CM_HISTORY [ MO - 17 June 2014]]
 
 #define BIG 1.0e20
 
@@ -72,9 +72,8 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
 
   // wall/particle coefficients
 
-  //~ Make special allowances for shm pairstyle [KH - 30 October 2013]
+  //~ Make special allowances for shm pairstyle [KH - 30 October 2013], CM pairstyle [MO - 18 July 2014] and HMD pair style [MO - 21 July 2014]
   int iarg = 9;
-  double Geq, Poiseq;
   if (force->pair_match("gran/shm/history",1)) {
     Geq = force->numeric(FLERR,arg[3]);
     Poiseq = force->numeric(FLERR,arg[4]);
@@ -90,6 +89,23 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     gamman = gammat = 0.0;
     dampflag = 0;
     iarg = 6; //~ Reduce number of args for SHM pairstyle [KH - 10 June 2014]
+  } else if (force->pair_match("gran/CM/history",1)) {     
+    Geq = force->numeric(FLERR,arg[3]);
+    Poiseq = force->numeric(FLERR,arg[4]);
+    xmu = force->numeric(FLERR,arg[5]);
+    RMSf = force->numeric(FLERR,arg[6]);
+    Hp = force->numeric(FLERR,arg[7]);
+    
+    if (Geq < 0.0 || Poiseq < 0.0 || Poiseq > 0.5)
+      error->all(FLERR,"Illegal CM pair parameter values in fix wall gran");
+    
+    kn = 4.0*Geq / (3.0*(1.0-Poiseq));
+    kt = 4.0*Geq / (2.0-Poiseq);
+    
+    //~ Set dummy values for the remaining variables [KH - 9 January 2014]
+    gamman = gammat = 0.0;
+    dampflag = 0;
+    iarg = 8; //~ Reduce number of args for CM pairstyle [KH - 10 June 2014]
   } else {
     kn = force->numeric(FLERR,arg[3]);
     if (strcmp(arg[4],"NULL") == 0) kt = kn * 2.0/7.0;
@@ -238,6 +254,9 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   //~ pair/gran/shm/history has 4 shear quantities
   if (force->pair_match("shm",0)) numshearquants++;
 
+  //~ pair/gran/CM/history has 5 shear quantities [MO - 18 July 2014] (,1) means exact match
+  if (force->pair_match("gran/CM/history",1)) numshearquants += 2;
+  
   /*~ Adding a rolling resistance model causes the number of shear 
     history quantities to be increased by 15 [KH - 29 July 2014]*/
   int dim = 1;
@@ -248,6 +267,8 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     pair = force->pair_match("gran/hertz/history",1);
   else if (force->pair_match("gran/shm/history",1))
     pair = force->pair_match("gran/shm/history",1);
+  else if (force->pair_match("gran/CM/history",1))    //**********[MO - 18 July 2014]
+    pair = force->pair_match("gran/CM/history",1);
   else dim = 0; //~ Adding for other pairstyles [KH - 5 November 2013]
 
   if (dim) rolling = (int *) pair->extract("rolling",dim);
@@ -358,6 +379,8 @@ void FixWallGran::init()
     pairstyle = HERTZ_HISTORY;
   else if (force->pair_match("gran/shm/history",1))
     pairstyle = SHM_HISTORY; //~ Extra entry added [KH - 30 October 2013]
+  else if (force->pair_match("gran/CM/history",1))
+    pairstyle = CM_HISTORY; //~ Extra entry added [MO - 18 July 2014]
   else error->all(FLERR,"Fix wall/gran is incompatible with Pair style");
 }
 
@@ -503,7 +526,9 @@ void FixWallGran::post_force(int vflag)
                         radius[i],rmass[i],shear[i],i);
 	else if (pairstyle == SHM_HISTORY) //~ [KH - 30 October 2013]
           shm_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
-                        radius[i],rmass[i],shear[i],i);
+		      radius[i],rmass[i],shear[i],i);
+	else if (pairstyle == CM_HISTORY) //~ [MO - 18 July 2014]**********************************************
+          CM_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
       }
     }
   }
@@ -1126,6 +1151,298 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
   fwall[0] += fx;
   fwall[1] += fy;
   fwall[2] += fz;
+  if (evflag) ev_tally_wall(i,fx,fy,fz,dx,dy,dz,radius);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixWallGran::CM_history(double rsq, double dx, double dy, double dz,
+			      double *vwall, double *v,
+			      double *f, double *omega, double *torque,
+			      double radius, double mass, double *shear, int i)
+{
+  //~ Added this function for CM history [MO - 18 July 2014]
+
+  double r,vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3;
+  double meff,damp,ccel,vtr1,vtr2,vtr3,vrel;
+  double fs,fslim,fx,fy,fz;
+  double shsqmag,shsqnew,rsht,shratio,polyhertz,rinv,rsqinv;
+  double wspinx,wspiny,wspinz,shint0,shint1,shint2,omdel;
+
+  r = sqrt(rsq);
+  rinv = 1.0/r;
+  rsqinv = 1.0/rsq;
+
+  //**********************************************************
+
+  // relative translational velocity
+
+  vr1 = v[0] - vwall[0];
+  vr2 = v[1] - vwall[1];
+  vr3 = v[2] - vwall[2];
+
+  // normal component
+
+  vnnr = vr1*dx + vr2*dy + vr3*dz;
+  vn1 = dx*vnnr / rsq;
+  vn2 = dy*vnnr / rsq;
+  vn3 = dz*vnnr / rsq;
+
+  // tangential component
+
+  vt1 = vr1 - vn1;
+  vt2 = vr2 - vn2;
+  vt3 = vr3 - vn3;
+
+
+ // relative velocities
+  
+  vtr1 = vt1 - dz*omega[1]+dy*omega[2];
+  vtr2 = vt2 - dx*omega[2]+dz*omega[0];
+  vtr3 = vt3 - dy*omega[0]+dx*omega[1];
+  vrel = vtr1*vtr1 + vtr2*vtr2 + vtr3*vtr3;
+  vrel = sqrt(vrel);
+  
+  // shear history effects
+  //~ Note that shear now refers to shear force, not shear displacement
+  
+  shsqmag = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]; //oldshearforce 
+  
+  // rotate shear forces onto new contact plane conserving length
+  
+  rsht = shear[0]*dx + shear[1]*dy + shear[2]*dz;
+  rsht = rsht*rsqinv;
+  if (shearupdate) {
+    shear[0] -= rsht*dx;
+    shear[1] -= rsht*dy;
+    shear[2] -= rsht*dz;
+    shsqnew = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
+    if (shsqnew!=0.0) {
+      shratio=sqrt(shsqmag/shsqnew);
+      shear[0] *= shratio; // conserve shear force length
+      shear[1] *= shratio;
+      shear[2] *= shratio;
+    }
+  }
+  
+  // then perform rotation for rigid-body SPIN
+  omdel=omega[0]*dx+omega[1]*dy+omega[2]*dz;
+  wspinx=0.5*rsqinv*dx*omdel;
+  wspiny=0.5*rsqinv*dy*omdel;
+  wspinz=0.5*rsqinv*dz*omdel;
+  shint0 = shear[0];
+  shint1 = shear[1];
+  shint2 = shear[2];
+  
+  if (shearupdate) {
+    shear[0]=shint0+shint1*(-wspinz*dt)+shint2*wspiny*dt;
+    shear[1]=shint0*wspinz*dt+shint1+shint2*(-wspinx*dt);
+    shear[2]=shint0*(-wspiny*dt)+shint1*wspinx*dt+shint2;
+  }
+  
+// Contact model of CM *********************************************
+//~ Damping is not present in the CM pairstyle
+
+//  The roughness of the wall is considered as null (RMSf_eq is not used in this fix_wall_gran.cpp )
+
+  double overlap = radius-r; // special case for ball to particle
+  double R_star = radius;    // special case for ball to particle
+  double E_star = Geq/(1.0-Poiseq);
+  double pi = 4.0*atan(1.0);
+  double overlap_p = R_star*pow(3.0/4.0*pi*Hp/E_star,2.0);     // R_star*(3/4*pi*Hp/E_star)^2
+  double P_GT = 100.0*RMSf*E_star*pow(2.0*R_star*RMSf,0.5);
+  double overlap_GT = pow(3.0*P_GT/(4.0*sqrt(R_star)*E_star),2.0/3.0)+overlap_p; 
+  double b = 2.0*E_star*sqrt(R_star*(overlap_GT-overlap_p))*overlap_GT/P_GT; 
+  double overlap_max = shear[3];
+  double overlap_old = shear[4];
+  double effectivekt;
+  double P_max;
+  double overlap_shm;
+  double overlap_effective;
+  int step;
+
+   /*~~Update the overlap which is the maximum in the history. [MO - 5 June 2014] ~~*/
+	
+  if (overlap >= overlap_max) overlap_max = overlap;
+  
+  /*~~ step 1*, 2* and 3* stand for loading, unloading and reloasing, respectively. 
+    step *4, *5 and *6 stand for asperity contact, Hertzian contact and zero force, respectively.
+    Possible conbinations are 14,15,25,26,35 and 36.  [MO - 18 Jun 2014]~~*/
+  
+  P_max = P_GT * pow(overlap_GT, -b) * pow(overlap_max, b);    // CM code was modified [MO - 24Jun2014]
+  overlap_shm = pow(P_max/(kn*sqrt(R_star)),2.0/3.0);              
+  overlap_effective = overlap_max - overlap_shm;      
+  
+  
+  if (overlap >= overlap_GT){
+    if (overlap >= overlap_max - 1.0e-13) step = 15;
+    if (overlap < overlap_max) {
+      if (overlap >= overlap_old) step = 35;
+      if (overlap < overlap_old) step = 25;
+    }
+    ccel = kn*(overlap-overlap_p)*rinv;
+    polyhertz = sqrt((overlap-overlap_p)*R_star); // [MO - 18 July 2014] R_star is now used
+    ccel *= polyhertz;
+    if (shearupdate) {
+      effectivekt = polyhertz*kt;
+      shear[0] -= effectivekt*vtr1*dt;//shear displacement =vtr*dt
+      shear[1] -= effectivekt*vtr2*dt;
+      shear[2] -= effectivekt*vtr3*dt;
+    }
+  }
+  if (overlap < overlap_GT){
+    if (overlap >= overlap_max - 1.0e-13){ 
+      step = 14;
+      ccel = P_GT * pow(overlap_GT, -b) * pow(overlap, b)*rinv;        /*~~ Do not forget to add *rinv for LAMMPS ~~*/ 
+      if (shearupdate) {
+	effectivekt = 2.0*b*(1.0-Poiseq)/(2.0-Poiseq)*ccel*r*(1/overlap); // Corrected on 21 July 2014 [MO]
+	shear[0] -= effectivekt*vtr1*dt;//shear displacement =vtr*dt
+	shear[1] -= effectivekt*vtr2*dt;
+	shear[2] -= effectivekt*vtr3*dt;
+      } 
+    }
+    if (overlap < overlap_max - 1.0e-13){ 
+      if (overlap < overlap_effective){
+	if (overlap >= overlap_old) step = 36;
+	if (overlap < overlap_old) step = 26;
+	ccel = 0.0;                   /*~~ Particles are separated due to squahed asperities ~~*/
+	if (shearupdate) {
+	  effectivekt = 0.0;
+	  shear[0] -= effectivekt*vtr1*dt;//shear displacement =vtr*dt
+	  shear[1] -= effectivekt*vtr2*dt;
+	  shear[2] -= effectivekt*vtr3*dt;
+	}
+      }
+      if (overlap >= overlap_effective){
+	if (overlap >= overlap_old) step = 35;
+	if (overlap < overlap_old) step = 25;
+	ccel = kn*(overlap-overlap_effective)*rinv;
+	polyhertz = sqrt((overlap-overlap_effective)*R_star);
+	ccel *= polyhertz;
+	if (shearupdate) {
+	  effectivekt = polyhertz*kt;
+	  shear[0] -= effectivekt*vtr1*dt;//shear displacement =vtr*dt
+	  shear[1] -= effectivekt*vtr2*dt;
+	  shear[2] -= effectivekt*vtr3*dt;
+	}
+      }
+    }
+  }
+
+  /*~~ Update the overlap_old for the next step for CM model [MO - 5 June 2014] ~~*/	
+  
+  overlap_old = overlap;   
+
+     
+  // rescale frictional forces if needed
+
+  fs = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+  fslim = xmu * fabs(ccel*r);
+
+  if (fs > fslim) {
+    if (fs != 0.0) {
+      if (shearupdate) {
+	shear[0] *= fslim/fs;
+	shear[1] *= fslim/fs;
+	shear[2] *= fslim/fs;
+      }
+    } else shear[0] = shear[1] = shear[2] = 0.0;
+  }
+
+  // forces & torques
+
+  fx = dx*ccel + shear[0];
+  fy = dy*ccel + shear[1];
+  fz = dz*ccel + shear[2];
+
+  f[0] += fx;
+  f[1] += fy;
+  f[2] += fz;
+
+  torque[0] -= dy*shear[2] - dz*shear[1];
+  torque[1] -= dz*shear[0] - dx*shear[2];
+  torque[2] -= dx*shear[1] - dy*shear[0];
+
+   
+  //~ Add contributions to traced energy [KH - 20 February 2014]
+  double aveshearforce, slipdisp, oldshearforce, newshearforce;
+  double incdissipf, nstr, sstr, incrementaldisp;
+  double b1inv = 1.0/(b+1.0);
+  
+  if (pairenergy) {
+    
+    /*~ Increment the friction energy only if the slip condition
+      is invoked*/
+    if (fs > fslim && fslim > 0.0) {
+      //~ current shear displacement = fslim/effectivekt;
+      slipdisp = (fs-fslim)/effectivekt;
+      aveshearforce = 0.5*(fs + fslim);
+      
+      //~ slipdisp and aveshearforce are both positive
+      incdissipf = aveshearforce*slipdisp;
+      dissipfriction += incdissipf;
+      if (trace_energy) shear[5] += incdissipf;
+    }
+
+    /*~ Update the normal contribution to strain energy which 
+      doesn't need to be calculated incrementally*/
+    /*~~ However, the hysterisys should be considered using CM model [MO - 18 Jun 2014] ~~*/
+    
+    if(step == 14){        // 14 stands for loading on asperity contact   [MO - 18 Jun 2014]
+      nstr = P_GT*b1inv*pow(overlap_GT,-b)*pow(overlap,b+1.0);
+      normalstrain += nstr;
+    }
+    if(step == 15){        // *5 stands for hertzian contact   [MO - 18 Jun 2014]
+      // overlap-overlap_p for Hertzian curve [MO - 18 Jun 2014]
+      nstr = P_GT*overlap_GT*b1inv-0.4*kn*sqrt(R_star)*(pow(overlap_GT-overlap_p,5.0/2.0)-pow(overlap-overlap_p,5.0/2.0));     
+      normalstrain += nstr;
+    }	    
+    if(step == 26 || step == 36){    // 2* and 3* stand for unloading and reloading. *6 means ccel = 0.0 which should not be used in this group [MO - 18 Jun 2014] 
+      if(overlap_max < overlap_GT){
+	nstr = P_GT*b1inv*pow(overlap_GT,-b)*pow(overlap_max,b+1.0)-0.4*kn*sqrt(R_star)*pow(overlap_max - overlap_effective,5.0/2.0);
+	normalstrain += nstr;
+      }
+      if(overlap_max >= overlap_GT){
+	nstr = P_GT*overlap_GT*b1inv-0.4*kn*sqrt(R_star)*pow(overlap_GT-overlap_p,5.0/2.0);
+	normalstrain += nstr;
+      }
+    }
+    if(step == 25 || step == 35){        // *5 stands for hertzian contact [MO - 18 Jun 2014]
+      // overlap-overlap_effective for Hertzian contact [MO - 18 Jun 2014]
+      if(overlap_max < overlap_GT){
+	nstr = P_GT*b1inv*pow(overlap_GT,-b)*pow(overlap_max,b+1.0)-0.4*kn*sqrt(R_star)*(pow(overlap_max-overlap_effective,5.0/2.0)-pow(overlap-overlap_effective,5.0/2.0));      
+	normalstrain += nstr;
+      }	    
+      if(overlap_max >= overlap_GT){
+	nstr = P_GT*overlap_GT*b1inv-0.4*kn*sqrt(R_star)*(pow(overlap_GT-overlap_p,5.0/2.0)-pow(overlap-overlap_p,5.0/2.0));
+	normalstrain += nstr;
+      }
+    }
+    
+    if (trace_energy) shear[6] = nstr;
+
+    //~ The shear component does require incremental calculation
+    if (shearupdate) {
+      oldshearforce = sqrt(shsqmag);
+      newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+      if (effectivekt != 0){
+	// effectivekt = 0 should be avoided.
+	incrementaldisp = (newshearforce - oldshearforce)/effectivekt;   
+      }else{incrementaldisp = 0.0;}  
+      // because no incremental shear force [MO - 21 July 2014]
+      sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
+      shearstrain += sstr;
+      if (trace_energy) shear[7] += sstr;
+    }
+  }
+  
+  shear[3] = overlap_max;   
+  shear[4] = overlap_old;
+  
+  fwall[0] += fx;
+  fwall[1] += fy;
+  fwall[2] += fz;
+ 
   if (evflag) ev_tally_wall(i,fx,fy,fz,dx,dy,dz,radius);
 }
 

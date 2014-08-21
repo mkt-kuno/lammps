@@ -54,7 +54,7 @@ class FixWallGran : public Fix {
  protected:
   int wallstyle,pairstyle,wiggle,wshear,axis,dampflag;
   int wtranslate,wscontrol; //flags for wall movement and wall stress control respectively
-  double kn,kt,gamman,gammat,xmu;
+  double kn,kt,gamman,gammat,xmu,Geq,Poiseq,RMSf,Hp;  // increased for CM model [MO - 18 July 2014]
   double lo,hi,cylradius;
   double loINI,hiINI; // for wiggle only
   double velwall[3],fwall[3],fwall_all[3];
@@ -94,6 +94,9 @@ class FixWallGran : public Fix {
   void shm_history(double, double, double, double, double *,
 		   double *, double *, double *, double *, double, double,
 		   double *, int); //~ [KH - 30 October 2013]
+  void CM_history(double, double, double, double, double *,
+		    double *, double *, double *, double *, double, double,
+		    double *, int); //~ [MO - 18 July 2014]
   void move_wall();
   void velscontrol();
   void ev_tally_wall(int, double, double, double, double, double, double, double);
