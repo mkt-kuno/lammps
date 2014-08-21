@@ -529,6 +529,7 @@ void FixWallGran::post_force(int vflag)
 		      radius[i],rmass[i],shear[i],i);
 	else if (pairstyle == CM_HISTORY) //~ [MO - 18 July 2014]**********************************************
           CM_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
+		     radius[i],rmass[i],shear[i],i);
       }
     }
   }
