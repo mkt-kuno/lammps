@@ -449,7 +449,7 @@ void CommTiled::setup()
 
     MPI_Barrier(world);
 
-    // reallocate esendproc and erecvproc if needed based on noverlap
+    // reallocate exchproc and exchnum if needed based on noverlap
     
     if (noverlap > nexchprocmax[idim]) {
       while (nexchprocmax[idim] < noverlap) nexchprocmax[idim] += DELTA_PROCS;
@@ -850,6 +850,19 @@ void CommTiled::exchange()
       if (x[i][dim] < lo || x[i][dim] >= hi) {
         if (nsend > maxsend) grow_send(nsend,1);
         proc = (this->*point_drop)(dim,x[i]);
+
+        /*
+        // DEBUG:
+        // test if proc is not in exch list, means will lose atom
+        // could be that should lose atom
+        int flag = 0;
+        for (int k = 0; k < nexchproc[dim]; k++)
+          if (proc == exchproc[k]) flag = 1;
+        if (!flag) 
+          printf("Losing exchange atom: dim %d me %d %proc %d: %g %g %g\n",
+                 dim,me,proc,x[i][0],x[i][1],x[i][2]);
+        */
+
         if (proc != me) {
           buf_send[nsend++] = proc;
           nsend += avec->pack_exchange(i,&buf_send[nsend]);
@@ -1010,7 +1023,9 @@ void CommTiled::borders()
 
   for (int iswap = 0; iswap < nswap; iswap++) {
 
-    // find atoms within rectangles using <= and >=
+    // find atoms within rectangles using >= and <
+    // hi test with ">" is important b/c don't want to send an atom
+    //   in lower dim (on boundary) that a proc will recv again in higher dim
     // for x-dim swaps, check owned atoms
     // for yz-dim swaps, check owned and ghost atoms
     // store sent atom indices in list for use in future timesteps
@@ -1969,18 +1984,8 @@ int CommTiled::box_touch_tiled(int proc, int idim, int idir)
 
 int CommTiled::point_drop_brick(int idim, double *x)
 {
-  double deltalo,deltahi;
-
-  if (sublo[idim] == boxlo[idim])
-    deltalo = fabs(x[idim]-prd[idim] - sublo[idim]);
-  else deltalo = fabs(x[idim] - sublo[idim]);
-
-  if (subhi[idim] == boxhi[idim])
-    deltahi = fabs(x[idim]+prd[idim] - subhi[idim]);
-  else deltahi = fabs(x[idim] - subhi[idim]);
-
-  if (deltalo < deltahi) return procneigh[idim][0];
-  return procneigh[idim][1];
+  if (closer_subbox_edge(idim,x)) return procneigh[idim][1];
+  return procneigh[idim][0];
 }
 
 /* ----------------------------------------------------------------------
@@ -1994,13 +1999,18 @@ int CommTiled::point_drop_tiled(int idim, double *x)
 {
   double xnew[3];
   xnew[0] = x[0]; xnew[1] = x[1]; xnew[2] = x[2];
+
   if (idim == 0) {
-    xnew[1] = MAX(xnew[1],sublo[1]);
-    xnew[1] = MIN(xnew[1],subhi[1]);
+    if (xnew[1] < sublo[1] || xnew[1] > subhi[1]) {
+      if (closer_subbox_edge(1,x)) xnew[1] = subhi[1];
+      else xnew[1] = sublo[1];
+    }
   }
   if (idim <= 1) {
-    xnew[2] = MAX(xnew[2],sublo[2]);
-    xnew[2] = MIN(xnew[2],subhi[2]);
+    if (xnew[2] < sublo[2] || xnew[2] > subhi[2]) {
+      if (closer_subbox_edge(2,x)) xnew[2] = subhi[2];
+      else xnew[2] = sublo[2];
+    }
   }
 
   int proc = point_drop_tiled_recurse(xnew,0,nprocs-1);
@@ -2040,6 +2050,10 @@ int CommTiled::point_drop_tiled(int idim, double *x)
   return proc;
 }
 
+/* ----------------------------------------------------------------------
+   recursive form
+------------------------------------------------------------------------- */
+
 int CommTiled::point_drop_tiled_recurse(double *x, 
                                         int proclower, int procupper)
 {
@@ -2061,6 +2075,26 @@ int CommTiled::point_drop_tiled_recurse(double *x,
 
   if (x[idim] < cut) return point_drop_tiled_recurse(x,proclower,procmid-1);
   else return point_drop_tiled_recurse(x,procmid,procupper);
+}
+
+/* ----------------------------------------------------------------------
+   assume x[idim] is outside subbox bounds in same dim
+------------------------------------------------------------------------- */
+
+int CommTiled::closer_subbox_edge(int idim, double *x)
+{
+  double deltalo,deltahi;
+
+  if (sublo[idim] == boxlo[idim])
+    deltalo = fabs(x[idim]-prd[idim] - sublo[idim]);
+  else deltalo = fabs(x[idim] - sublo[idim]);
+
+  if (subhi[idim] == boxhi[idim])
+    deltahi = fabs(x[idim]+prd[idim] - subhi[idim]);
+  else deltahi = fabs(x[idim] - subhi[idim]);
+
+  if (deltalo < deltahi) return 0;
+  return 1;
 }
 
 /* ----------------------------------------------------------------------
