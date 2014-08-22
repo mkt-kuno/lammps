@@ -45,7 +45,7 @@ using namespace FixConst;
 using namespace MathConst;
 
 enum{XPLANE=0,YPLANE=1,ZPLANE=2,ZCYLINDER};    // XYZ PLANE need to be 0,1,2
-enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,SHM_HISTORY,CM_HISTORY}; //~ Added SHM_HISTORY option [KH - 30 October 2013] CM_HISTORY [ MO - 17 June 2014]]
+enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,SHM_HISTORY,CM_HISTORY,HMD_HISTORY}; //~ Added SHM_HISTORY option [KH - 30 October 2013] CM_HISTORY [ MO - 17 June 2014]]
 
 #define BIG 1.0e20
 
@@ -106,6 +106,21 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     gamman = gammat = 0.0;
     dampflag = 0;
     iarg = 8; //~ Reduce number of args for CM pairstyle [KH - 10 June 2014]
+  } else if (force->pair_match("gran/HMD/history",1)) {
+    Geq = force->numeric(FLERR,arg[3]);
+    Poiseq = force->numeric(FLERR,arg[4]);
+    xmu = force->numeric(FLERR,arg[5]);
+
+    if (Geq < 0.0 || Poiseq < 0.0 || Poiseq > 0.5)
+      error->all(FLERR,"Illegal HMD pair parameter values in fix wall gran");
+
+    kn = 4.0*Geq / (3.0*(1.0-Poiseq));
+    kt = 4.0*Geq / (2.0-Poiseq);
+    
+    //~ Set dummy values for the remaining variables [KH - 9 January 2014]
+    gamman = gammat = 0.0;
+    dampflag = 0;
+    iarg = 6; //~ Reduce number of args for SHM pairstyle [KH - 10 June 2014] and CM pairstyle [MO - 18 June 2014]
   } else {
     kn = force->numeric(FLERR,arg[3]);
     if (strcmp(arg[4],"NULL") == 0) kt = kn * 2.0/7.0;
@@ -257,6 +272,9 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   //~ pair/gran/CM/history has 5 shear quantities [MO - 18 July 2014] (,1) means exact match
   if (force->pair_match("gran/CM/history",1)) numshearquants += 2;
   
+   //~ pair/gran/HMD/history has 18 shear quantities [MO - 21 July 2014]
+  if (force->pair_match("gran/HMD/history",1)) numshearquants += 15;
+
   /*~ Adding a rolling resistance model causes the number of shear 
     history quantities to be increased by 15 [KH - 29 July 2014]*/
   int dim = 1;
@@ -267,8 +285,10 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     pair = force->pair_match("gran/hertz/history",1);
   else if (force->pair_match("gran/shm/history",1))
     pair = force->pair_match("gran/shm/history",1);
-  else if (force->pair_match("gran/CM/history",1))    //**********[MO - 18 July 2014]
+  else if (force->pair_match("gran/CM/history",1))    //[MO - 18 July 2014]
     pair = force->pair_match("gran/CM/history",1);
+  else if (force->pair_match("gran/HMD/history",1))   //[MO - 21 July 2014]
+    pair = force->pair_match("gran/HMD/history",1);
   else dim = 0; //~ Adding for other pairstyles [KH - 5 November 2013]
 
   if (dim) rolling = (int *) pair->extract("rolling",dim);
@@ -381,6 +401,8 @@ void FixWallGran::init()
     pairstyle = SHM_HISTORY; //~ Extra entry added [KH - 30 October 2013]
   else if (force->pair_match("gran/CM/history",1))
     pairstyle = CM_HISTORY; //~ Extra entry added [MO - 18 July 2014]
+  else if (force->pair_match("gran/HMD/history",1))
+    pairstyle = HMD_HISTORY; //~ Extra entry added [MO - 21 July 2014]
   else error->all(FLERR,"Fix wall/gran is incompatible with Pair style");
 }
 
@@ -527,9 +549,12 @@ void FixWallGran::post_force(int vflag)
 	else if (pairstyle == SHM_HISTORY) //~ [KH - 30 October 2013]
           shm_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
 		      radius[i],rmass[i],shear[i],i);
-	else if (pairstyle == CM_HISTORY) //~ [MO - 18 July 2014]**********************************************
+	else if (pairstyle == CM_HISTORY) //~ [MO - 18 July 2014]
           CM_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
 		     radius[i],rmass[i],shear[i],i);
+	else if (pairstyle == HMD_HISTORY) //~ [MO - 21 July 2014]
+          HMD_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
+		      radius[i],rmass[i],shear[i],i);
       }
     }
   }
@@ -1444,6 +1469,494 @@ void FixWallGran::CM_history(double rsq, double dx, double dy, double dz,
   fwall[1] += fy;
   fwall[2] += fz;
  
+  if (evflag) ev_tally_wall(i,fx,fy,fz,dx,dy,dz,radius);
+}
+
+void FixWallGran::HMD_history(double rsq, double dx, double dy, double dz,
+			      double *vwall, double *v,
+			      double *f, double *omega, double *torque,
+			      double radius, double mass, double *shear, int i)
+{
+  //~ Added this function for HMD history [MO - 23 July 2014]
+
+  double r,vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3;
+  double meff,damp,ccel,vtr1,vtr2,vtr3,vrel;
+  double fs,fslim,fx,fy,fz;
+  double shsqmag,shsqnew,rsht,shratio,polyhertz,rinv,rsqinv;
+  double wspinx,wspiny,wspinz,shint0,shint1,shint2,omdel;
+  int CTD = static_cast<int>(shear[14]);
+  int T_step_old = static_cast<int>(shear[15]);
+
+  r = sqrt(rsq);
+  rinv = 1.0/r;
+  rsqinv = 1.0/rsq;
+
+  // relative translational velocity
+
+  vr1 = v[0] - vwall[0];
+  vr2 = v[1] - vwall[1];
+  vr3 = v[2] - vwall[2];
+
+  // normal component
+
+  vnnr = vr1*dx + vr2*dy + vr3*dz;
+  vn1 = dx*vnnr / rsq;
+  vn2 = dy*vnnr / rsq;
+  vn3 = dz*vnnr / rsq;
+
+  // tangential component
+
+  vt1 = vr1 - vn1;
+  vt2 = vr2 - vn2;
+  vt3 = vr3 - vn3;
+
+  // relative velocities
+
+  vtr1 = vt1 - dz*omega[1]+dy*omega[2];
+  vtr2 = vt2 - dx*omega[2]+dz*omega[0];
+  vtr3 = vt3 - dy*omega[0]+dx*omega[1];
+  vrel = vtr1*vtr1 + vtr2*vtr2 + vtr3*vtr3;
+  vrel = sqrt(vrel);
+
+  // shear history effects
+  //~ Note that shear now refers to shear force, not shear displacement
+
+  shsqmag = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
+
+  // rotate shear forces onto new contact plane conserving length
+
+  rsht = shear[0]*dx + shear[1]*dy + shear[2]*dz;
+  rsht = rsht*rsqinv;
+  if (shearupdate) {
+    shear[0] -= rsht*dx;
+    shear[1] -= rsht*dy;
+    shear[2] -= rsht*dz;
+    shsqnew = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
+    if (shsqnew!=0.0) {
+      shratio=sqrt(shsqmag/shsqnew);
+      shear[0] *= shratio; // conserve shear force length
+      shear[1] *= shratio;
+      shear[2] *= shratio;
+    }
+  }
+
+  // then perform rotation for rigid-body SPIN
+  omdel=omega[0]*dx+omega[1]*dy+omega[2]*dz;
+  wspinx=0.5*rsqinv*dx*omdel;
+  wspiny=0.5*rsqinv*dy*omdel;
+  wspinz=0.5*rsqinv*dz*omdel;
+  shint0 = shear[0];
+  shint1 = shear[1];
+  shint2 = shear[2];
+
+  if (shearupdate) {
+    shear[0]=shint0+shint1*(-wspinz*dt)+shint2*wspiny*dt;
+    shear[1]=shint0*wspinz*dt+shint1+shint2*(-wspinx*dt);
+    shear[2]=shint0*(-wspiny*dt)+shint1*wspinx*dt+shint2;
+  }
+  
+
+//*******************************************************************************************
+//***********************************************************************************************************************************
+  // normal force = Hertzian contact [MO. 17-July-2014]
+  
+  double overlap = radius-r;
+  double overlap_old = shear[3]; // this is also used for CMD model
+  double R_star = radius;
+  double a = sqrt(R_star*overlap);// contact radius 
+  double E_star = Geq/(1.0-Poiseq);
+  double G_star = Geq/(2.0*(2.0-Poiseq));
+  double pi = 4.0*atan(1.0);
+  double N = kn*overlap*a; //*rinv; // check this if true or not. This does not include the shear [i]
+  double N_old = kn*overlap_old*a;
+  double dN = N - N_old; // Change of normal force
+  double K_N = 2.0*E_star*a; // normal contact stiffness (tangential, not secant)
+  
+  polyhertz = a; 
+  ccel = kn*overlap*a*rinv; //previously, ccel = kn*overlap*polyhert*rinv;	
+
+//***********************************************************************************************************************************
+  // The following codes introduce MD model for tangential component.
+  
+  double T = 0.0;
+  double T_old = shear[12];
+  double Tdisp1_old = shear[5];         // tangential displacement of x direction in the previous step
+  double Tdisp2_old = shear[6];         // tangential displacement of y direction in the previous step
+  double Tdisp3_old = shear[7];         // tangential displacement of z direction in the previous step
+  double T_star1 = shear[8];
+  double T_star2 = shear[9];
+  double T_star3 = shear[10]; // 0.0 if not invoked 
+  double T_star4 = shear[11]; // 0.0 if not invoked 
+  double dTdisp = 0.0; 
+  double Tdisp = 0.0;
+  double Tdisp_old = shear[4];
+  double Tdisp_mag = 0.0;
+  double Tdisp1 = 0.0;
+  double Tdisp2 = 0.0;
+  double Tdisp3 = 0.0;
+  int    T_step = 0;
+  int    zero = 0;
+  
+  // Calculate the shear displacement
+  
+  if (shearupdate){
+    Tdisp1 = Tdisp1_old + vtr1*dt;//shear displacement =vtr*dt
+    Tdisp2 = Tdisp2_old + vtr2*dt;
+    Tdisp3 = Tdisp3_old + vtr3*dt;
+    Tdisp_mag = sqrt(Tdisp1*Tdisp1 + Tdisp2*Tdisp2 + Tdisp3*Tdisp3);
+    
+    if (Tdisp_mag <= 1.0e-20){
+      Tdisp1 = 1.0e-25;
+      Tdisp2= 0.0;
+      Tdisp3 = 0.0;
+      Tdisp_mag = 1.0e-25;
+      zero = 1;
+    }
+  }else{
+    Tdisp1 = Tdisp1_old;//shear displacement =vtr*dt
+    Tdisp2 = Tdisp2_old;
+    Tdisp3 = Tdisp3_old;
+    Tdisp_mag = sqrt(Tdisp1*Tdisp1 + Tdisp2*Tdisp2 + Tdisp3*Tdisp3);
+  }    
+
+  if (Tdisp_mag == 0.0 && Tdisp_old == 0.0)                                  CTD = 1; // when there is no shear disp at all.
+  else if (Tdisp_mag != 0.0 && Tdisp_old == 0.0)                             CTD = 1; // this is only for the first increment of shear disp
+  else if (Tdisp1*Tdisp1_old + Tdisp2*Tdisp2_old + Tdisp3*Tdisp3_old >= 0.0) CTD *= 1;
+  else if (Tdisp1*Tdisp1_old + Tdisp2*Tdisp2_old + Tdisp3*Tdisp3_old < 0.0)  CTD *= -1;
+  
+  Tdisp =  CTD * Tdisp_mag;
+  dTdisp = Tdisp - Tdisp_old; // dTdisp includes direction of disp (not magnitude)
+	
+  
+//***********************************************************************************************************************************
+  // Update the dTdisp_DD
+  // Tdisp_DSC is either positive or negative depending upon the sign of dN
+  
+  double Tdisp_DD = shear[13];  //  Tdisp_DD <= 0.0 should be satisfied to move on a new loading curve for N+dN 
+  double Tdisp_DSC = 0.0;             //  DD and DSC were used according to John O'Donovan (2013)
+  
+  Tdisp_DSC = xmu*dN/(8.0*G_star*a);	
+     
+  Tdisp_DD = Tdisp_DD + Tdisp_DSC - fabs(dTdisp);
+  
+  if (Tdisp_DD < 0.0) Tdisp_DD = 0.0;              // Tdisp_DD should not be negative 
+
+//***********************************************************************************************************************************
+  // Idnetify the loading steps for tangential component
+  
+  double theta1 = 1.0;
+  double theta2 = 1.0;
+  double theta3 = 1.0;
+  double theta = 1.0;
+  double K_T = 0.0;
+  double dT = 0.0;
+  double invtr = 0.0;
+  
+    // special case where the current point is neither on the N curve nor N+dN curve 
+  // initiation of a special case
+  
+  if (dN > 0.0 && Tdisp_DD > 0.0 && T_step_old != 115 && T_step_old != 125 && T_step_old != 135 && T_step_old != 145  && T_old != 0.0){
+    if (dTdisp >= 0.0 && T_star1 == 0.0 && T_star2 == 0.0)                                                T_step = 115;
+    if (dTdisp <= 0.0 && fabs(T_old) <= fabs(T_star1) && T_star2 == 0.0)                                  T_step = 125; 
+    if (dTdisp >= 0.0 && fabs(T_old) <= fabs(T_star1) && fabs(T_old) >= fabs(T_star2))                    T_step = 135;
+    if (dTdisp <  0.0 && fabs(T_old) <= fabs(T_star1) && fabs(T_old) >= fabs(T_star2) && T_star2 != 0.0)  T_step = 145;
+    theta = 1.0;    
+    
+    // if the special case invoked in the previous step is still active
+    
+  }else if (Tdisp_DD > 0.0 && T_step_old == 115 && dTdisp >= 0){  // still in step_115; if moved to unloading of T, go to the usual case
+    T_step = T_step_old;
+    theta = 1.0;
+    
+  }else if (Tdisp_DD > 0.0 && T_step_old == 125 && dTdisp < 0){   // still in step_125; if moved to re-loading of T, go to the usual case
+    T_step = T_step_old;
+    theta = 1.0;
+    
+  }else {
+    // Usual cases
+    // T loading: T_step = *1 or -*1; 
+    
+    if (dTdisp >= 0.0 && T_star1 == 0.0 && T_star2 == 0.0){ 
+      theta1 = 1.0-(fabs(T_old)+xmu*dN)/(xmu*N);
+        if (theta1 < 0.0){
+	theta1 = 0.0;
+      }else {theta = pow(theta1, 1.0/3.0);
+      }	
+      if (dN == 0.0) T_step = 1;
+      if (dN > 0.0) T_step = 11; 
+      if (dN < 0.0) T_step = 21;      
+    }
+     
+    // T unloading: T_step = *2 or -*2; 
+    
+    if (dTdisp < 0.0 && T_star2 == 0.0){
+      theta2 = 1.0-(fabs(T_star1-T_old)+2.0*xmu*dN)/(2.0*xmu*N);
+      if (theta2 < 0.0){
+	theta2 = 0.0;	  
+      }else{theta = pow(theta2, 1.0/3.0);
+      }
+      if (dN == 0.0) T_step = 2;
+      if (dN > 0.0) T_step = 12; 
+      if (dN < 0.0) T_step = 22;      
+    }
+    
+    // T re-loading: T_step = *3 or -*3 
+    
+    if (dTdisp >= 0.0 && fabs(T_old) < fabs(T_star1)){
+      theta3 = 1.0-(fabs(T_old-T_star2)+2.0*xmu*dN)/(2.0*xmu*N);
+      if (theta3 < 0.0){
+	theta3 = 0.0;
+      }else {theta = pow(theta3, 1.0/3.0);
+      }
+      if (dN == 0.0) T_step = 3;
+      if (dN > 0.0) T_step = 13; 
+      if (dN < 0.0) T_step = 23;      
+    }
+    
+    // T re-unloading: T_step = *4 or -*4 
+    // This part is same with above due to simplification
+    
+    if (dTdisp < 0.0 && fabs(T_old) < fabs(T_star1) && T_star2 != 0.0){
+      theta3 = 1.0-(fabs(T_old-T_star2)+2.0*xmu*dN)/(2.0*xmu*N);
+      if (theta3 < 0.0){
+	theta3 = 0.0;
+      }else {theta = pow(theta3, 1.0/3.0);
+      }
+      if (dN == 0.0) T_step = 4;
+      if (dN > 0.0) T_step = 14; 
+      if (dN < 0.0) T_step = 24;      
+    }  
+  }
+  
+  //if T_star3 & 4 are considered, additional code should be written here.
+	
+//***********************************************************************************************************************************
+  // Calculate the tangential contact stiffness and the resultant tangential contact force
+  
+  if (theta > 1.0) theta = 1.0;
+  
+  if (zero == 0.0) K_T = 8.0*G_star*theta*a + xmu*(1.0-theta)*dN/fabs(dTdisp);
+  else             K_T = 0.0;
+  
+  if (shearupdate){
+    
+    invtr = 1.0/sqrt(vtr1*vtr1+vtr2*vtr2+vtr3*vtr3);
+    
+    if (zero == 0){
+      shear[0] -= K_T * dTdisp * vtr1 * invtr; 
+      shear[1] -= K_T * dTdisp * vtr2 * invtr;
+      shear[2] -= K_T * dTdisp * vtr3 * invtr;
+    }
+    
+    dT = K_T * dTdisp;
+  }
+  else dT = 0.0;
+  
+  T = dT + T_old;
+  
+  /*
+  if (dTdisp != 0.0){
+    K_T =   8.0*G_star*theta*a + xmu*(1.0-theta)*dN/fabs(dTdisp);
+    if (shearupdate) { // better to check these formulae again 
+      shear[0] -= K_T*vtr1*dt;//increment of shear displacement =vtr*dt
+      shear[1] -= K_T*vtr2*dt;
+      shear[2] -= K_T*vtr3*dt;
+    }
+  }else { // when dTdisp == 0.0
+    K_T = 0.0;  // this value does not affct to resultsnt shear force, but does work for energy terms.
+    if (shearupdate) { // better to check these formulae again 
+      shear[0] -= 0.0*K_T*vtr1*dt;//increment of shear displacement =vtr*dt
+      shear[1] -= 0.0*vtr2*dt;
+      shear[2] -= 0.0*vtr3*dt;
+    }
+  }
+  
+  if (Tdisp >= 0.0) T =   sqrt(shear[0]*shear[0]+shear[1]*shear[1]+shear[2]*shear[2]);
+  else              T = - sqrt(shear[0]*shear[0]+shear[1]*shear[1]+shear[2]*shear[2]);*/
+
+
+//***********************************************************************************************************************************
+  // rescale frictional forces if needed
+  
+  fslim = xmu * fabs(ccel*r); // ccel*r = N
+  fs = fabs(T);
+
+  if (fs > fslim) {
+    if (fs != 0.0) {
+      if (shearupdate) {
+	T *= fslim/fabs(fs);
+	shear[0] *= fslim/fabs(fs); 
+	shear[1] *= fslim/fabs(fs);
+	shear[2] *= fslim/fabs(fs); 
+      }
+    } else shear[0] = shear[1] = shear[2] = 0.0;
+  }
+	
+ 
+  // forces & torques
+
+  fx = dx*ccel + shear[0];
+  fy = dy*ccel + shear[1];
+  fz = dz*ccel + shear[2];
+
+  f[0] += fx;
+  f[1] += fy;
+  f[2] += fz;
+
+  torque[0] -= dy*shear[2] - dz*shear[1];
+  torque[1] -= dz*shear[0] - dx*shear[2];
+  torque[2] -= dx*shear[1] - dy*shear[0];
+
+  
+  //~ Add contributions to traced energy [KH - 20 February 2014]
+  double aveshearforce, slipdisp, oldshearforce, newshearforce;
+  double incdissipf, nstr, sstr, incrementaldisp, rkt;
+  double effectivekt = K_T;
+  if (pairenergy) {
+    
+    /*~ Update the normal contribution to strain energy which 
+      doesn't need to be calculated incrementally*/
+    nstr = 0.4*kn*polyhertz*(radius-r)*(radius-r);
+    normalstrain += nstr;
+    if (trace_energy) shear[19] = nstr;
+    
+    if(effectivekt > 0.0){
+      rkt = 1.0/effectivekt;
+      
+      /*~ Increment the friction energy only if the slip condition
+	is invoked*/
+      if (fabs(fs) > fslim && fslim > 0.0) {
+	//~ current shear displacement = fslim/effectivekt;
+	slipdisp = rkt*(fabs(fs)-fslim);
+	aveshearforce = 0.5*(fabs(fs) + fslim);
+	
+	//~ slipdisp and aveshearforce are both positive
+	incdissipf = aveshearforce*slipdisp;
+	dissipfriction += incdissipf;
+	if (trace_energy) shear[18] += incdissipf;
+      }
+      //~ The shear component does require incremental calculation
+      if (shearupdate) {
+	oldshearforce = sqrt(shsqmag);
+	newshearforce = fabs(T);
+	incrementaldisp = rkt*(newshearforce - oldshearforce); // dTdisp is a vector
+	sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
+	shearstrain += sstr;
+	if (trace_energy) shear[20] += sstr;
+      }
+    }else {  // when K_T == 0.0
+      //~ Increment the friction energy only if the slip condition is invoked
+      if (fabs(fs) > fslim && fslim > 0.0) {
+	//~ this situation is involed due to numerical error. In theory, it is never invoked.
+	slipdisp = fabs(dTdisp);  // this is an approximation, but good accuracy if dTdisp is small enough  [MO - 24 July 2014].
+	aveshearforce = 0.5*(fabs(fs) + fslim);
+	
+	//~ slipdisp and aveshearforce are both positive
+	incdissipf = aveshearforce*slipdisp;
+	dissipfriction += incdissipf;
+	if (trace_energy) shear[20] += incdissipf;
+      }
+      //~ The shear component does require incremental calculation
+      if (shearupdate) {
+	oldshearforce = sqrt(shsqmag);                                        
+	newshearforce = fs;
+	incrementaldisp = dTdisp; // dTdisp is a vector                       
+	sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
+	shearstrain += sstr;
+	if (trace_energy) shear[20] += sstr;
+      }
+    }
+  }
+
+  
+//*******************************************************************************************	
+  // Update T_star1 and T_star2
+  
+  if (T_step == 1 || T_step == 11 || T_step == 21 || T_step == 115){   // do not forget to include T_step == 115
+    T_star1 = 0.0;
+    T_star2 = 0.0;
+  }
+  
+  if ((T_step == 2 || T_step == 12 || T_step == 22 || T_step == 125) && (T_star1 == 0.0 && T_star2 == 0.0)){  // the first step from T_step = 1; loading to unloading
+    T_star1 = T_old;
+  } 
+  
+  if ((T_step == 3 || T_step == 13 || T_step == 23 || T_step == 135) && (fabs(T_star1) > fabs(T) && T_star2 == 0.0)){  // the first step from T_step = 2; unloading to re-loading
+    T_star2 = T_old;
+  } 
+
+//*****************************************************************************************
+
+
+  // Update the T_star1 and T_star2 considering the change of the normal contact load
+  
+  if (T_step != 1 && T_step != 11 && T_step != 21 && T_step != 115 && T_star1 != 0.0) T_star1 += xmu*dN;
+  if ((T_step == 3 || T_step == 13 || T_step == 23 || T_step == 135) && T_star2 != 0.0) T_star2 -= xmu*dN;
+  
+  // Update the T_star1 and T_star2 for new loading curve; move to loading step
+  
+  if ((T_step == 3 || T_step == 13 || T_step == 23 || T_step == 135) && fabs(T) >= fabs(T_star1) && T_star1 != 0.0){
+    T_star1 = 0.0;
+    T_star2 = 0.0;
+  }
+  
+  // Update the T_star2 for new unloading curve; move to unloading step
+  
+  if ((T_step == 4 || T_step == 14 || T_step == 24 || T_step == 145) && fabs(T) <= fabs(T_star2) && T_star2 != 0.0){
+    T_star2 = 0.0;
+  }
+  
+  // special case when |T| for unloading reaches -|T_star1|  // move on to a new loading curve in the opposite direction
+  if ((T_step == 2 || T_step == 12 || T_step == 22 || T_step == 125) && fabs(T) > fabs(T_star1) && T_star1 != 0.0){
+    T_star1 = 0.0;
+    T_star2 = 0.0;
+  }
+  
+//*******************************************************************************************	
+
+// output the values
+  if (update->ntimestep % 1 == 0){
+    fprintf(screen,"Tdisp %1.6e Tdisp_o %1.6e T* %1.6e T** %1.6e  N %1.6e  step %i on t  = %i \n",Tdisp,Tdisp_old,T_star1,T_star2,N, T_step,update->ntimestep);
+  } 
+
+  
+ //*******************************************************************************************
+
+
+
+  /*~~ modified for HMD model [MO - 17 July 201]4 ~~*/
+  
+  overlap_old = overlap;
+  T_old = T;
+  if (zero == 1)  Tdisp_old = Tdisp1_old = Tdisp2_old = Tdisp3_old = 0.0;
+  else{
+    Tdisp_old = Tdisp;
+    Tdisp1_old = Tdisp1;
+    Tdisp2_old = Tdisp2;
+    Tdisp3_old = Tdisp3;
+  }
+  
+  // shear[0], shear[1] and shear[2] are tangential force of x, y and z directions, espectively.
+  
+  shear[3] = overlap_old;           // previous overlap
+  shear[4] = Tdisp_old;             // previous tangential displacement
+  shear[5] = Tdisp1_old;                // tangential displacement of x direction in the previous step
+  shear[6] = Tdisp2_old;                // tangential displacement of y direction in the previous step
+  shear[7] = Tdisp3_old;                // tangential displacement of z direction in the previous step
+  shear[8] = T_star1;               // max. tangential load in the history = first reverse point of tangential load (T) from loading to unloading
+  shear[9] = T_star2;               // second reverse point of tangential load from unloading to re-loading
+  shear[10] = 0.0; //T_star3;       // third reverse point of tangential load from re-loading to re-unloading        [optional]
+  shear[11] = 0.0; //T_star4;       // fourth reverse point of tangential load from re-unloading to re-re-loading    [optional]
+  shear[12] = T_old;       
+  shear[13] = Tdisp_DD;             // Tdisp_DD <= 0.0 should be satisfied to move on a new loading curve for N+dN 
+  shear[14] = CTD;               // +1 and -1 mean positive and negative shear disp, respectively.       
+  shear[15] = T_step;
+	
+ //*******************************************************************************************
+  
+  fwall[0] += fx;
+  fwall[1] += fy; //  +=fy  ///////////////// this is just for the validation purpose!! Put back after it.
+  fwall[2] += fz; 
   if (evflag) ev_tally_wall(i,fx,fy,fz,dx,dy,dz,radius);
 }
 

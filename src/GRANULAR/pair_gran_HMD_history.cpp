@@ -598,7 +598,7 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	      doesn't need to be calculated incrementally*/
 	    nstr = 0.4*kn*a*overlap*overlap;                             // peviously, nstr = 0.4*kn*polyhertz*deltan*deltan;
 	    normalstrain += nstr;
-	    if (trace_energy) shear[17] = nstr;
+	    if (trace_energy) shear[19] = nstr;
 
 	    /* Full sliding can be considered as accumulation of partial slip for HMD model.
 	       Theoretically speaking, full sliding does not take place for HMD modle.
@@ -606,7 +606,7 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	                                      
 	    sstr = 0.5*dTdisp*(T + T_old);
 	    shearstrain += sstr;
-	    if (trace_energy) shear[18] += sstr;
+	    if (trace_energy) shear[20] += sstr;
 	  }
 	}
 	
@@ -856,7 +856,7 @@ double PairGranHMDHistory::single(int i, int j, int itype, int jtype,
   int nq = 4*trace_energy;
   if (trace_energy)
     for (int q = 0; q < 4; q++)
-      svector[q+14] = shear[q+16]; //~ 4 rather than 3...
+      svector[q+14] = shear[q+18]; //~ 4 rather than 3...
 
   return 0.0;
 }
@@ -880,7 +880,7 @@ void PairGranHMDHistory::init_style()
     [KH - 24 October 2013]*/
   /*~ Another 4 shear quantities are needed for per-contact energy
     tracing [KH - 6 March 2014]*/
-  int numshearquants = 16 + 4*trace_energy;
+  int numshearquants = 18 + 4*trace_energy;
 
   // need a granular neigh list and optionally a granular history neigh list
 

@@ -97,6 +97,9 @@ class FixWallGran : public Fix {
   void CM_history(double, double, double, double, double *,
 		    double *, double *, double *, double *, double, double,
 		    double *, int); //~ [MO - 18 July 2014]
+  void HMD_history(double, double, double, double, double *,
+		     double *, double *, double *, double *, double, double,
+		     double *, int); //~ [MO - 21 July 2014]
   void move_wall();
   void velscontrol();
   void ev_tally_wall(int, double, double, double, double, double, double, double);
