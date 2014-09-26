@@ -33,10 +33,10 @@ class CommTiled : public Comm {
 
   void forward_comm_pair(class Pair *);    // forward comm from a Pair
   void reverse_comm_pair(class Pair *);    // reverse comm from a Pair
-  void forward_comm_fix(class Fix *);      // forward comm from a Fix
-  void reverse_comm_fix(class Fix *);      // reverse comm from a Fix
-  void forward_comm_variable_fix(class Fix *); // variable-size variant
-  void reverse_comm_variable_fix(class Fix *); // variable-size variant
+  virtual void forward_comm_fix(class Fix *, int size=0);  
+                                                   // forward comm from a Fix
+  virtual void reverse_comm_fix(class Fix *, int size=0);
+                                                   // reverse comm from a Fix
   void forward_comm_compute(class Compute *);  // forward from a Compute
   void reverse_comm_compute(class Compute *);  // reverse from a Compute
   void forward_comm_dump(class Dump *);    // forward comm from a Dump
@@ -47,12 +47,6 @@ class CommTiled : public Comm {
   bigint memory_usage();
 
  private:
-  int triclinic;                    // 0 if domain is orthog, 1 if triclinic
-  int map_style;                    // non-0 if global->local mapping is done
-  int size_forward;                 // # of per-atom datums in forward comm
-  int size_reverse;                 // # of datums in reverse comm
-  int size_border;                  // # of datums in forward border comm
-
   int nswap;                    // # of swaps to perform = 2*dim
 
   // forward/reverse comm info, proc lists include self
@@ -87,16 +81,14 @@ class CommTiled : public Comm {
   double *buf_send;             // send buffer for all comm
   double *buf_recv;             // recv buffer for all comm
   int maxsend,maxrecv;          // current size of send/recv buffer
-  int maxforward,maxreverse;    // max # of datums in forward/reverse comm
-
-  int maxexchange;              // max # of datums/atom in exchange comm 
   int bufextra;                 // extra space beyond maxsend in send buffer
+  int smaxone,rmaxone;          // max size in atoms of single borders send/recv
+  int smaxall,rmaxall;          // max size in atoms of any borders send/recv
+                                //   for comm to all procs in one swap
 
   int maxreqstat;               // max size of Request and Status vectors
   MPI_Request *requests;
   MPI_Status *statuses;
-
-  int comm_x_only,comm_f_only;      // 1 if only exchange x,f in for/rev comm
 
   struct RCBinfo {
     double mysplit[3][2];      // fractional RCB bounding box for one proc
@@ -149,12 +141,6 @@ class CommTiled : public Comm {
   void grow_swap_send(int, int, int);  // grow swap arrays for send and recv
   void grow_swap_recv(int, int);
   void deallocate_swap(int);           // deallocate swap arrays
-
-
-  // DEBUG
-
-  void bounds(double, double, double, double, double, double,
-              int &,int &,int &,int &,int &,int &);
 };
 
 }
