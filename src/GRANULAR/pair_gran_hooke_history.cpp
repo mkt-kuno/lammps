@@ -1370,7 +1370,7 @@ void PairGranHookeHistory::add_old_omega_fix()
     newarg[1] = (char *) "all";
     newarg[2] = (char *) "old_omega";
 
-    modify->add_fix(3,newarg,suffix);
+    modify->add_fix(3,newarg,1);
     delete [] newarg;
   }
   

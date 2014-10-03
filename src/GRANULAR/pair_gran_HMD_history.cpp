@@ -915,7 +915,7 @@ void PairGranHMDHistory::init_style()
     char nsq[5] = {0};
     sprintf(nsq,"%i",numshearquants);
     fixarg[3] = nsq; //~ Changed this condition
-    modify->add_fix(4,fixarg,suffix); //~ Increased to 4
+    modify->add_fix(4,fixarg,1); //~ Increased to 4
     delete [] fixarg;
     fix_history = (FixShearHistory *) modify->fix[modify->nfix-1];
     fix_history->pair = this;
