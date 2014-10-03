@@ -216,6 +216,8 @@ void PairHybrid::settings(int narg, char **arg)
   multiple = new int[narg];
 
   // allocate each sub-style
+  // allocate uses suffix, but don't store suffix version in keywords,
+  //   else syntax in coeff() will not match
   // call settings() with set of args that are not pair style names
   // use force->pair_map to determine which args these are
 
@@ -228,10 +230,10 @@ void PairHybrid::settings(int narg, char **arg)
       error->all(FLERR,"Pair style hybrid cannot have hybrid as an argument");
     if (strcmp(arg[iarg],"none") == 0)
       error->all(FLERR,"Pair style hybrid cannot have none as an argument");
-    styles[nstyles] = force->new_pair(arg[iarg],lmp->suffix,dummy);
-    int n = strlen(arg[iarg]) + 1;
-    keywords[nstyles] = new char[n];
-    strcpy(keywords[nstyles],arg[iarg]);
+
+    styles[nstyles] = force->new_pair(arg[iarg],1,dummy);
+    force->store_style(keywords[nstyles],arg[iarg],0);
+
     jarg = iarg + 1;
     while (jarg < narg && !force->pair_map->count(arg[jarg])) jarg++;
     styles[nstyles]->settings(jarg-iarg-1,&arg[iarg+1]);
@@ -637,7 +639,7 @@ void PairHybrid::read_restart(FILE *fp)
     keywords[m] = new char[n];
     if (me == 0) fread(keywords[m],sizeof(char),n,fp);
     MPI_Bcast(keywords[m],n,MPI_CHAR,0,world);
-    styles[m] = force->new_pair(keywords[m],lmp->suffix,dummy);
+    styles[m] = force->new_pair(keywords[m],0,dummy);
     styles[m]->read_restart_settings(fp);
   }
 
@@ -695,14 +697,20 @@ double PairHybrid::single(int i, int j, int itype, int jtype,
 }
 
 /* ----------------------------------------------------------------------
-   modify parameters of the pair style
-   if 1st keyword is pair, then applies to one sub-style
-   else pass command args to every sub-style of hybrid
+   modify parameters of the pair style and its sub-styles
 ------------------------------------------------------------------------- */
 
 void PairHybrid::modify_params(int narg, char **arg)
 {
   if (narg == 0) error->all(FLERR,"Illegal pair_modify command");
+
+  // apply args to pair hybrid itself
+  // important for some keywords like tail or compute
+
+  Pair::modify_params(narg,arg);
+
+  // if 1st keyword is pair, then apply args to one sub-style
+  // else pass args to every sub-style
 
   if (strcmp(arg[0],"pair") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal pair_modify command");
@@ -722,7 +730,7 @@ void PairHybrid::modify_params(int narg, char **arg)
       styles[m]->modify_params(narg-3,&arg[3]);
     }
     
-  } else
+  } else 
     for (int m = 0; m < nstyles; m++) styles[m]->modify_params(narg,arg);
 }
 

@@ -50,7 +50,6 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
   no_virial_fdotr_compute = 1;
   history = 1;
   fix_history = NULL;
-  suffix = NULL;
 
   /*~ Modified for rolling resistance model. The last 27(!) entries 
     in svector will be unused if rolling resistance model is inactive
@@ -87,7 +86,6 @@ PairGranHookeHistory::~PairGranHookeHistory()
 {
   delete [] svector;
   if (fix_history) modify->delete_fix("SHEAR_HISTORY");
-  if (suffix) delete[] suffix;
 
   if (allocated) {
     memory->destroy(setflag);
@@ -584,7 +582,7 @@ void PairGranHookeHistory::init_style()
     char nsq[5] = {0};
     sprintf(nsq,"%i",numshearquants);
     fixarg[3] = nsq; //~ Changed this condition
-    modify->add_fix(4,fixarg,suffix); //~ Increased to 4
+    modify->add_fix(4,fixarg,1); //~ Increased to 4
     delete [] fixarg;
     fix_history = (FixShearHistory *) modify->fix[modify->nfix-1];
     fix_history->pair = this;
