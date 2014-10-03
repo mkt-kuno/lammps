@@ -224,6 +224,7 @@ int ComputePairLocal::compute_pairs(int flag)
       /*~ Modified the line below to use the same contact condition
 	as in ComputeCoordGran [KH - 14 January 2013]*/
       //~ if (rsq >= cutsq[itype][jtype]) continue;
+      double *radius = atom->radius; //~ [KH - 03 October 2014]
       if (rsq > (radius[i] + radius[j])*(radius[i] + radius[j])) continue;
 
       if (flag) {
