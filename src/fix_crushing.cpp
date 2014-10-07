@@ -699,7 +699,7 @@ double FixCrushing::reduce_radius(int i, double **localdata, int nrows)
 	  r = sqrt(rsq);
 	  radsum = radius[i] + radius[j];
 	
-	  if (rsq < radsum*radsum) {
+	  if (r < radsum) {
 	    overlap = radsum - r;
 	    if (overlap > mindist) mindist = overlap;
 	  }
@@ -788,9 +788,20 @@ double FixCrushing::increase_rattler_diameter(int i, double perprocvol)
 	j = jlist[jj];
 	j &= NEIGHMASK;
 
-	delx = x[i][0] - x[j][0];
-	dely = x[i][1] - x[j][1];
-	delz = x[i][2] - x[j][2];
+	//~ Special allowances must be made here for periodic boundaries
+	delx = fabs(x[i][0] - x[j][0]);
+	dely = fabs(x[i][1] - x[j][1]);
+	delz = fabs(x[i][2] - x[j][2]);
+
+	if (delx > 0.5*(domain->boxhi[0]-domain->boxlo[0]))
+	  delx -= (domain->boxhi[0]-domain->boxlo[0]);
+
+	if (dely > 0.5*(domain->boxhi[1]-domain->boxlo[1]))
+	  dely -= (domain->boxhi[1]-domain->boxlo[1]);
+
+	if (delz > 0.5*(domain->boxhi[2]-domain->boxlo[2]))
+	  delz -= (domain->boxhi[2]-domain->boxlo[2]);
+	
 	rsq = delx*delx + dely*dely + delz*delz;
 	r = sqrt(rsq);
 	radsum = radius[i] + radius[j];
