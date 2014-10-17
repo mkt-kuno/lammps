@@ -77,7 +77,7 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
     linear contact model, the shear strain is not calculated
     cumulatively, but it makes no difference to zero it here
     anyway [KH - 27 February 2014]*/
-  dissipfriction = shearstrain = 0.0;
+  dissipfriction = shearstrain = gatheredf = gatheredss = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -450,6 +450,13 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
       }
     }
   }
+
+  //~ Accumulate per-processor energy terms [KH - 17 October 2014]
+  gatheredf = gatheredss = 0.0;
+  if (pairenergy) {
+    MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
+    MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -727,15 +734,8 @@ void PairGranHookeHistory::write_restart_settings(FILE *fp)
   fwrite(&xmu,sizeof(double),1,fp);
   fwrite(&dampflag,sizeof(int),1,fp);
 
-  /*~ Added energy terms. Note that the total energy dissipated by
-    friction and stored as shear strain, from all procs, is 
-    calculated and stored on proc 0 [KH - 28 February 2014]*/
-  double gatheredf = 0.0;
-  MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
+  //~ Added energy terms [KH - 28 February 2014]
   fwrite(&gatheredf,sizeof(double),1,fp);
-
-  double gatheredss = 0.0;
-  MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
   fwrite(&gatheredss,sizeof(double),1,fp);
 }
 

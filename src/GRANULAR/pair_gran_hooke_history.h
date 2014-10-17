@@ -36,8 +36,8 @@ class PairGranHookeHistory : public Pair {
   virtual void init_style(); //~ Made virtual [KH - 23 November 2012]
   void init_list(int, class NeighList *);
   double init_one(int, int);
-  void write_restart(FILE *);
-  void read_restart(FILE *);
+  virtual void write_restart(FILE *); //~ Made virtual
+  virtual void read_restart(FILE *); //~ Made virtual
   virtual void write_restart_settings(FILE *); //~ Made virtual
   virtual void read_restart_settings(FILE *); //~ Made virtual
   void reset_dt();
@@ -78,6 +78,7 @@ class PairGranHookeHistory : public Pair {
 
   //~ Add quantities for tracing global energy [KH - 19 February 2014]
   double dissipfriction, normalstrain, shearstrain;
+  double gatheredf, gatheredss; //~ Two more added [KH - 17 October 2014]
 };
 
 }

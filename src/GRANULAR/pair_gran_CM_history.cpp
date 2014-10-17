@@ -517,6 +517,13 @@ void PairGranCMHistory::compute(int eflag, int vflag)
       }
     }
   }
+
+  //~ Accumulate per-processor energy terms [KH - 17 October 2014]
+  gatheredf = gatheredss = 0.0;
+  if (pairenergy) {
+    MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
+    MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
+  }
 }
 
 
@@ -840,6 +847,38 @@ void PairGranCMHistory::init_style()
   proc 0 writes to restart file
 ------------------------------------------------------------------------- */
 
+void PairGranCMHistory::write_restart(FILE *fp)
+{
+  write_restart_settings(fp);
+
+  int i,j;
+  for (i = 1; i <= atom->ntypes; i++)
+    for (j = i; j <= atom->ntypes; j++)
+      fwrite(&setflag[i][j],sizeof(int),1,fp);
+}
+
+/* ----------------------------------------------------------------------
+  proc 0 reads from restart file, bcasts
+------------------------------------------------------------------------- */
+
+void PairGranCMHistory::read_restart(FILE *fp)
+{
+  read_restart_settings(fp);
+  allocate();
+
+  int i,j;
+  int me = comm->me;
+  for (i = 1; i <= atom->ntypes; i++)
+    for (j = i; j <= atom->ntypes; j++) {
+      if (me == 0) fread(&setflag[i][j],sizeof(int),1,fp);
+      MPI_Bcast(&setflag[i][j],1,MPI_INT,0,world);
+    }
+}
+
+/* ----------------------------------------------------------------------
+  proc 0 writes to restart file
+------------------------------------------------------------------------- */
+
 void PairGranCMHistory::write_restart_settings(FILE *fp)
 {
   fwrite(&kn,sizeof(double),1,fp);
@@ -850,15 +889,8 @@ void PairGranCMHistory::write_restart_settings(FILE *fp)
   fwrite(&RMSf,sizeof(double),1,fp);
   fwrite(&Hp,sizeof(double),1,fp);
 
-  /*~ Added energy terms. Note that the total energy dissipated by
-    friction and stored as shear strain, from all procs, is 
-    calculated and stored on proc 0 [KH - 28 February 2014]*/
-  double gatheredf = 0.0;
-  MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
+  //~ Added energy terms [KH - 28 February 2014]
   fwrite(&gatheredf,sizeof(double),1,fp);
-
-  double gatheredss = 0.0;
-  MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
   fwrite(&gatheredss,sizeof(double),1,fp);
 }
 
