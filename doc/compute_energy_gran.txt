@@ -83,16 +83,16 @@ command:
 
 	dump		1 all custom 100000 dump.ke_* c_2\[1\] c_2\[2\] :pre
 
-Finally, per-contact energy terms are available via "dump_local"_dump_local.html if at
-least one of the following energy terms is specified in the compute: 
-{friction}, {rotational_kinetic}, {translational_kinetic}, {kinetic},
-{normal_strain}, {shear_strain} or {strain}. As described
+Finally, per-contact energy terms are available via "dump_local"_dump_local.html if the
+{trace_energy} option of "pair_modify"_pair_modify.html is enabled in the script.
+As described
 in "Interpreting_ComputePairLocal_Output.doc"_USER/gran/Interpreting_ComputePairLocal_Output.doc, 
 the last four slots are 
 available for energy components, though the last of these is currently 
 unused. Continuing this example, write out the atom tags and three defined
 energy components using the following syntax:
 
+        pair_modify     trace_energy
 	compute 	1 all pair/local p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 p15 p16 p17 p18
 	dump		2 all local 100000 dump.per_contact_energy_* c_1\[5\] c_1\[6\] c_1\[15\] c_1\[16\] c_1\[17\] :pre
 

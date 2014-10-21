@@ -20,6 +20,7 @@ keyword = {pair} or {shift} or {mix} or {rolling} or {table} or {table/disp} or 
   {mix} value = {geometric} or {arithmetic} or {sixthpower}
   {shift} value = {yes} or {no}
   {rolling} takes four mandatory arguments: {model_type}, {delta}, {kappa}, {post_limit_index}
+  {trace_energy} which takes no value argument
   {table} value = N
     2^N = # of values in table
   {table/disp} value = N
@@ -36,6 +37,7 @@ keyword = {pair} or {shift} or {mix} or {rolling} or {table} or {table/disp} or 
 
 pair_modify shift yes mix geometric
 pair_modify tail yes
+pair_modify trace_energy
 pair_modify table 12 
 pair_modify rolling 1 5.0 0.5 1 :pre
 
@@ -125,6 +127,10 @@ rolling resistance has been reached. It can have two possible values:
 to zero whereas if {post_limit_index} == 1, it is held constant at
 the limiting value. The latter is always adopted for twisting 
 resistance because of its frictional nature.
+
+The {trace_energy} keyword must be specified if it is desired to
+write out per-contact energy terms during a simulation as described in
+"compute_energy_gran"_compute_energy_gran.html.
 
 The {table} and {table/disp} keywords apply to pair styles with a
 long-range Coulombic term or long-range dispersion term respectively;
