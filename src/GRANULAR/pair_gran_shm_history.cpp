@@ -362,7 +362,9 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 
 	  //~ Add contributions to traced energy [KH - 20 February 2014]
 	  if (pairenergy) {
-	    rkt = 1.0/effectivekt;
+	    //~ Ensure rkt cannot become infinite [KH - 21 October 2014]
+	    if (effectivekt < 1.0e30) rkt = 1.0/effectivekt;
+	    else rkt = 0.0;
 
 	    /*~ Increment the friction energy only if the slip condition
 	      is invoked*/
