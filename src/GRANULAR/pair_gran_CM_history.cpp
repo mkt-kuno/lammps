@@ -427,7 +427,10 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 	      is invoked*/
 	    if (fs > fslim && fslim > 0.0) {
 	      //~ current shear displacement = fslim/effectivekt;
-	      slipdisp = (fs-fslim)/effectivekt;
+	      
+	      //~~ Added to avoid enormous energy value [MO 22 October 2014]
+	      if (effectivekt > 1.0e-30) slipdisp = (fs-fslim)/effectivekt;
+	      else slipdisp = 0.0;
 	      aveshearforce = 0.5*(fs + fslim);
 	      
 	      //~ slipdisp and aveshearforce are both positive
@@ -478,10 +481,9 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 	    if (shearupdate) {
 	      oldshearforce = sqrt(shsqmag);
 	      newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-	      if (effectivekt != 0.0){
-	        // effectivekt = 0 should be avoided.
-		incrementaldisp = (newshearforce - oldshearforce)/effectivekt;   
-	      }else{incrementaldisp = 0.0;}  
+	      //~~ Added to avoid enormous energy value [MO 22 October 2014]
+	      if (effectivekt > 1.0e-30) incrementaldisp = (newshearforce - oldshearforce)/effectivekt;   
+	      else incrementaldisp = 0.0; 
 	      // because no incremental shear force [MO - 21 July 2014]
 	      sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
 	      shearstrain += sstr;

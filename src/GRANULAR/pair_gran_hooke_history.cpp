@@ -422,7 +422,9 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 	    /*~ Increment the friction energy only if the slip condition
 	      is invoked*/
 	    if (fs > fn && fn > 0.0) {
-	      slipdisp = (fs-fn)/kt;
+	      //~~ Added to avoid enormous energy value [MO 22 October 2014]
+	      if (kt > 1.0e-30) slipdisp = (fs-fn)/kt;
+	      else slipdisp = 0.0;
 	      aveshearforce = 0.5*(fn + fs);
 
 	      //~ slipdisp and aveshearforce are both positive
@@ -434,7 +436,9 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 	    /*~ Update the strain energy terms which don't need to
 	      be calculated incrementally*/
 	    nstr = 0.5*kn*deltan*deltan;
-	    sstr = 0.5*(fs1*fs1 + fs2*fs2 + fs3*fs3)/kt;
+	    //~~ Added to avoid enormous energy value [MO 22 October 2014]
+	    if (kt > 1.0e-30) sstr = 0.5*(fs1*fs1 + fs2*fs2 + fs3*fs3)/kt;
+	    else sstr = 0.0;
 	    normalstrain += nstr;
 	    shearstrain += sstr;
 
