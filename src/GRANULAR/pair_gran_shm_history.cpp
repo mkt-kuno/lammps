@@ -402,7 +402,8 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	      double fsunscaled[3], fsunscaledmag, a, b, c;
 	      double d = 0.0;
 	      if (ctcorrection) {
-		b = shear[3]/polyhertz;
+		//~ Guard against division by tiny polyhertz [KH - 23 October 2014]
+		polyhertz > 1.0e-30 ? b = shear[3]/polyhertz : b = 0.0;
 		fs > fslim ? a = b*fs/fslim : a = b;
 		c = effectivekt*dt*(b - 1.0);
 
@@ -411,7 +412,8 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 		fsunscaled[2] = a*shear[2] + c*vtr3;
 		fsunscaledmag = sqrt(fsunscaled[0]*fsunscaled[0] + fsunscaled[1]*fsunscaled[1] + fsunscaled[2]*fsunscaled[2]);
 	
-		if (fs > fslim && fslim > 0.0) {
+		//~ Guard against division by tiny fsunscaledmag [KH - 23 October 2014]
+		if (fs > fslim && fslim > 0.0 && fsunscaledmag > 1.0e-30) {
 		  d += 0.5*rkt*(fsunscaledmag + fslim)*(fsunscaledmag - fslim) - incdissipf;
 		  fsunscaledmag *= fslim/fsunscaledmag;
 		}
