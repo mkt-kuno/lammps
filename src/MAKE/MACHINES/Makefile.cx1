@@ -1,24 +1,20 @@
-# archer = Cray XC30, Gnu Compilers, native MPI, FFTW3
-# Before compiling do
-# module swap PrgEnv-cray PrgEnv-gnu
-# cd src/
-# make xc30
+# cx1 = RedHat Linux box, Intel icc, MPICH2, No FFTW
 
 SHELL = /bin/sh
-.SUFFIXES: .cpp .d
 
 # ---------------------------------------------------------------------
 # compiler/linker settings
 # specify flags and libraries needed for your compiler
+# This makefile is essentially the one at /apps/lammps/1Feb13/src/MAKE
 
-CC =		CC
-CCFLAGS =	-O3
-SHFLAGS =	
+CC =		mpiicc
+CCFLAGS =	-O -I/apps/voro++/0.4.5/include -I/apps/voro++/0.4.5/include/voro++ #-I$(FFTW_HOME)/include
+SHFLAGS =	-fPIC
 DEPFLAGS =	-M
 
-LINK =		CC
-LINKFLAGS =	-O3
-LIB =           -lstdc++
+LINK =		mpiicc -L/apps/voro++/0.4.5/lib #-L$(FFTW_HOME)/lib
+LINKFLAGS =	-O
+LIB =           
 SIZE =		size
 
 ARCHIVE =	ar
@@ -26,18 +22,20 @@ ARFLAGS =	-rc
 SHLIBFLAGS =	-shared
 
 # ---------------------------------------------------------------------
-# LAMMPS-specific settings
+# LAMMPS-specific settings, all OPTIONAL
 # specify settings for LAMMPS features you will use
 # if you change any -D setting, do full re-compile after "make clean"
 
-# LAMMPS ifdef settings, OPTIONAL
-# see possible settings in doc/Section_start.html#2_2 (step 4)
+# LAMMPS ifdef settings
+# see possible settings in Section 2.2 (step 4) of manual
 
-LMP_INC =	-DLAMMPS_GZIP
+LMP_INC =	-DLAMMPS_GZIP -DLAMMPS_JPEG
 
-# MPI library, REQUIRED
-# see discussion in doc/Section_start.html#2_2 (step 5)
+# MPI library
+# see discussion in Section 2.2 (step 5) of manual
+# MPI wrapper compiler/linker can provide this info
 # can point to dummy MPI library in src/STUBS as in Makefile.serial
+# use -D MPICH and OMPI settings in INC to avoid C++ lib conflicts
 # INC = path for mpi.h, MPI compiler settings
 # PATH = path for MPI library
 # LIB = name of MPI library
@@ -46,19 +44,19 @@ MPI_INC =       -DMPICH_SKIP_MPICXX
 MPI_PATH = 
 MPI_LIB =	
 
-# FFT library, OPTIONAL
-# see discussion in doc/Section_start.html#2_2 (step 6)
+# FFT library
+# see discussion in Section 2.2 (step 6) of manual
 # can be left blank to use provided KISS FFT library
 # INC = -DFFT setting, e.g. -DFFT_FFTW, FFT compiler settings
 # PATH = path for FFT library
 # LIB = name of FFT library
 
-FFT_INC = 
-FFT_PATH = 	
-FFT_LIB =
+FFT_INC =       #-DFFT_FFTW
+FFT_PATH = 
+FFT_LIB =	#-lfftw
 
-# JPEG and/or PNG library, OPTIONAL
-# see discussion in doc/Section_start.html#2_2 (step 7)
+# JPEG and/or PNG library
+# see discussion in Section 2.2 (step 7) of manual
 # only needed if -DLAMMPS_JPEG or -DLAMMPS_PNG listed with LMP_INC
 # INC = path(s) for jpeglib.h and/or png.h
 # PATH = path(s) for JPEG library and/or PNG library
@@ -66,11 +64,11 @@ FFT_LIB =
 
 JPG_INC =       
 JPG_PATH = 	
-JPG_LIB =	
+JPG_LIB =	-ljpeg
 
 # ---------------------------------------------------------------------
 # build rules and dependencies
-# no need to edit this section
+# do not edit this section
 
 include	Makefile.package.settings
 include	Makefile.package
@@ -106,6 +104,9 @@ shlib:	$(OBJ)
 
 %.d:%.cpp
 	$(CC) $(CCFLAGS) $(EXTRA_INC) $(DEPFLAGS) $< > $@
+
+%.o:%.cu
+	$(CC) $(CCFLAGS) $(SHFLAGS) $(EXTRA_INC) -c $<
 
 # Individual dependencies
 
