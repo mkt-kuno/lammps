@@ -1,8 +1,9 @@
 # GI-System
 
-variable	x index 3
-variable	y index 3
-variable	z index 3
+variable	x index 1
+variable	y index 1
+variable	z index 1
+variable	t index 100
 
 units metal
 atom_style      charge 
@@ -28,4 +29,5 @@ thermo          100
 timestep        0.001
 
 fix 		1 all npt temp 400 400 0.01 iso 1000.0 1000.0 1.0
-run 		200
+
+run 		$t
