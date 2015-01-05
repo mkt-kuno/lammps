@@ -54,7 +54,6 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
   /*~ Modified for rolling resistance model. The last 27(!) entries 
     in svector will be unused if rolling resistance model is inactive
     [KH - 29 July 2014]*/
-  // D_spin model also use 27 entries [MO - 11 December 2014]
   //~ Added four more for energy tracing [KH - 6 March 2014]
   single_extra = 45;
   svector = new double[single_extra]; //~ Changed to single_extra [KH - 25 October 2013]
@@ -63,7 +62,8 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
   neighprev = 0;
 
   /*~ Initialise two integers used to limit the numbers of warnings 
-    about failures to calculate contact stiffnesses in the rolling resistance model [KH - 5 November 2013]*/
+    about failures to calculate contact stiffnesses in the rolling 
+    resistance model [KH - 5 November 2013]*/
   lastwarning[0] = lastwarning[1] = -1000000;
 
   nmax = 0;
@@ -77,8 +77,7 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
     linear contact model, the shear strain is not calculated
     cumulatively, but it makes no difference to zero it here
     anyway [KH - 27 February 2014]*/
-  // Added for D_spin model [MO - 13 November 2014]
-  dissipfriction = shearstrain = gatheredf = gatheredss = spinenergy = gatheredse = 0.0;
+  dissipfriction = shearstrain = gatheredf = gatheredss = 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -214,7 +213,7 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   /*~ Another 4 shear quantities were added for per-contact energy
     tracing [KH - 6 March 2014]*/
   int numshearquants = 3 + 15*rolling + 4*trace_energy;
-  
+
   //~ Use tags to consider contacts only once [KH - 28 February 2014]
   tagint *tag = atom->tag; 
 
@@ -457,7 +456,7 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   }
 
   //~ Accumulate per-processor energy terms [KH - 17 October 2014]
-  gatheredf = gatheredss =  0.0;
+  gatheredf = gatheredss = 0.0;
   if (pairenergy) {
     MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
     MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
@@ -740,10 +739,8 @@ void PairGranHookeHistory::write_restart_settings(FILE *fp)
   fwrite(&dampflag,sizeof(int),1,fp);
 
   //~ Added energy terms [KH - 28 February 2014]
-  //~~ Added for D_spin model [MO - 13 November 2014]
   fwrite(&gatheredf,sizeof(double),1,fp);
   fwrite(&gatheredss,sizeof(double),1,fp);
-  fwrite(&gatheredse,sizeof(double),1,fp);
 }
 
 /* ----------------------------------------------------------------------
@@ -765,8 +762,6 @@ void PairGranHookeHistory::read_restart_settings(FILE *fp)
     across all procs is of interest [KH - 28 February 2014]*/
     fread(&dissipfriction,sizeof(double),1,fp);
     fread(&shearstrain,sizeof(double),1,fp);
-    // Added for D_spin model [MO - 13 November 2014]
-    fread(&spinenergy,sizeof(double),1,fp);
   }
   MPI_Bcast(&kn,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&kt,1,MPI_DOUBLE,0,world);
@@ -1058,9 +1053,6 @@ void *PairGranHookeHistory::extract(const char *str, int &dim)
   else if (strcmp(str,"list") == 0) return (void *) list;
   else if (strcmp(str,"listgranhistory") == 0) return (void *) listgranhistory;
   else if (strcmp(str,"rolling") == 0) return (void *) &rolling;
-  // Added for D_spin model [MO - 13 November 2014]
-  else if (strcmp(str,"D_spin") == 0) return (void *) &D_spin;
-  else if (strcmp(str,"D_switch") == 0) return (void *) &D_switch;
   else if (strcmp(str,"model_type") == 0) return (void *) &model_type;
   else if (strcmp(str,"rolling_delta") == 0) return (void *) &rolling_delta;
   else if (strcmp(str,"kappa") == 0) return (void *) &kappa;
@@ -1068,15 +1060,7 @@ void *PairGranHookeHistory::extract(const char *str, int &dim)
   else if (strcmp(str,"dissipfriction") == 0) return (void *) &dissipfriction;
   else if (strcmp(str,"normalstrain") == 0) return (void *) &normalstrain;
   else if (strcmp(str,"shearstrain") == 0) return (void *) &shearstrain;
-  // Added for D_spin model [MO - 13 November 2014]
-  else if (strcmp(str,"spinenergy") == 0) return (void *) &spinenergy;
   else if (strcmp(str,"trace_energy") == 0) return (void *) &trace_energy;
-  // Added for particle information [MO - 05 December 2014]
-  else if (strcmp(str,"Geq") == 0) return (void *) &Geq;
-  else if (strcmp(str,"Poiseq") == 0) return (void *) &Poiseq;
-  else if (strcmp(str,"xmu") == 0) return (void *) &xmu; 
-  else if (strcmp(str,"RMSf") == 0) return (void *) &RMSf;
-  else if (strcmp(str,"Hp") == 0) return (void *) &Hp; 
   return NULL;
 }
 
@@ -1373,341 +1357,6 @@ void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int nu
       if (j < atom->nlocal) torque[j][q] += accglobal[q];
     }
   }
-}
-
-/* -----------------------------------------------------------------------*/
-void PairGranHookeHistory::Deresiewicz1954_spin(int issingle, int i, int j, int numshearq, double r, double **torque, double *shear, double *dspin_i, double &dspin_stm, double &spin_stm, double *dM_i, double &dM, double &K_spin, double &theta_r, double &M_limit, double Geq, double Poiseq, double &Dspin_energy, double a, double N)
-{
-  if (!D_switch) { 
-    dspin_i[0] = dspin_i[1] = dspin_i[2] = dspin_stm = spin_stm = dM_i[0] 
-      = dM_i[1] = dM_i[2] = dM = K_spin = theta_r = M_limit = Dspin_energy = 0.0;
-    return;
-  }
-  double tolerance = 1.0e-20;
-  if (xmu < tolerance || a < tolerance || N < tolerance) {
-    dspin_i[0] = dspin_i[1] = dspin_i[2] = dspin_stm = spin_stm = dM_i[0] 
-      = dM_i[1] = dM_i[2] = dM = K_spin = theta_r = M_limit = Dspin_energy = 0.0;
-    return; // spin angle and torque is not accumulated
-  }
-  // initialisation of values to be returned to main compute function
-  theta_r = 1.0;
-  K_spin = 0.0;                
-  dM_i[0] = dM_i[1] = dM_i[2] = 0.0;
-  dspin_stm = 0.0;
-  spin_stm = 0.0;
-  dM = 0.0;
-  
-  /*~~ This code is written based on Deresiewicz(1954) using a DEM expression
-    shown by Thornton&Yin(1991). Cosidred here is twisting resistance but not
-    rolling resistance. This model can be activated only when Hertz&Mindlin's
-    contact model is used. [MO 29 Oct 2014] ~~*/    
-  //***************************************************************************
-  /*To avoid the reverse of sign of shearquantities, 'fabs' is used for absolute quantities.
-    Attention should be paied for some flags which have 1 or -1 values. For these cases, the 
-    quantities were stored as 10000 instead of -1 and called with 'fabs', and changed to -1 
-    again at the next step.[MO - 15 December 2014] */
-  //***************************************************************************
-  double *radius = atom->radius;
-  double radsum = radius[i] + radius[j];
-  double radsum_inv = 1.0/radsum;
-  double R_star = radius[i]*radius[j]*radsum_inv;
-  double G_star = Geq/(2.0*(2.0-Poiseq)); 
-  double PI = 4.0*atan(1.0);
-  double a_old = fabs(shear[numshearq-8]); 
-  double N_old = fabs(shear[numshearq-9]);
-  double dN = N - N_old; // change of normal contact force
-  M_limit = 3.0/16.0*PI*xmu*N*a; // > 0.0
-  
-  // spin angle are stored as real values, but twisting momemts are stored as system values. 
-  double M_old = shear[numshearq-4]; // M_system_old
-  double M_star1 = shear[numshearq-5]; // M_system_star1
-  double M_star2 = shear[numshearq-6]; // M_system_star2
-  double spin_old = shear[numshearq-7];// Accumulated spin at previous step
-  double **x = atom->x;
-  double delx, dely, delz;  
-  delx = x[i][0] - x[j][0];
-  dely = x[i][1] - x[j][1];
-  delz = x[i][2] - x[j][2];
-  int *tag = atom->tag; //~ Write out the atom tags 
-  double r_inv = 1.0/r;
-  double rsqinv = r_inv*r_inv;
-  double **omega = atom->omega;
-  dt = update->dt;
-  // only relative rotation contributes to the spin resistance 
-  double omdel_rel = (omega[i][0]-omega[j][0])*delx+(omega[i][1]-omega[j][1])*dely+(omega[i][2]-omega[j][2])*delz;
-  dspin_i[0] = rsqinv*delx*omdel_rel*dt*0.5; 
-  dspin_i[1] = rsqinv*dely*omdel_rel*dt*0.5; 
-  dspin_i[2] = rsqinv*delz*omdel_rel*dt*0.5; 
-  // spin angle is here is a half of the relaive spin angle between two particles.
-  // Note coefficient of 0.5 should be 1.0 for wall-particle contacts
-  
-  // Calculate dspin_angle
-  int sign_dspin; 
-  if (omdel_rel >= 0.0 ) sign_dspin = 1;
-  else sign_dspin = -1;
-  double dspin_mag = sqrt(dspin_i[0]*dspin_i[0] + dspin_i[1]*dspin_i[1] + dspin_i[2]*dspin_i[2]);
-  double dspin = sign_dspin*dspin_mag;
-  double spin = spin_old + dspin;
-  double spin_i[3],spin_i_old[3],M_i_old[3],M_i[3];
-  double spin_DD = fabs(shear[numshearq-11]);
-  for (int q = 0; q < 3; q++){
-    spin_i_old[q] = shear[numshearq-3+q];
-    spin_i[q] = shear[numshearq-3+q] + dspin_i[q];
-    M_i_old[q] = shear[numshearq-16+q];
-  }  
-  double t, theta_r_inv, M, a_pow3,dspin_min,M_i_mag,M_scale,M_temp;
-  int special,step,sign_stm,step_old,sp_star1,dir_moment,dir_ST,slip;
-  theta_r_inv = t = 1.0;
-  sp_star1 = 0;                 // sp_star1 = 1 means that reversal of sign should be avoided. 
-  step_old = static_cast<int>(fabs(shear[numshearq-12])); // previous step
-  slip     = static_cast<int>(fabs(shear[numshearq-17])); // if slip took place at previous step, slip = 1;
-  sign_stm = static_cast<int>(fabs(shear[numshearq-10])); // 1 = loading or reloading, -1 = unloading or re-unloading
-  if (sign_stm == 10000) sign_stm = -1;
-  dir_ST   = static_cast<int>(fabs(shear[numshearq-13])); // direction of spin-torque relation
-  if (dir_ST == 10000) dir_ST = -1;
-  if (a_old <= tolerance) dir_ST = 1;  // the first step after a contact is detacted.
-  
-  //********************************************************************************************************
-  // Skip the folowing calculation if incremental spin is null.
-  //********************************************************************************************************
-  if (fabs(dspin) <= tolerance) { 
-    spin = spin_old;
-    dM = 0.0;  
-    M = M_old;  
-    for (int q = 0; q < 3; q++) {
-      dM_i[q] = 0.0;
-      M_i[q] = M_i_old[q];
-      dspin_i[q] = 0.0;
-      spin_i[q] = spin_i_old[q];
-    }
-  } 
-  else {
-    if (step_old == 0){ // the first step
-      if (sign_dspin == 1) sign_stm = 1;  // spin_old = 0 by default, so the first step is always zero.
-      else if (sign_dspin == -1) sign_stm = -1; 
-    }
-    dspin_stm = sign_stm * dspin;
-    spin_stm = sign_stm * spin; 
-    // check if a special case is invoked*****************************************************************************
-    a_pow3 = MathSpecial::powint(a,3);
-    if (a_old < tolerance) dspin_min = 0; // to initialize spin_DD
-    else dspin_min = 3.0/16.0*PI*xmu*dN*a/(16.0/3.0*G_star*a_pow3); // required min. spin angle not to invoke a special case
-    spin_DD = spin_DD - dspin_mag + dspin_min; // accumulated shortage of spin to return normal case
-    special = 0;
-    if (spin_DD < tolerance) spin_DD = 0.0; // spin_DD <= 0.0 moves onto a new normal curve
-    else special = 1;  // a special case is invoked.
-    // **************************************************************************************************************   
-    // check whether the first step of special case is invoked *****************
-    if (special == 1){ //theta_r = 1.0
-      if (dN > tolerance && step_old != 115 && step_old != 125 && step_old != 135 && step_old != 145){
-	// the first step of the special case
-	if (dir_ST*dspin_stm >= 0.0 && fabs(M_star1) < tolerance && fabs(M_star2) < tolerance)         step = 115;
-	else if (dir_ST*dspin_stm <  0.0 && fabs(M_star2) < tolerance)                                 step = 125; 
-	else if (dir_ST*dspin_stm >= 0.0 && fabs(M_old) < fabs(M_star1))                               step = 135;
-	else if (dir_ST*dspin_stm <  0.0 && fabs(M_old) <= fabs(M_star1) && fabs(M_star2)>= tolerance) step = 145;
-	else {
-	  fprintf(screen,"time %i step %i step_old %i tag %i & %i dir_ST %i dspin_stm %1.8e M_old %1.8e M* %1.8e M** %1.8e Unexpected case occurred in zone A of spin model. ERROR!!\n",
-		  update->ntimestep,step,step_old,tag[i],tag[j],dir_ST,dspin_stm,M_old,M_star1,M_star1);
-	}
-	// if the special case was invoked in the previous step and is stil l active
-      }else if ((step_old == 115 || step_old == 135) && dir_ST*dspin_stm >= 0){   
-	// still in step_115 or 135; if moved to unloading of M, go to the usual case
-	step = step_old;     
-      }else if ((step_old == 125 || step_old == 145) && dir_ST*dspin_stm < 0){   
-	// still in step_125 or 145; if moved to re-loading of M, go to the usual case
-	step = step_old;                                           
-      }else if (step_old == 115 && dir_ST*dspin_stm < 0){
-	// the first step from loading of special case to unloading of special case.
-	step = 125;
-      }else if (step_old == 125 && dir_ST*dspin_stm >= 0){
-	// the first step from unloading of special case to reloading of special case.
-	step = 135;
-      }else if (step_old == 135 && dir_ST*dspin_stm < 0){
-	// the first step from reloading  of special case to re-unloading of special case.
-	step = 145;
-      }else if (step_old == 145 && dir_ST*dspin_stm > 0){
-	// the first step from re-unloading  of special case to re-reloading of special case.
-	step = 135;
-      }
-      //*************************************************************************************
-    } else {  // Usual cases  // M loading: step = *1
-      if (dir_ST*dspin_stm >= 0.0 && fabs(M_star1) < tolerance && fabs(M_star2) < tolerance){
-	t = 1.0-1.5*((-dir_ST*M_old+3.0/16.0*PI*xmu*dN*a)/(xmu*N*a));
-	if       (dN >  tolerance)  step = 11;   // N increasing
-	else if  (dN < -tolerance)  step = 21;   // N decreasing
-	else                        step =  1;   // N constant
-      }
-      // T unloading: step = *2 
-      else if (dir_ST*dspin_stm < 0.0 && fabs(M_star2) < tolerance){
-	// For the first step from loading to unloading, M* is still null, which should be M* = M_old.
-	if  (fabs(M_star1) > tolerance) t = 1.0-1.5*((M_star1-(-dir_ST)*M_old)+3.0/8.0*PI*xmu*dN*a)/(2.0*xmu*N*a);
-	else                            t = 1.0-1.5*(3.0/8.0*PI*xmu*dN*a)/(2.0*xmu*N*a);
-	if      (dN >  tolerance)   step = 12; 
-	else if (dN < -tolerance)   step = 22;      
-	else                        step =  2;
-      }  
-      // M re-loading: step = *3
-      else if (dir_ST*dspin_stm >= 0.0 && fabs(M_old) <= fabs(M_star1)){
-	// For the first step from unloading to re-loading, M** is still null, which should be M** = M_old.
-	if  (fabs(M_star2) > tolerance) t = 1.0-1.5*((-dir_ST*M_old-M_star2)+3.0/8.0*PI*xmu*dN*a)/(2.0*xmu*N*a);
-	else                            t = 1.0-1.5*(3.0/8.0*PI*xmu*dN*a)/(2.0*xmu*N*a);
-	if      (dN >  tolerance)   step = 13; 
-	else if (dN < -tolerance)   step = 23;     
-	else                        step = 3;
-      }
-      // M re-unloading: step = *4    
-      else if (dir_ST*dspin_stm < 0.0 && fabs(M_old) < fabs(M_star1) && fabs(M_star2) >= tolerance){
-	// This part is same with the above (step = *3) due to simplification.
-	if  (fabs(M_star2) > tolerance) t = 1.0-1.5*((-dir_ST*M_old-M_star2)+3.0/8.0*PI*xmu*dN*a)/(2.0*xmu*N*a);
-	else                            t = 1.0-1.5*(3.0/8.0*PI*xmu*dN*a)/(2.0*xmu*N*a);
-	if      (dN >  tolerance) step = 14;
-	else if (dN < -tolerance) step = 24; 
-	else                      step =  4; 
-      } 
-      // if slip condition is still continued, the above condition may not be applicable.
-      else if (slip == 1) {
-	step = step_old;
-	t = tolerance;
-      }
-      // warning!
-      else {
-	fprintf(screen,"time %i step %i step_old %i tag %i & %i dir_ST %i dspin_stm %1.8e M_old %1.8e M* %1.8e M** %1.8e Unexpected case occurred in zone B of spin model. ERROR!!\n",
-		update->ntimestep,step,step_old,tag[i],tag[j],dir_ST,dspin_stm,M_old,M_star1,M_star1);
-      }
-    }
-    if (t < 0.0) t = tolerance; // 0 < t <= 1;
-    else if (t > 1.0) t = 1.0;
-    theta_r_inv = 2.0*(1.0/sqrt(t))-1.0; // theta_r_inv >= 1;
-    theta_r = 1.0/theta_r_inv;
-    //**********************************************************************************************::
-    // Calculate K_spin
-    if (special == 1)       theta_r = 1.0;
-    else{
-      if (theta_r > 1.0)      theta_r = 1.0;
-      else if (theta_r < 0.0) theta_r = 0.0;   
-    }
-    
-    // Check the drection of load  
-    if (step == 2 || step == 12 || step == 22 || step == 125) dir_moment = -1;
-    else if (step == 4 || step == 14 || step == 24 || step == 145) dir_moment = -1;
-    else dir_moment = 1;
-
-    if (fabs(1.0 - theta_r) < tolerance) K_spin = 16.0/3.0*G_star*a_pow3*theta_r;
-    // dspin_stm = 0.0 is not applicable here because of the previous if statement.
-    else K_spin = 16.0/3.0*G_star*a_pow3*theta_r + dir_moment * 3.0/16.0*PI*xmu*a*(1.0-theta_r)*dN/dspin_stm;
-     
-    
-    //~ Calculate increment of and accumulated twisting resistance.
-    dM = dspin_stm*K_spin;
-    M = M_old + dM;
-    // Check whether slip is fully movilized or not. If so, rescale the accumulated twisting resistance 
-    M_temp = M;
-    if (fabs(M) > M_limit) {
-      M *= M_limit/fabs(M);
-      slip = 1;
-    } 
-    else slip = 0;
-  
-    for (int q = 0; q < 3; q++) {
-      // They are not system values but three components
-      dM_i[q] = dspin_i[q]/fabs(dspin) * fabs(dM);
-      M_i[q] = M_i_old[q] + dM_i[q];  
-    }
-    // rescale the M_i to adjust to M
-    M_i_mag = sqrt(M_i[0]*M_i[0]+M_i[1]*M_i[1]+M_i[2]*M_i[2]);
-    for (int q = 0; q < 3; q++) {
-      if (M_i_mag > 0) {
-	M_scale = fabs(M)/M_i_mag;
-	M_i[q] *= M_scale;
-      }else M_i[q] = 0.0; 
-    }        
-  }
-  //**************************************************************************************************
-  // Calculation of spin energy in a similar way of shear statin energy.
-  Dspin_energy = 2.0*dspin_stm*0.5*(M+M_temp);
-  // spin energy is for 2*dspin as dspin is quantity for each particle
-  //**************************************************************************************************
-  if (step == 0) M_star1 = M_star2 = 0.0;  // dspin is null & no hysteresis
-  else {
-    // Update the M_star1 and M_star2 considering the change of the normal contact load
-    if (step != 1 && step != 11 && step != 21 && step != 115 && fabs(M_star1) > tolerance)   M_star1 += dir_ST*3.0/16.0*PI*xmu*dN*a;
-    if ((step == 3 || step == 13 || step == 23 || step == 135) && fabs(M_star2) > tolerance) M_star2 -= dir_ST*3.0/16.0*PI*xmu*dN*a;
-    if ((step == 4 || step == 14 || step == 24 || step == 145) && fabs(M_star2) > tolerance) M_star2 -= dir_ST*3.0/16.0*PI*xmu*dN*a;
-    //*********************************************************************************************************
-    // Update M_star1 and M_star2
-    if (step == 1 || step == 11 || step == 21 || step == 115){   // do not forget to include step == 115
-      M_star1 = 0.0;
-      M_star2 = 0.0;
-    }
-    // Update M_star1 and M_star2 for new loading curve; move from re-loading to normal loading step
-    if ((step == 3 || step == 13 || step == 23 || step == 135) && fabs(M) > fabs(M_star1) && fabs(M_star1) > tolerance){
-      M_star1 = 0.0;
-      M_star2 = 0.0;
-    }
-    // Update the M_star2 for new unloading curve; move to unloading step
-    if ((step == 4 || step == 14 || step == 24 || step == 145) && fabs(M) > fabs(M_star2) && fabs(M_star2) > tolerance){
-      M_star2 = 0.0;
-    }
-    if ((step == 2 || step == 12 || step == 22 || step == 125) && fabs(M_star1) <= tolerance && fabs(M_star2) <= tolerance){
-      // the first step from step = 1; loading to unloading
-      M_star1 = M_old; 
-      spin_DD = 0.0;
-      sp_star1 = 1;  // to avoid the reverse of sign_system
-    } 
-    if ((step == 3 || step == 13 || step == 23 || step == 135) && fabs(M_star1) > fabs(M) && fabs(M_star2) <= tolerance){  
-      // the first step from step = 2; unloading to re-loading
-      M_star2 = M_old;
-      spin_DD = 0.0;
-    }
-    if ((step == 4 || step == 14 || step == 24 || step == 145) && fabs(M_star1) > fabs(M) && fabs(M_star2) <= tolerance){  
-      // the first step from step = 3; re-loading to re-unloading
-      spin_DD = 0.0;
-    }
-    //*********************************************************************************************************
-    //special case when |M| for unloading reaches -|M_star1|  // move on to a new loading curve in the opposite direction
-    if ((dir_moment == -1) && fabs(M) > fabs(M_star1) && fabs(M_star1) > tolerance){
-      M_star1 = 0.0;
-      M_star2 = 0.0;
-      if (sp_star1 == 0)  dir_ST *= -1;  // the system is moved onto virgin loading curve
-    }
-    //*********************************************************************************************
-    // Added this to avoid numerical errors [MO - 04 January 2015]
-    if (fabs(M_star1 - M_star2) < tolerance) {
-      M_star1 = 0.0;
-      M_star2 = 0.0;
-    }
-    //*********************************************************************************************
-  }
-  // Store the sign_stm and dir_ST as absolute values for the next step to avoid the sign changing [MO - 15 December 2014] 
-  if (sign_stm == -1) sign_stm = 10000;
-  if (dir_ST == -1) dir_ST = 10000;
-  
-  if (!issingle) { // Update values to be stored
-    for (int q = 0; q < 3; q++) {
-      shear[numshearq-3+q] = spin_i[q]; // spin_i is not system value
-      shear[numshearq-16+q] = M_i[q]; // M_i is not system value
-    }
-    shear[numshearq-4] = M; // M is always system value 
-    shear[numshearq-5] = M_star1; // M is always system value 
-    shear[numshearq-6] = M_star2; // M is always system value
-    shear[numshearq-7] = spin; // not spin_stm
-    shear[numshearq-8] = a;
-    shear[numshearq-9] = N;    // Normal contact force
-    shear[numshearq-10] = sign_stm; // int
-    shear[numshearq-11] = spin_DD; 
-    shear[numshearq-12] = step;    // int
-    shear[numshearq-13] = dir_ST; // spin_twist relation
-    shear[numshearq-17] = slip; //int
-    shear[numshearq-18] = 0.0; // empty
-    shear[numshearq-19] = 0.0; // empty
-    
-    /*~ Finally update the torque values for both i and j (the
-      latter only if local to proc). The increments differ in sign*/
-    for (int q = 0; q < 3; q++) {
-      torque[i][q] -= M_i[q];
-      if (j < atom->nlocal) torque[j][q] += M_i[q];
-    }
-  }  
 }
 
 /* ---------------------------------------------------------------------- */

@@ -59,17 +59,10 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
   shearpartner9 = NULL;
   shearpartner18 = NULL;
   shearpartner19 = NULL;
+  shearpartner20 = NULL;
   shearpartner22 = NULL;
   shearpartner23 = NULL;
-  // added [MO - 14 November 2014]
   shearpartner24 = NULL;
-  shearpartner25 = NULL;
-  shearpartner26 = NULL;
-  shearpartner28 = NULL;
-  shearpartner29 = NULL;
-  shearpartner30 = NULL;
-  shearpartner46 = NULL;
-  shearpartner50 = NULL;
 
   grow_arrays(atom->nmax);
   atom->add_callback(0);
@@ -87,17 +80,10 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
   dpage9 = NULL;
   dpage18 = NULL;
   dpage19 = NULL;
+  dpage20 = NULL;
   dpage22 = NULL;
   dpage23 = NULL;
-  // added [MO - 14 November 2014]
   dpage24 = NULL;
-  dpage25 = NULL;
-  dpage26 = NULL;
-  dpage28 = NULL;
-  dpage29 = NULL;
-  dpage30 = NULL;
-  dpage46 = NULL;
-  dpage50 = NULL;
 
   pgsize = oneatom = 0;
 
@@ -130,17 +116,10 @@ FixShearHistory::~FixShearHistory()
   memory->sfree(shearpartner9);
   memory->sfree(shearpartner18);
   memory->sfree(shearpartner19);
+  memory->sfree(shearpartner20);
   memory->sfree(shearpartner22);
   memory->sfree(shearpartner23);
-  // added [MO - 14 November 2014]
   memory->sfree(shearpartner24);
-  memory->sfree(shearpartner25);
-  memory->sfree(shearpartner26);
-  memory->sfree(shearpartner28);
-  memory->sfree(shearpartner29);
-  memory->sfree(shearpartner30);
-  memory->sfree(shearpartner46);
-  memory->sfree(shearpartner50);
 
   delete [] ipage;
 
@@ -152,17 +131,10 @@ FixShearHistory::~FixShearHistory()
   delete [] dpage9; /*~~ 9 is added [MO - 5 June 2014] ~~*/ 
   delete [] dpage18;
   delete [] dpage19;
+  delete [] dpage20; /*~~ 20 is added [MO - 5 June 2014] ~~*/ 
   delete [] dpage22;
   delete [] dpage23;
-  // 8 lines are added [MO - 14 November 2014]
-  delete [] dpage24;
-  delete [] dpage25;
-  delete [] dpage26;
-  delete [] dpage28;
-  delete [] dpage29;
-  delete [] dpage30;
-  delete [] dpage46;
-  delete [] dpage50;
+  delete [] dpage24; /*~~ 24 is added [MO - 5 June 2014] ~~*/ 
 }
 
 /* ---------------------------------------------------------------------- */
@@ -215,7 +187,6 @@ void FixShearHistory::allocate_pages()
       dpage pointer depending on the value of num_quants
       [KH - 9 January 2014]*/
     switch (num_quants) {
-   
     case 4: //~ 4 is the most likely num_quants
       delete [] dpage4;
       dpage4 = new MyPage<double[4]>[nmypage];
@@ -245,6 +216,12 @@ void FixShearHistory::allocate_pages()
       dpage19 = new MyPage<double[19]>[nmypage];
       for (int i = 0; i < nmypage; i++)
 	dpage19[i].init(oneatom,pgsize);
+      break;
+    case 20: /*~~ 20 is added for the CM model [MO - 5 June 2014] ~~*/
+      delete [] dpage20;
+      dpage20 = new MyPage<double[20]>[nmypage];
+      for (int i = 0; i < nmypage; i++)
+	dpage20[i].init(oneatom,pgsize);
       break;
     case 8:
       delete [] dpage8;
@@ -276,54 +253,11 @@ void FixShearHistory::allocate_pages()
       for (int i = 0; i < nmypage; i++)
 	dpage23[i].init(oneatom,pgsize);
       break;
-      // 6 cases are added [MO - 14 November 2014]
-    case 24: 
-      delete [] dpage24;
+    case 24: /*~~ 24 is added for the CM model [MO - 5 June 2014] ~~*/
+      delete [] dpage23;
       dpage24 = new MyPage<double[24]>[nmypage];
       for (int i = 0; i < nmypage; i++)
 	dpage24[i].init(oneatom,pgsize);
-      break;
-    case 25:
-      delete [] dpage25;
-      dpage25 = new MyPage<double[25]>[nmypage];
-      for (int i = 0; i < nmypage; i++)
-	dpage25[i].init(oneatom,pgsize);
-      break;
-    case 26:
-      delete [] dpage26;
-      dpage26 = new MyPage<double[26]>[nmypage];
-      for (int i = 0; i < nmypage; i++)
-	dpage26[i].init(oneatom,pgsize);
-      break;
-    case 46: 
-      delete [] dpage46;
-      dpage46 = new MyPage<double[46]>[nmypage];
-      for (int i = 0; i < nmypage; i++)
-	dpage46[i].init(oneatom,pgsize);
-      break;
-    case 28:
-      delete [] dpage28;
-      dpage28 = new MyPage<double[28]>[nmypage];
-      for (int i = 0; i < nmypage; i++)
-	dpage28[i].init(oneatom,pgsize);
-      break;
-    case 29: 
-      delete [] dpage29;
-      dpage29 = new MyPage<double[29]>[nmypage];
-      for (int i = 0; i < nmypage; i++)
-	dpage29[i].init(oneatom,pgsize);
-      break;
-    case 30: 
-      delete [] dpage30;
-      dpage30 = new MyPage<double[30]>[nmypage];
-      for (int i = 0; i < nmypage; i++)
-	dpage30[i].init(oneatom,pgsize);
-      break;
-    case 50:
-      delete [] dpage50;
-      dpage50 = new MyPage<double[50]>[nmypage];
-      for (int i = 0; i < nmypage; i++)
-	dpage50[i].init(oneatom,pgsize);
       break;
     default:
       //~ If no cases matched, there is a problem
@@ -391,6 +325,9 @@ void FixShearHistory::pre_exchange()
     break;
   case 19:
     dpage19->reset();
+  case 20:
+    dpage20->reset();
+    break;
   case 8:
     dpage8->reset();
     break;
@@ -406,29 +343,8 @@ void FixShearHistory::pre_exchange()
   case 23:
     dpage23->reset();
     break;
-  // Added [MO - 14 November 2014]
   case 24:
     dpage24->reset();
-    break;
-  case 25:
-    dpage25->reset();
-  case 26:
-    dpage26->reset();
-    break;
-  case 46:
-    dpage46->reset();
-    break;
-  case 28:
-    dpage28->reset();
-    break;
-  case 29:
-    dpage29->reset();
-    break;
-  case 30:
-    dpage30->reset();
-    break;
-  case 50:
-    dpage50->reset();
     break;
   }
 
@@ -517,6 +433,16 @@ void FixShearHistory::pre_exchange()
 	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
     break;
+  case 20:
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      n = npartner[i];
+      partner[i] = ipage->get(n);
+      shearpartner20[i] = dpage20->get(n);
+      if (partner[i] == NULL || shearpartner20[i] == NULL)
+	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
+    }
+    break;
   case 8:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
@@ -567,7 +493,6 @@ void FixShearHistory::pre_exchange()
 	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
     break;
-  // Added [MO - 14 November 2014]
   case 24:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
@@ -578,76 +503,6 @@ void FixShearHistory::pre_exchange()
 	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
     break;
-  case 25:
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      n = npartner[i];
-      partner[i] = ipage->get(n);
-      shearpartner25[i] = dpage25->get(n);
-      if (partner[i] == NULL || shearpartner25[i] == NULL)
-	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
-    }
-    break;
-  case 26:
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      n = npartner[i];
-      partner[i] = ipage->get(n);
-      shearpartner26[i] = dpage26->get(n);
-      if (partner[i] == NULL || shearpartner26[i] == NULL)
-	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
-    }
-    break;
-  case 46:
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      n = npartner[i];
-      partner[i] = ipage->get(n);
-      shearpartner46[i] = dpage46->get(n);
-      if (partner[i] == NULL || shearpartner46[i] == NULL)
-	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
-    }
-    break;
-  case 28:
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      n = npartner[i];
-      partner[i] = ipage->get(n);
-      shearpartner28[i] = dpage28->get(n);
-      if (partner[i] == NULL || shearpartner28[i] == NULL)
-	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
-    }
-    break;
-  case 29:
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      n = npartner[i];
-      partner[i] = ipage->get(n);
-      shearpartner29[i] = dpage29->get(n);
-      if (partner[i] == NULL || shearpartner29[i] == NULL)
-	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
-    }
-    break;
-  case 30:
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      n = npartner[i];
-      partner[i] = ipage->get(n);
-      shearpartner30[i] = dpage30->get(n);
-      if (partner[i] == NULL || shearpartner30[i] == NULL)
-	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
-    }
-    break;
-  case 50:
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      n = npartner[i];
-      partner[i] = ipage->get(n);
-      shearpartner50[i] = dpage50->get(n);
-      if (partner[i] == NULL || shearpartner50[i] == NULL)
-	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
-    }  
-    //
   }
 
   // 2nd loop over neighbor list
@@ -666,7 +521,7 @@ void FixShearHistory::pre_exchange()
       allshear = firstshear[i];
       jnum = numneigh[i];
       touch = firsttouch[i];
-      
+
       for (jj = 0; jj < jnum; jj++) {
 	if (touch[jj]) {
 	  shear = &allshear[4*jj];
@@ -742,15 +597,16 @@ void FixShearHistory::pre_exchange()
 	  if (j < nlocal_neigh) {
 	    m = npartner[j];
 	    partner[j][m] = tag[i];
-	    for (int kk = 0; kk < 5; kk++) 
+	    for (int kk = 0; kk < 5; kk++) {
 	      shearpartner5[j][m][kk] = -shear[kk];
+	    }
 	    npartner[j]++;
 	  }
 	}
       }
     }
     break;
-  case 18:  // hertz(3) + rolling(15)
+  case 18:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       jlist = firstneigh[i];
@@ -779,7 +635,7 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
-  case 19:  // shm(4) + rolling(15)
+  case 19:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       jlist = firstneigh[i];
@@ -808,7 +664,36 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
-  case 8:  // shm(4) + energy(4)
+  case 20:
+    for (ii = 0; ii < inum; ii++) {
+      i = ilist[ii];
+      jlist = firstneigh[i];
+      allshear = firstshear[i];
+      jnum = numneigh[i];
+      touch = firsttouch[i];
+
+      for (jj = 0; jj < jnum; jj++) {
+	if (touch[jj]) {
+	  shear = &allshear[20*jj];
+	  j = jlist[jj];
+	  j &= NEIGHMASK;
+	  m = npartner[i];
+	  partner[i][m] = tag[j];
+	  for (int kk = 0; kk < 20; kk++)
+	    shearpartner20[i][m][kk] = shear[kk];
+	  npartner[i]++;
+	  if (j < nlocal_neigh) {
+	    m = npartner[j];
+	    partner[j][m] = tag[i];
+	    for (int kk = 0; kk < 20; kk++)
+	      shearpartner20[j][m][kk] = -shear[kk];
+	    npartner[j]++;
+	  }
+	}
+      }
+    }
+    break;
+  case 8:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       jlist = firstneigh[i];
@@ -844,43 +729,7 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
-  case 7:
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      jlist = firstneigh[i];
-      allshear = firstshear[i];
-      jnum = numneigh[i];
-      touch = firsttouch[i];
-
-      for (jj = 0; jj < jnum; jj++) {
-	if (touch[jj]) {
-	  shear = &allshear[7*jj];
-	  j = jlist[jj];
-	  j &= NEIGHMASK;
-	  m = npartner[i];
-	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 7; kk++)
-	    shearpartner7[i][m][kk] = shear[kk];
-	  npartner[i]++;
-	  if (j < nlocal_neigh) {
-	    m = npartner[j];
-	    partner[j][m] = tag[i];
-
-	    /*~ This was modified to prevent energy terms
-	      becoming negative which is not sensible
-	      [KH - 11 March 2014]*/
-	    for (int kk = 0; kk < 3; kk++)
-	      shearpartner7[j][m][kk] = -shear[kk];
-
-	    for (int kk = 3; kk < 7; kk++)
-	      shearpartner7[j][m][kk] = shear[kk]; //~ Positive
-	    npartner[j]++;
-	  }
-	}
-      }
-    }
-    break;  
-  case 9: // CM(5) + energy(4)
+  case 9:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       jlist = firstneigh[i];
@@ -955,14 +804,14 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
-  case 23:  // shm(4) + energy(4) + rolling(15)
+  case 23:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       jlist = firstneigh[i];
       allshear = firstshear[i];
       jnum = numneigh[i];
       touch = firsttouch[i];
-      
+
       for (jj = 0; jj < jnum; jj++) {
 	if (touch[jj]) {
 	  shear = &allshear[23*jj];
@@ -976,16 +825,16 @@ void FixShearHistory::pre_exchange()
 	  if (j < nlocal_neigh) {
 	    m = npartner[j];
 	    partner[j][m] = tag[i];
-	    
+
 	    /*~ This was modified to prevent energy terms
 	      becoming negative which is not sensible
 	      [KH - 11 March 2014]*/
 	    for (int kk = 0; kk < 4; kk++)
 	      shearpartner23[j][m][kk] = -shear[kk];
-	    
+
 	    for (int kk = 4; kk < 8; kk++)
 	      shearpartner23[j][m][kk] = shear[kk]; //~ Positive
-	    
+
 	    for (int kk = 8; kk < 23; kk++)
 	      shearpartner23[j][m][kk] = -shear[kk];
 	    npartner[j]++;
@@ -994,15 +843,14 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
-    // Added [MO - 14 November 2014]
-  case 24: // shm(4) + D_spin(20)
+  case 24:
     for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       jlist = firstneigh[i];
       allshear = firstshear[i];
       jnum = numneigh[i];
       touch = firsttouch[i];
-      
+
       for (jj = 0; jj < jnum; jj++) {
 	if (touch[jj]) {
 	  shear = &allshear[24*jj];
@@ -1016,7 +864,17 @@ void FixShearHistory::pre_exchange()
 	  if (j < nlocal_neigh) {
 	    m = npartner[j];
 	    partner[j][m] = tag[i];
-	    for (int kk = 0; kk < 24; kk++)
+
+	    /*~ This was modified to prevent energy terms
+	      becoming negative which is not sensible
+	      [KH - 11 March 2014]*/
+	    for (int kk = 0; kk < 5; kk++)
+	      shearpartner24[j][m][kk] = -shear[kk];
+
+	    for (int kk = 5; kk < 9; kk++)
+	      shearpartner24[j][m][kk] = shear[kk]; //~ Positive
+
+	    for (int kk = 9; kk < 24; kk++)
 	      shearpartner24[j][m][kk] = -shear[kk];
 	    npartner[j]++;
 	  }
@@ -1024,246 +882,6 @@ void FixShearHistory::pre_exchange()
       }
     }
     break;
-  case 25: // CM(5) + D_spin(20)
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      jlist = firstneigh[i];
-      allshear = firstshear[i];
-      jnum = numneigh[i];
-      touch = firsttouch[i];
-      
-      for (jj = 0; jj < jnum; jj++) {
-	if (touch[jj]) {
-	  shear = &allshear[25*jj];
-	  j = jlist[jj];
-	  j &= NEIGHMASK;
-	  m = npartner[i];
-	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 25; kk++)
-	    shearpartner25[i][m][kk] = shear[kk];
-	  npartner[i]++;
-	  if (j < nlocal_neigh) {
-	    m = npartner[j];
-	    partner[j][m] = tag[i];
-	    for (int kk = 0; kk < 25; kk++)
-	      shearpartner25[j][m][kk] = -shear[kk];
-	    npartner[j]++;
-	  }
-	}
-      }
-    }
-    break;
-   case 26: // HMD(26)
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      jlist = firstneigh[i];
-      allshear = firstshear[i];
-      jnum = numneigh[i];
-      touch = firsttouch[i];
-
-      for (jj = 0; jj < jnum; jj++) {
-	if (touch[jj]) {
-	  shear = &allshear[26*jj];
-	  j = jlist[jj];
-	  j &= NEIGHMASK;
-	  m = npartner[i];
-	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 26; kk++)
-	    shearpartner26[i][m][kk] = shear[kk];
-	  npartner[i]++;
-	  if (j < nlocal_neigh) {
-	    m = npartner[j];
-	    partner[j][m] = tag[i];
-	    for (int kk = 0; kk < 26; kk++)
-	      shearpartner26[j][m][kk] = -shear[kk];
-	    npartner[j]++;
-	  }
-	}
-      }
-    }
-    break;    
-  case 46: // HMD(26) + D_spin(20)
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      jlist = firstneigh[i];
-      allshear = firstshear[i];
-      jnum = numneigh[i];
-      touch = firsttouch[i];
-
-      for (jj = 0; jj < jnum; jj++) {
-	if (touch[jj]) {
-	  shear = &allshear[46*jj];
-	  j = jlist[jj];
-	  j &= NEIGHMASK;
-	  m = npartner[i];
-	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 46; kk++)
-	    shearpartner46[i][m][kk] = shear[kk];
-	  npartner[i]++;
-	  if (j < nlocal_neigh) {
-	    m = npartner[j];
-	    partner[j][m] = tag[i];
-	    for (int kk = 0; kk < 46; kk++)
-	      shearpartner46[j][m][kk] = -shear[kk];
-	    npartner[j]++;
-	  }
-	}
-      }
-    }
-    break;
-  case 28: // shm(4) + energy(4) + D_spim(20)
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      jlist = firstneigh[i];
-      allshear = firstshear[i];
-      jnum = numneigh[i];
-      touch = firsttouch[i];
-      
-      for (jj = 0; jj < jnum; jj++) {
-	if (touch[jj]) {
-	  shear = &allshear[28*jj];
-	  j = jlist[jj];
-	  j &= NEIGHMASK;
-	  m = npartner[i];
-	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 28; kk++)
-	    shearpartner28[i][m][kk] = shear[kk];
-	  npartner[i]++;
-	  if (j < nlocal_neigh) {
-	    m = npartner[j];
-	    partner[j][m] = tag[i];
-	    
-	    /*~ This was modified to prevent energy terms
-	      becoming negative which is not sensible
-	      [KH - 11 March 2014]*/
-	    for (int kk = 0; kk < 4; kk++)
-	      shearpartner28[j][m][kk] = -shear[kk];
-	    
-	    for (int kk = 4; kk < 8; kk++)
-	      shearpartner28[j][m][kk] = shear[kk]; //~ Positive
-	    
-	    for (int kk = 8; kk < 28; kk++)
-	      shearpartner28[j][m][kk] = -shear[kk];
-	    npartner[j]++;
-	  }
-	}
-      }
-    }
-    break;
-  case 29: // CM(5) + energy(4) + D_spim(20)
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      jlist = firstneigh[i];
-      allshear = firstshear[i];
-      jnum = numneigh[i];
-      touch = firsttouch[i];
-      
-      for (jj = 0; jj < jnum; jj++) {
-	if (touch[jj]) {
-	  shear = &allshear[29*jj];
-	  j = jlist[jj];
-	  j &= NEIGHMASK;
-	  m = npartner[i];
-	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 29; kk++)
-	    shearpartner29[i][m][kk] = shear[kk];
-	  npartner[i]++;
-	  if (j < nlocal_neigh) {
-	    m = npartner[j];
-	    partner[j][m] = tag[i];
-	    
-	    /*~ This was modified to prevent energy terms
-	      becoming negative which is not sensible
-	      [KH - 11 March 2014]*/
-	    for (int kk = 0; kk < 5; kk++)
-	      shearpartner29[j][m][kk] = -shear[kk];
-	    
-	    for (int kk = 5; kk < 9; kk++)
-	      shearpartner29[j][m][kk] = shear[kk]; //~ Positive
-	    
-	    for (int kk = 9; kk < 29; kk++)
-	      shearpartner29[j][m][kk] = -shear[kk];
-	    npartner[j]++;
-	  }
-	}
-      }
-    }
-    break;
-  case 30: // HMD(26) + energy(4)
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      jlist = firstneigh[i];
-      allshear = firstshear[i];
-      jnum = numneigh[i];
-      touch = firsttouch[i];
-      
-      for (jj = 0; jj < jnum; jj++) {
-	if (touch[jj]) {
-	  shear = &allshear[30*jj];
-	  j = jlist[jj];
-	  j &= NEIGHMASK;
-	  m = npartner[i];
-	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 30; kk++)
-	    shearpartner30[i][m][kk] = shear[kk];
-	  npartner[i]++;
-	  if (j < nlocal_neigh) {
-	    m = npartner[j];
-	    partner[j][m] = tag[i];
-	    
-	    /*~ This was modified to prevent energy terms
-	      becoming negative which is not sensible
-	      [KH - 11 March 2014]*/
-	    for (int kk = 0; kk < 26; kk++)
-	      shearpartner30[j][m][kk] = -shear[kk];
-	    
-	    for (int kk = 26; kk < 30; kk++)
-	      shearpartner30[j][m][kk] = shear[kk]; //~ Positive
-	     npartner[j]++;
-	  }
-	}
-      }
-    }
-    break;
-  case 50: // HMD(26) + energy(4) + D_spim(20)
-    for (ii = 0; ii < inum; ii++) {
-      i = ilist[ii];
-      jlist = firstneigh[i];
-      allshear = firstshear[i];
-      jnum = numneigh[i];
-      touch = firsttouch[i];
-      
-      for (jj = 0; jj < jnum; jj++) {
-	if (touch[jj]) {
-	  shear = &allshear[50*jj];
-	  j = jlist[jj];
-	  j &= NEIGHMASK;
-	  m = npartner[i];
-	  partner[i][m] = tag[j];
-	  for (int kk = 0; kk < 50; kk++)
-	    shearpartner50[i][m][kk] = shear[kk];
-	  npartner[i]++;
-	  if (j < nlocal_neigh) {
-	    m = npartner[j];
-	    partner[j][m] = tag[i];
-	    
-	    /*~ This was modified to prevent energy terms
-	      becoming negative which is not sensible
-	      [KH - 11 March 2014]*/
-	    for (int kk = 0; kk < 26; kk++)
-	      shearpartner50[j][m][kk] = -shear[kk];
-	    
-	    for (int kk = 26; kk < 30; kk++)
-	      shearpartner50[j][m][kk] = shear[kk]; //~ Positive
-	    
-	    for (int kk = 30; kk < 50; kk++)
-	      shearpartner50[j][m][kk] = -shear[kk];
-	    npartner[j]++;
-	  }
-	}
-      }
-    }
-    break;  
   }
 
   // set maxtouch = max # of partners of any owned atom
@@ -1322,6 +940,9 @@ double FixShearHistory::memory_usage()
     case 19:
       bytes += dpage19[i].size();
       break;
+    case 20:
+      bytes += dpage20[i].size();
+      break;
     case 8:
       bytes += dpage8[i].size();
       break;
@@ -1337,30 +958,8 @@ double FixShearHistory::memory_usage()
     case 23:
       bytes += dpage23[i].size();
       break;
-      // Added [MO - November 2014]
     case 24:
       bytes += dpage24[i].size();
-      break;
-    case 25:
-      bytes += dpage25[i].size();
-      break;
-    case 26:
-      bytes += dpage26[i].size();
-      break;
-    case 28:
-      bytes += dpage28[i].size();
-      break;
-    case 29:
-      bytes += dpage29[i].size();
-      break;
-    case 30:
-      bytes += dpage30[i].size();
-      break;
-    case 46:
-      bytes += dpage46[i].size();
-      break;
-    case 50:
-      bytes += dpage50[i].size();
       break;
     }
   }
@@ -1387,17 +986,10 @@ void FixShearHistory::grow_arrays(int nmax)
   typedef double (*sptype9)[9];
   typedef double (*sptype18)[18];
   typedef double (*sptype19)[19];
+  typedef double (*sptype20)[20];
   typedef double (*sptype22)[22];
   typedef double (*sptype23)[23];
-  // Added [MO - 14 November 2014]
   typedef double (*sptype24)[24];
-  typedef double (*sptype25)[25];
-  typedef double (*sptype26)[26];
-  typedef double (*sptype28)[28];
-  typedef double (*sptype29)[29];
-  typedef double (*sptype30)[30];
-  typedef double (*sptype46)[46];
-  typedef double (*sptype50)[50];
   
   //~ Use a switch-case structure [KH - 9 January 2014]
   switch (num_quants) {
@@ -1426,6 +1018,11 @@ void FixShearHistory::grow_arrays(int nmax)
       memory->srealloc(shearpartner19,nmax*sizeof(sptype19),
 		       "shear_history:shearpartner19");
     break;
+  case 20:
+    shearpartner20 = (sptype20 *) 
+      memory->srealloc(shearpartner20,nmax*sizeof(sptype20),
+		       "shear_history:shearpartner20");
+    break;
   case 8:
     shearpartner8 = (sptype8 *) 
       memory->srealloc(shearpartner8,nmax*sizeof(sptype8),
@@ -1451,46 +1048,10 @@ void FixShearHistory::grow_arrays(int nmax)
       memory->srealloc(shearpartner23,nmax*sizeof(sptype23),
 		       "shear_history:shearpartner23");
     break;
-  // Added [MO - 14 November 2014]
   case 24:
     shearpartner24 = (sptype24 *) 
       memory->srealloc(shearpartner24,nmax*sizeof(sptype24),
 		       "shear_history:shearpartner24");
-    break;
-  case 25:
-    shearpartner25 = (sptype25 *) 
-      memory->srealloc(shearpartner25,nmax*sizeof(sptype25),
-		       "shear_history:shearpartner25");
-    break;
-  case 26:
-    shearpartner26 = (sptype26 *) 
-      memory->srealloc(shearpartner26,nmax*sizeof(sptype26),
-		       "shear_history:shearpartner26");
-    break;
-  case 46:
-    shearpartner46 = (sptype46 *) 
-      memory->srealloc(shearpartner46,nmax*sizeof(sptype46),
-		       "shear_history:shearpartner46");
-    break;
-  case 28:
-    shearpartner28 = (sptype28 *) 
-      memory->srealloc(shearpartner28,nmax*sizeof(sptype28),
-		       "shear_history:shearpartner28");
-    break;
-  case 29:
-    shearpartner29 = (sptype29 *) 
-      memory->srealloc(shearpartner29,nmax*sizeof(sptype29),
-		       "shear_history:shearpartner29");
-    break;
-  case 30:
-    shearpartner30 = (sptype30 *) 
-      memory->srealloc(shearpartner30,nmax*sizeof(sptype30),
-		       "shear_history:shearpartner30");
-    break;
-  case 50:
-    shearpartner50 = (sptype50 *) 
-      memory->srealloc(shearpartner50,nmax*sizeof(sptype50),
-		       "shear_history:shearpartner50");
     break;
   }
 }
@@ -1527,6 +1088,9 @@ void FixShearHistory::copy_arrays(int i, int j, int delflag)
   case 19:
     shearpartner19[j] = shearpartner19[i];
     break;
+  case 20:
+    shearpartner20[j] = shearpartner20[i];
+    break;
   case 8:
     shearpartner8[j] = shearpartner8[i];
     break;
@@ -1542,30 +1106,8 @@ void FixShearHistory::copy_arrays(int i, int j, int delflag)
   case 23:
     shearpartner23[j] = shearpartner23[i];
     break;
-  // Added [MO - 14 November 2014] 
   case 24:
     shearpartner24[j] = shearpartner24[i];
-    break;
-  case 25:
-    shearpartner25[j] = shearpartner25[i];
-    break;
-  case 26:
-    shearpartner26[j] = shearpartner26[i];
-    break;
-  case 46:
-    shearpartner46[j] = shearpartner46[i];
-    break;
-  case 28:
-    shearpartner28[j] = shearpartner28[i];
-    break;
-  case 29:
-    shearpartner29[j] = shearpartner29[i];
-    break;
-  case 30:
-    shearpartner30[j] = shearpartner30[i];
-    break;
-  case 50:
-    shearpartner50[j] = shearpartner50[i];
     break;
   }
 }
@@ -1628,6 +1170,13 @@ int FixShearHistory::pack_exchange(int i, double *buf)
 	buf[m++] = shearpartner19[i][n][k];
     }
     break;
+  case 20:
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 20; k++)
+	buf[m++] = shearpartner20[i][n][k];
+    }
+    break;
   case 8:
     for (int n = 0; n < npartner[i]; n++) {
       buf[m++] = partner[i][n];
@@ -1663,61 +1212,11 @@ int FixShearHistory::pack_exchange(int i, double *buf)
 	buf[m++] = shearpartner23[i][n][k];
     }
     break;
-  // Added [MO - 14 November 2014]
   case 24:
     for (int n = 0; n < npartner[i]; n++) {
       buf[m++] = partner[i][n];
       for (int k = 0; k < 24; k++)
 	buf[m++] = shearpartner24[i][n][k];
-    }
-    break;
- case 25:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 25; k++)
-	buf[m++] = shearpartner25[i][n][k];
-    }
-    break;
- case 26:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 26; k++)
-	buf[m++] = shearpartner26[i][n][k];
-    }
-    break;
- case 46:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 46; k++)
-	buf[m++] = shearpartner46[i][n][k];
-    }
-    break;
- case 28:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 28; k++)
-	buf[m++] = shearpartner28[i][n][k];
-    }
-    break;
- case 29:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 29; k++)
-	buf[m++] = shearpartner29[i][n][k];
-    }
-    break;
- case 30:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 30; k++)
-	buf[m++] = shearpartner30[i][n][k];
-    }
-    break;
- case 50:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 50; k++)
-	buf[m++] = shearpartner50[i][n][k];
     }
     break;
   }
@@ -1778,7 +1277,15 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
       for (int k = 0; k < 19; k++)
 	shearpartner19[nlocal][n][k] = buf[m++];
     }
-    break; 
+    break;
+  case 20:
+    shearpartner20[nlocal] = dpage20->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
+      for (int k = 0; k < 20; k++)
+	shearpartner20[nlocal][n][k] = buf[m++];
+    }
+    break;
   case 8:
     shearpartner8[nlocal] = dpage8->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
@@ -1819,69 +1326,12 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
 	shearpartner23[nlocal][n][k] = buf[m++];
     }
     break;
-   // Added [MO - 14 November 2014]
   case 24:
     shearpartner24[nlocal] = dpage24->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
       partner[nlocal][n] = static_cast<tagint> (buf[m++]);
       for (int k = 0; k < 24; k++)
 	shearpartner24[nlocal][n][k] = buf[m++];
-    }
-    break;
-  case 25:
-    shearpartner25[nlocal] = dpage25->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
-      for (int k = 0; k < 2; k++)
-	shearpartner25[nlocal][n][k] = buf[m++];
-    }
-    break;
-  case 26:
-    shearpartner26[nlocal] = dpage26->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
-      for (int k = 0; k < 26; k++)
-	shearpartner26[nlocal][n][k] = buf[m++];
-    }
-    break;
-  case 46:
-    shearpartner46[nlocal] = dpage46->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
-      for (int k = 0; k < 46; k++)
-	shearpartner46[nlocal][n][k] = buf[m++];
-    }
-    break;
-  case 28:
-    shearpartner28[nlocal] = dpage28->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
-      for (int k = 0; k < 28; k++)
-	shearpartner28[nlocal][n][k] = buf[m++];
-    }
-    break;
-  case 29:
-    shearpartner29[nlocal] = dpage29->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
-      for (int k = 0; k < 29; k++)
-	shearpartner29[nlocal][n][k] = buf[m++];
-    }
-    break;
-  case 30:
-    shearpartner30[nlocal] = dpage30->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
-      for (int k = 0; k < 30; k++)
-	shearpartner30[nlocal][n][k] = buf[m++];
-    }
-    break;
-  case 50:
-    shearpartner50[nlocal] = dpage50->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (buf[m++]);
-      for (int k = 0; k < 50; k++)
-	shearpartner50[nlocal][n][k] = buf[m++];
     }
     break;
   }
@@ -1935,6 +1385,13 @@ int FixShearHistory::pack_restart(int i, double *buf)
 	buf[m++] = shearpartner19[i][n][k];
     }
     break;
+  case 20:
+    for (int n = 0; n < npartner[i]; n++) {
+      buf[m++] = partner[i][n];
+      for (int k = 0; k < 20; k++)
+	buf[m++] = shearpartner20[i][n][k];
+    }
+    break;
   case 8:
     for (int n = 0; n < npartner[i]; n++) {
       buf[m++] = partner[i][n];
@@ -1970,61 +1427,11 @@ int FixShearHistory::pack_restart(int i, double *buf)
 	buf[m++] = shearpartner23[i][n][k];
     }
     break;
-  // Added [MO - 14 November 2014] 
   case 24:
     for (int n = 0; n < npartner[i]; n++) {
       buf[m++] = partner[i][n];
       for (int k = 0; k < 24; k++)
 	buf[m++] = shearpartner24[i][n][k];
-    }
-    break;
- case 25:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 25; k++)
-	buf[m++] = shearpartner25[i][n][k];
-    }
-    break;
- case 26:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 26; k++)
-	buf[m++] = shearpartner26[i][n][k];
-    }
-    break;
- case 46:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 46; k++)
-	buf[m++] = shearpartner46[i][n][k];
-    }
-    break;
- case 28:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 28; k++)
-	buf[m++] = shearpartner28[i][n][k];
-    }
-    break;
- case 29:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 29; k++)
-	buf[m++] = shearpartner29[i][n][k];
-    }
-    break;
- case 30:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 30; k++)
-	buf[m++] = shearpartner30[i][n][k];
-    }
-    break;
- case 50:
-    for (int n = 0; n < npartner[i]; n++) {
-      buf[m++] = partner[i][n];
-      for (int k = 0; k < 50; k++)
-	buf[m++] = shearpartner50[i][n][k];
     }
     break;
   }
@@ -2097,6 +1504,14 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
 	shearpartner19[nlocal][n][k] = extra[nlocal][m++];
     }
     break;
+  case 20:
+    shearpartner20[nlocal] = dpage20->get(npartner[nlocal]);
+    for (int n = 0; n < npartner[nlocal]; n++) {
+      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
+      for (int k = 0; k < 20; k++)
+	shearpartner20[nlocal][n][k] = extra[nlocal][m++];
+    }
+    break;
   case 8:
     shearpartner8[nlocal] = dpage8->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
@@ -2137,68 +1552,12 @@ void FixShearHistory::unpack_restart(int nlocal, int nth)
 	shearpartner23[nlocal][n][k] = extra[nlocal][m++];
     }
     break;
-  // Added [MO - 14 November 2014]
   case 24:
     shearpartner24[nlocal] = dpage24->get(npartner[nlocal]);
     for (int n = 0; n < npartner[nlocal]; n++) {
       partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
       for (int k = 0; k < 24; k++)
 	shearpartner24[nlocal][n][k] = extra[nlocal][m++];
-    }
-    break;
-  case 25:
-    shearpartner25[nlocal] = dpage25->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
-      for (int k = 0; k < 25; k++)
-	shearpartner25[nlocal][n][k] = extra[nlocal][m++];
-    }
-    break;
-case 26:
-    shearpartner26[nlocal] = dpage26->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
-      for (int k = 0; k < 26; k++)
-	shearpartner26[nlocal][n][k] = extra[nlocal][m++];
-    }
-    break;case 46:
-    shearpartner46[nlocal] = dpage46->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
-      for (int k = 0; k < 46; k++)
-	shearpartner46[nlocal][n][k] = extra[nlocal][m++];
-    }
-    break;
-case 28:
-    shearpartner28[nlocal] = dpage28->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
-      for (int k = 0; k < 28; k++)
-	shearpartner28[nlocal][n][k] = extra[nlocal][m++];
-    }
-    break;
-case 29:
-    shearpartner29[nlocal] = dpage29->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
-      for (int k = 0; k < 29; k++)
-	shearpartner29[nlocal][n][k] = extra[nlocal][m++];
-    }
-    break;
-case 30:
-    shearpartner30[nlocal] = dpage30->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
-      for (int k = 0; k < 30; k++)
-	shearpartner30[nlocal][n][k] = extra[nlocal][m++];
-    }
-    break;
-case 50:
-    shearpartner50[nlocal] = dpage50->get(npartner[nlocal]);
-    for (int n = 0; n < npartner[nlocal]; n++) {
-      partner[nlocal][n] = static_cast<tagint> (extra[nlocal][m++]);
-      for (int k = 0; k < 50; k++)
-	shearpartner50[nlocal][n][k] = extra[nlocal][m++];
     }
     break;
   }

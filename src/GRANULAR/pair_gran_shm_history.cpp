@@ -9,11 +9,11 @@
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
-   ------------------------------------------------------------------------- */
+------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
    Contributing authors: Leo Silbert (SNL), Gary Grest (SNL)
-   ------------------------------------------------------------------------- */
+------------------------------------------------------------------------- */
 
 #include "math.h"
 #include "stdlib.h"
@@ -150,10 +150,9 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 
   /*~ The number of shear quantities is 19 if rolling resistance
     is active [KH - 29 July 2013]*/
-  /*~ Another 4 shear quantities are needed for per-contact energy
-    tracing [KH - 6 March 2014]. Modified by MO [4 November 2014]*/
-  int numshearquants = 4 + 15*rolling + 20*D_spin + 4*trace_energy;
-
+  /*~ Another 4 shear quantities were added for per-contact energy
+    tracing [KH - 6 March 2014]*/
+  int numshearquants = 4 + 15*rolling + 4*trace_energy;
 
   //~ Use tags to consider contacts only once [KH - 28 February 2014]
   tagint *tag = atom->tag; 
@@ -244,9 +243,10 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 
         touch[jj] = 1;
         shear = &allshear[numshearquants*jj]; // shear[] refers to a shear force here, not shear displacement
+
         shsqmag = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
-    
-	// rotate shear forces onto new contact plane conserving length
+
+        // rotate shear forces onto new contact plane conserving length
 
         rsht = shear[0]*delx + shear[1]*dely + shear[2]*delz;
         rsht *= rsqinv;
@@ -256,10 +256,10 @@ void PairGranShmHistory::compute(int eflag, int vflag)
           shear[2] -= rsht*delz;
           shsqnew = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
           if (shsqnew!=0.0) {
-	    shratio=sqrt(shsqmag/shsqnew);
-	    shear[0] *= shratio; // conserve shear force length
-	    shear[1] *= shratio;
-	    shear[2] *= shratio;
+              shratio=sqrt(shsqmag/shsqnew);
+              shear[0] *= shratio; // conserve shear force length
+              shear[1] *= shratio;
+              shear[2] *= shratio;
           }
         }
 
@@ -273,9 +273,9 @@ void PairGranShmHistory::compute(int eflag, int vflag)
         shint2 = shear[2];
 
         if (shearupdate) {
-	  shear[0]=shint0+shint1*(-wspinz*dt)+shint2*wspiny*dt;
-	  shear[1]=shint0*wspinz*dt+shint1+shint2*(-wspinx*dt);
-	  shear[2]=shint0*(-wspiny*dt)+shint1*wspinx*dt+shint2;
+            shear[0]=shint0+shint1*(-wspinz*dt)+shint2*wspiny*dt;
+            shear[1]=shint0*wspinz*dt+shint1+shint2*(-wspinx*dt);
+            shear[2]=shint0*(-wspiny*dt)+shint1*wspinx*dt+shint2;
         }
 
         // normal force = Hertzian contact
@@ -285,19 +285,19 @@ void PairGranShmHistory::compute(int eflag, int vflag)
         ccel *= polyhertz;
 
         // tangential forces done incrementally
-	
+
 	int ctcorrection = 0;
         if (shearupdate) {
 	  /*~ Apply Colin Thornton's suggested correction (see
 	    Eq. 18 of 2013 P. Tech. paper) [KH - 23 November 2012]*/
 	  if (fabs(shear[3]) > polyhertz) {
-	  /*~ Note that as polyhertz is >= 0, there is no need to
-	    check for shear[3] == 0 in the expressions below*/
+	    /*~ Note that as polyhertz is >= 0, there is no need to
+	      check for shear[3] == 0 in the expressions below*/
 	    shear[0] *= fabs(polyhertz/shear[3]);
 	    shear[1] *= fabs(polyhertz/shear[3]);
 	    shear[2] *= fabs(polyhertz/shear[3]);
 	    ctcorrection = 1;
-	    }
+	  }
 
 	  shear[0] -= polyhertz*kt*vtr1*dt;//shear displacement =vtr*dt
 	  shear[1] -= polyhertz*kt*vtr2*dt;
@@ -311,11 +311,11 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 
         if (fs > fslim) {
           if (fs != 0.0) {
-	    if (shearupdate) {
-	      shear[0] *= fslim/fs;
-	      shear[1] *= fslim/fs;
-	      shear[2] *= fslim/fs;
-	    }
+           if (shearupdate) {
+             shear[0] *= fslim/fs;
+             shear[1] *= fslim/fs;
+             shear[2] *= fslim/fs;
+           }
           } else shear[0] = shear[1] = shear[2] = 0.0;
         }
 
@@ -349,10 +349,6 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	double aveshearforce, slipdisp, oldshearforce, newshearforce;
 	double incdissipf, nstr, sstr, incrementaldisp, rkt;
 
-	double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy,a,N;
-	a = polyhertz;
-	N = ccel*r;
-
 	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
 	  
 	  //~ Call function for rolling resistance model [KH - 25 October 2013]
@@ -364,21 +360,14 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 			       globaldM);
 	  }
 
-	  //~~ Call function for twisting resistance model [MO - 04 November 2014]]
-	  if (D_spin && shearupdate) {
-	    Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
-				 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
-				 M_limit,Geq,Poiseq,Dspin_energy,a,N);
-	  }
-	  
 	  //~ Add contributions to traced energy [KH - 20 February 2014]
 	  if (pairenergy) {
 	    //~ Ensure rkt cannot become infinite [KH - 21 October 2014]
 	    if (effectivekt > 1.0e-30) rkt = 1.0/effectivekt;
 	    else rkt = 0.0;
-	    /*~~ A tiny effective kt should reult in a negligile energy. rkt=0 is reasonable
-	      under this circumstance to avoid an enormous energy value [MO - 22 October 2014]~~*/
-	    
+	    /*~~ A tiny effective kt should reult in a negligile energy.rkt=0 is reasonable 
+	    under this circumstance to avoid an enormous energy value [MO - 22 October 2014]~~*/
+
 	    /*~ Increment the friction energy only if the slip condition
 	      is invoked*/
 	    if (fs > fslim && fslim > 0.0) {
@@ -398,12 +387,6 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	    normalstrain += nstr;
 	    if (trace_energy) shear[5] = nstr;
 
-	    //~~ Update the spin contribution [MO - 13 November 2014]
-	    if (D_spin == 1) {
-	      spinenergy += Dspin_energy;
-	      if (trace_energy) shear[7] += Dspin_energy;
-	    }
-
 	    //~ The shear component does require incremental calculation
 	    if (shearupdate) {
 	      oldshearforce = sqrt(shsqmag);
@@ -411,38 +394,38 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	      incrementaldisp = rkt*(newshearforce - oldshearforce);
 	      sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
 	      shearstrain += sstr;
-	      if (trace_energy) shear[6] += sstr; 	      
-	     
+	      if (trace_energy) shear[6] += sstr;
+
 	      /*~ If Colin Thornton's shear force rescaling has been used,
 		the adjustment made to the energy is added to dissipfriction
 		so that energy will still be balanced [KH - 12 March 2014]*/
 	      double fsunscaled[3], fsunscaledmag, a, b, c;
 	      double d = 0.0;
 	      if (ctcorrection) {
-	      //~ Guard against division by tiny polyhertz [KH - 23 October 2014]
-	      polyhertz > 1.0e-30 ? b = shear[3]/polyhertz : b = 0.0;
-	      fs > fslim ? a = b*fs/fslim : a = b;
-	      c = effectivekt*dt*(b - 1.0);
+		//~ Guard against division by tiny polyhertz [KH - 23 October 2014]
+		polyhertz > 1.0e-30 ? b = shear[3]/polyhertz : b = 0.0;
+		fs > fslim ? a = b*fs/fslim : a = b;
+		c = effectivekt*dt*(b - 1.0);
 
-	      fsunscaled[0] = a*shear[0] + c*vtr1;
-	      fsunscaled[1] = a*shear[1] + c*vtr2;
-	      fsunscaled[2] = a*shear[2] + c*vtr3;
-	      fsunscaledmag = sqrt(fsunscaled[0]*fsunscaled[0] + fsunscaled[1]*fsunscaled[1] + fsunscaled[2]*fsunscaled[2]);
+		fsunscaled[0] = a*shear[0] + c*vtr1;
+		fsunscaled[1] = a*shear[1] + c*vtr2;
+		fsunscaled[2] = a*shear[2] + c*vtr3;
+		fsunscaledmag = sqrt(fsunscaled[0]*fsunscaled[0] + fsunscaled[1]*fsunscaled[1] + fsunscaled[2]*fsunscaled[2]);
 	
-	      //~ Guard against division by tiny fsunscaledmag [KH - 23 October 2014]
-	      if (fs > fslim && fslim > 0.0 && fsunscaledmag > 1.0e-30) {
-	      d += 0.5*rkt*(fsunscaledmag + fslim)*(fsunscaledmag - fslim) - incdissipf;
-	      fsunscaledmag *= fslim/fsunscaledmag;
-	      }
+		//~ Guard against division by tiny fsunscaledmag [KH - 23 October 2014]
+		if (fs > fslim && fslim > 0.0 && fsunscaledmag > 1.0e-30) {
+		  d += 0.5*rkt*(fsunscaledmag + fslim)*(fsunscaledmag - fslim) - incdissipf;
+		  fsunscaledmag *= fslim/fsunscaledmag;
+		}
 
-	      d += 0.5*rkt*(fsunscaledmag - oldshearforce)*(fsunscaledmag + oldshearforce) - sstr;
-	      dissipfriction += d;
-	      if (trace_energy) shear[4] += d;
+		d += 0.5*rkt*(fsunscaledmag - oldshearforce)*(fsunscaledmag + oldshearforce) - sstr;
+		dissipfriction += d;
+		if (trace_energy) shear[4] += d;
 	      }
 	    }
 	  }
 	}
-	
+
 	//~ Assign current polyhertz value to shear[3] [KH - 23 November 2012]
 	shear[3] = polyhertz;
 
@@ -453,12 +436,10 @@ void PairGranShmHistory::compute(int eflag, int vflag)
   }
 
   //~ Accumulate per-processor energy terms [KH - 17 October 2014]
-  //~~ Added for D_spin model [MO - 13 November 2014]
-  gatheredf = gatheredss = gatheredss = 0.0;
+  gatheredf = gatheredss = 0.0;
   if (pairenergy) {
     MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
     MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
-    MPI_Allreduce(&spinenergy,&gatheredse,1,MPI_DOUBLE,MPI_SUM,world);
   }
 }
 
@@ -466,7 +447,7 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 
 /* ----------------------------------------------------------------------
    global settings
-   ------------------------------------------------------------------------- */
+------------------------------------------------------------------------- */
 
 void PairGranShmHistory::settings(int narg, char **arg)
 {
@@ -493,9 +474,9 @@ void PairGranShmHistory::settings(int narg, char **arg)
 /* ---------------------------------------------------------------------- */
 
 double PairGranShmHistory::single(int i, int j, int itype, int jtype,
-				  double rsq,
-				  double factor_coul, double factor_lj,
-				  double &fforce)
+                                    double rsq,
+                                    double factor_coul, double factor_lj,
+                                    double &fforce)
 {
   /*~ This is more straightforward than in the other granular 
     pairstyles as the shear forces are stored in shear and do
@@ -515,9 +496,8 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
   tagint *tag = atom->tag; //~ Write out the atom tags
 
   /*~ The number of optional entries in svector for energy
-    tracing  and/or rolling resistance [KH - 6 March 2014]*/
-  // D_spin is added [MO - 05 November 2014]
-  int optionalq = 4*trace_energy + 27*rolling + 27*D_spin;
+    tracing and/or rolling resistance [KH - 6 March 2014]*/
+  int optionalq = 4*trace_energy + 27*rolling;
 
   if (rsq >= radsum*radsum) {
     fforce = 0.0;
@@ -577,8 +557,8 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
   /*~ The number of shear quantities is 19 if rolling resistance
     is active [KH - 29 July 2014]*/
   /*~ Another 4 shear quantities were added for per-contact energy
-    tracing [KH - 6 March 2014] Modified by MO [04 November 2014]*/
-  int numshearquants = 4 + 15*rolling + 20*D_spin + 4*trace_energy;
+    tracing [KH - 6 March 2014]*/
+  int numshearquants = 4 + 15*rolling + 4*trace_energy;
   double *shear = &allshear[numshearquants*neighprev];
 
   //~ Call function for rolling resistance model [KH - 30 October 2013]
@@ -596,16 +576,6 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
       called by the single function rather than the compute*/
     rolling_resistance(1,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
 		       fslim,effectivekt,torque,shear,dur,dus,localdM,globaldM);
-  }
-
-  double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy,a,N;
-   
-  //~~ Added for Deresiewicz1954_spin function [MO - 4 November 2014]
-  if (D_spin) {
-    a = polyhertz;
-    N = ccel*r;
-    Deresiewicz1954_spin(1,i,j,numshearquants,r,torque,shear,dspin_i,
-			 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,M_limit,Geq,Poiseq,Dspin_energy,a,N);
   }
 
   /*~ Some of the following are included only for convenience as
@@ -648,38 +618,12 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
     svector[nq+40] = shear[numshearquants-1]; //~ stored twisting (kappa+1)
   }
 
-  //~ Add for the Deresiewicz1954_spin model [MO - 19 November 2014]
-  if (D_spin) {
-    for (int q = 0; q < 3; q++) {
-      svector[q+nq+14] = dspin_i[q]; // dspin_i
-      svector[q+nq+17] = shear[numshearquants-3+q]; // spin_i
-      svector[q+nq+22] = dM_i[q];
-      svector[q+nq+25] = shear[numshearquants-16+q];// M_i;
-    }
-    svector[nq+20] = dspin_stm; // system value 
-    svector[nq+21] = spin_stm;  // system value
-    svector[nq+28] = dM; // system value 
-    svector[nq+29] = shear[numshearquants-4]; // M, system value
-    svector[nq+30] = K_spin; 
-    svector[nq+31] = theta_r; 
-    svector[nq+32] = shear[numshearquants-12]; // step
-    svector[nq+33] = M_limit; 
-    svector[nq+34] = shear[numshearquants-5]; // M_star1
-    svector[nq+35] = shear[numshearquants-6]; // M_star2
-    svector[nq+36] = 0; 
-    svector[nq+37] = 0; 
-    svector[nq+38] = 0;
-    svector[nq+39] = 0;
-    svector[nq+40] = 0;
-  } 
-
   return 0.0;
 }
 
-
 /* ----------------------------------------------------------------------
    init specific to this pair style
-   ------------------------------------------------------------------------- */
+------------------------------------------------------------------------- */
 
 void PairGranShmHistory::init_style()
 {
@@ -695,8 +639,8 @@ void PairGranShmHistory::init_style()
   /*~ Have 19 shear quantities if rolling resistance is included
     [KH - 29 July 2014]*/
   /*~ Another 4 shear quantities are needed for per-contact energy
-    tracing [KH - 6 March 2014]. Modified by MO [4 November 2014]*/
-  int numshearquants = 4 + 15*rolling + 20*D_spin + 4*trace_energy;
+    tracing [KH - 6 March 2014]*/
+  int numshearquants = 4 + 15*rolling + 4*trace_energy;
 
   // need a granular neigh list and optionally a granular history neigh list
 
@@ -804,8 +748,8 @@ void PairGranShmHistory::init_style()
 }
 
 /* ----------------------------------------------------------------------
-   proc 0 writes to restart file
-   ------------------------------------------------------------------------- */
+  proc 0 writes to restart file
+------------------------------------------------------------------------- */
 
 void PairGranShmHistory::write_restart(FILE *fp)
 {
@@ -818,8 +762,8 @@ void PairGranShmHistory::write_restart(FILE *fp)
 }
 
 /* ----------------------------------------------------------------------
-   proc 0 reads from restart file, bcasts
-   ------------------------------------------------------------------------- */
+  proc 0 reads from restart file, bcasts
+------------------------------------------------------------------------- */
 
 void PairGranShmHistory::read_restart(FILE *fp)
 {
@@ -836,8 +780,8 @@ void PairGranShmHistory::read_restart(FILE *fp)
 }
 
 /* ----------------------------------------------------------------------
-   proc 0 writes to restart file
-   ------------------------------------------------------------------------- */
+  proc 0 writes to restart file
+------------------------------------------------------------------------- */
 
 void PairGranShmHistory::write_restart_settings(FILE *fp)
 {
@@ -848,15 +792,13 @@ void PairGranShmHistory::write_restart_settings(FILE *fp)
   fwrite(&xmu,sizeof(double),1,fp);
 
   //~ Added energy terms [KH - 28 February 2014]
-  //~~ Added for D_spin model [MO - 13 November 2014]
   fwrite(&gatheredf,sizeof(double),1,fp);
   fwrite(&gatheredss,sizeof(double),1,fp);
-  fwrite(&gatheredse,sizeof(double),1,fp);
 }
 
 /* ----------------------------------------------------------------------
-   proc 0 reads from restart file, bcasts
-   ------------------------------------------------------------------------- */
+  proc 0 reads from restart file, bcasts
+------------------------------------------------------------------------- */
 
 void PairGranShmHistory::read_restart_settings(FILE *fp)
 {
@@ -868,12 +810,10 @@ void PairGranShmHistory::read_restart_settings(FILE *fp)
     fread(&xmu,sizeof(double),1,fp);
 
     /*~ Added energy terms. The total energy is read to the root
-      proc and is NOT broadcast to all procs as only the total summed
-      across all procs is of interest [KH - 28 February 2014]*/
-    //~~ Added for D_spin model [MO - 13 November 2014]
+    proc and is NOT broadcast to all procs as only the total summed
+    across all procs is of interest [KH - 28 February 2014]*/
     fread(&dissipfriction,sizeof(double),1,fp);
     fread(&shearstrain,sizeof(double),1,fp);
-    fread(&spinenergy,sizeof(double),1,fp);
   }
   MPI_Bcast(&kn,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&kt,1,MPI_DOUBLE,0,world);

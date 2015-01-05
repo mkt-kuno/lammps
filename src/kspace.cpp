@@ -68,6 +68,8 @@ KSpace::KSpace(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   suffix_flag = Suffix::NONE;
   adjust_cutoff_flag = 1;
   scalar_pressure_flag = 0;
+  qsum_update_flag = 0;
+  warn_neutral = 1;
 
   accuracy_absolute = -1.0;
   accuracy_real_6 = -1.0;
@@ -262,17 +264,20 @@ void KSpace::ev_setup(int eflag, int vflag)
 
 void KSpace::qsum_qsq(int flag)
 {
-  qsum = qsqsum = 0.0;
-  for (int i = 0; i < atom->nlocal; i++) {
-    qsum += atom->q[i];
-    qsqsum += atom->q[i]*atom->q[i];
+  const double * const q = atom->q;
+  const int nlocal = atom->nlocal;
+  double qsum_local(0.0), qsqsum_local(0.0);
+
+#if defined(_OPENMP)
+#pragma omp parallel for default(none) reduction(+:qsum_local,qsqsum_local)
+#endif
+  for (int i = 0; i < nlocal; i++) {
+    qsum_local += q[i];
+    qsqsum_local += q[i]*q[i];
   }
 
-  double tmp;
-  MPI_Allreduce(&qsum,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
-  qsum = tmp;
-  MPI_Allreduce(&qsqsum,&tmp,1,MPI_DOUBLE,MPI_SUM,world);
-  qsqsum = tmp;
+  MPI_Allreduce(&qsum_local,&qsum,1,MPI_DOUBLE,MPI_SUM,world);
+  MPI_Allreduce(&qsqsum_local,&qsqsum,1,MPI_DOUBLE,MPI_SUM,world);
 
   if (qsqsum == 0.0)
     error->all(FLERR,"Cannot use kspace solver on system with no charge");
@@ -284,8 +289,11 @@ void KSpace::qsum_qsq(int flag)
   if (fabs(qsum) > SMALL) {
     char str[128];
     sprintf(str,"System is not charge neutral, net charge = %g",qsum);
-    if (flag) error->all(FLERR,str);
-    else if (comm->me == 0) error->warning(FLERR,str);
+    if (warn_neutral && (comm->me == 0)) {
+      if (flag) error->all(FLERR,str);
+      else error->warning(FLERR,str);
+    }
+    warn_neutral = 0;
   }
 }
 

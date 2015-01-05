@@ -115,14 +115,12 @@ void FixNVESphere::initial_integrate(int vflag)
       x[i][2] += dtv * v[i][2];
 
       dtirotate = dtfrotate / (radius[i]*radius[i]*rmass[i]);
-
       omega[i][0] += dtirotate * torque[i][0];
       omega[i][1] += dtirotate * torque[i][1];
       omega[i][2] += dtirotate * torque[i][2];
     }
   }
 
-  
   // update mu for dipoles
   // d_mu/dt = omega cross mu
   // renormalize mu to dipole length
