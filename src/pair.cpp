@@ -103,6 +103,9 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
     model as disabled [KH - 23 October 2013]*/
   rolling = 0;
 
+  /*~ Added to initialise the status of D_spin [MO - 05 October 2014]*/
+  D_spin = D_switch = 0;
+
   //~ Initialise at 1 [KH - 25 October 2013]
   model_type = 1;
 
@@ -138,6 +141,12 @@ void Pair::modify_params(int narg, char **arg)
       else if (strcmp(arg[iarg+1],"sixthpower") == 0) mix_flag = SIXTHPOWER;
       else error->all(FLERR,"Illegal pair_modify command");
       iarg += 2;
+      //~~ This is added for Deresiewicz1954_spin [MO - 05 November 2014]
+    } else if (strcmp(arg[iarg],"D_spin") == 0) { 
+      //~ Comparing with the text in the input script
+      D_spin = 1;
+      D_switch = atoi(arg[iarg+1]);
+      iarg += 2; //~ As there are no extra arguments like trace_energy
     } else if (strcmp(arg[iarg],"rolling") == 0) {
       //~ This pair_modify option was added [KH - 23 October 2013]
       if (iarg+2 > narg) error->all(FLERR,"Illegal pair_modify command");

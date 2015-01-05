@@ -1,4 +1,4 @@
-/* -*- c++ -*- ----------------------------------------------------------
+/* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -46,6 +46,7 @@ class PairGranHookeHistory : public Pair {
   void unpack_forward_comm(int, int, double *);
   void *extract(const char *, int &);
   void rolling_resistance(int, int, int, int, double, double, double, double, double, double, double, double, double **, double *, double *, double *, double *, double *); //~ Added these two functions [KH - 24 October 2013]
+  void Deresiewicz1954_spin(int, int, int, int, double, double **, double *, double *, double &, double &, double *, double &, double &, double &, double &, double, double, double &, double, double); // Added D_spin model [MO - 30 November 2014]
   void add_old_omega_fix();
   double memory_usage();
 
@@ -59,7 +60,9 @@ class PairGranHookeHistory : public Pair {
   int neighprev;
   double *onerad_dynamic,*onerad_frozen;
   double *maxrad_dynamic,*maxrad_frozen;
-
+  
+  double Geq,Poiseq,RMSf,Hp; // Added to extract for wall/gran.cpp [MO - 05 December 2014]	
+  
   class FixShearHistory *fix_history;
 
   // storage of rigid body masses for use in granular interactions
@@ -76,9 +79,10 @@ class PairGranHookeHistory : public Pair {
 
   int lastwarning[2]; //~ Used to control frequencies at which warnings about failures to calculate contact stiffnesses are output in the rolling resistance model [KH - 6 November 2013]
 
-  //~ Add quantities for tracing global energy [KH - 19 February 2014]
-  double dissipfriction, normalstrain, shearstrain;
-  double gatheredf, gatheredss; //~ Two more added [KH - 17 October 2014]
+  //~ Add quantities for tracing global energy [KH - 19 February 2014]	
+  double dissipfriction, normalstrain, shearstrain, spinenergy;
+  double gatheredf, gatheredss, gatheredse; //~ Two more added [KH - 17 October 2014]
+  //~~ Two more added for D_spin [MO - 13 November 2014]
 };
 
 }

@@ -220,7 +220,6 @@ void PairEAMAlloyOMP::file2array()
   nr = setfl->nr;
   drho = setfl->drho;
   dr = setfl->dr;
-  rhomax = (nrho-1) * drho;
 
   // ------------------------------------------------------------------
   // setup frho arrays

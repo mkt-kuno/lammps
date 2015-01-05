@@ -546,7 +546,6 @@ int Input::execute_command()
   else if (!strcmp(command,"quit")) quit();
   else if (!strcmp(command,"shell")) shell();
   else if (!strcmp(command,"variable")) variable_command();
-  
   else if (!strcmp(command,"angle_coeff")) angle_coeff();
   else if (!strcmp(command,"angle_style")) angle_style();
   else if (!strcmp(command,"atom_modify")) atom_modify();
@@ -1728,7 +1727,7 @@ double Input::auto_timestep()
   int calc_method;
   if (force->pair_match("gran/hooke/history",1))
     calc_method = 1;
-  else if (force->pair_match("gran/hertz/history",1) || force->pair_match("gran/shm/history",1) || force->pair_match("gran/CM/history",1)|| force->pair_match("gran/HMD/history",1))
+  else if (force->pair_match("gran/hertz/history",1) || force->pair_match("gran/shm/history",1) || force->pair_match("gran/CM/history",1) || force->pair_match("gran/HMD/history",1) || force->pair_match("gran/CMD/history",1))
     calc_method = 2;
   else error->all(FLERR,"A granular pairstyle with shear history must be defined before timestep auto");
 

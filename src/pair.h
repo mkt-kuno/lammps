@@ -223,6 +223,10 @@ class Pair : protected Pointers {
   int rolling,model_type;
   double rolling_delta,kappa,post_limit_index;
 
+  /*~~ D_spin was added. D_spin = 1 activates Dresiewicz1954_spin function.
+  [MO - 05 November 2014]~~*/
+  int D_spin,D_switch;
+
   /*~ Added flag which indicates whether per-contact energy tracing is
     active or not [KH - 6 March 2014]*/
   int trace_energy;

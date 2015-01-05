@@ -226,7 +226,6 @@ void IntelBuffers<flt_t, acc_t>::free_local()
 {
   if (_off_map_maxlocal > 0) {
     int * cnumneigh = _cnumneigh;
-    int * atombin = _atombin;
     #ifdef _LMP_INTEL_OFFLOAD
     if (_off_map_ilist != NULL) {
       const int * ilist = _off_map_ilist;
@@ -234,12 +233,11 @@ void IntelBuffers<flt_t, acc_t>::free_local()
       _off_map_ilist = NULL;
       if (numneigh != 0 && ilist != 0) {
         #pragma offload_transfer target(mic:_cop) \
-          nocopy(ilist,numneigh,cnumneigh,atombin:alloc_if(0) free_if(1))
+          nocopy(ilist,numneigh,cnumneigh:alloc_if(0) free_if(1))
       }
     }
     #endif
     lmp->memory->destroy(cnumneigh);
-    lmp->memory->destroy(atombin);
     _off_map_maxlocal = 0;
   }
 }
@@ -253,7 +251,6 @@ void IntelBuffers<flt_t, acc_t>::_grow_local(NeighList *list,
   free_local();
   int size = list->get_maxlocal();
   lmp->memory->create(_cnumneigh, size, "_cnumneigh");
-  lmp->memory->create(_atombin, size, "_atombin");
   _off_map_maxlocal = size;
 
   #ifdef _LMP_INTEL_OFFLOAD
@@ -261,13 +258,11 @@ void IntelBuffers<flt_t, acc_t>::_grow_local(NeighList *list,
     int * numneigh = list->numneigh;
     int * ilist = list->ilist;
     int * cnumneigh = _cnumneigh;
-    int * atombin = _atombin;
-    if (cnumneigh != 0 && atombin != 0) {
+    if (cnumneigh != 0) {
       #pragma offload_transfer target(mic:_cop) \
         nocopy(ilist:length(size) alloc_if(1) free_if(0)) \
 	nocopy(numneigh:length(size) alloc_if(1) free_if(0)) \
-        nocopy(cnumneigh:length(size) alloc_if(1) free_if(0)) \
-        nocopy(atombin:length(size) alloc_if(1) free_if(0))
+	nocopy(cnumneigh:length(size) alloc_if(1) free_if(0))
     }
     _off_map_ilist = ilist;
     _off_map_numneigh = numneigh;
@@ -425,7 +420,7 @@ double IntelBuffers<flt_t, acc_t>::memory_usage(const int nthreads)
   if (_off_f) tmem += fstride*_off_threads * sizeof(vec3_acc_t);
   #endif
 
-  tmem += _off_map_maxlocal * sizeof(int) * 2;
+  tmem += _off_map_maxlocal * sizeof(int);
   tmem += (_list_alloc_atoms + _off_threads) * get_max_nbors() * sizeof(int);
   tmem += _ntypes * _ntypes * sizeof(int);
 

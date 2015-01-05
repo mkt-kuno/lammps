@@ -1,4 +1,4 @@
-/* -*- c++ -*- ----------------------------------------------------------
+/* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -54,7 +54,8 @@ class FixWallGran : public Fix {
  protected:
   int wallstyle,pairstyle,wiggle,wshear,axis,dampflag;
   int wtranslate,wscontrol; //flags for wall movement and wall stress control respectively
-  double kn,kt,gamman,gammat,xmu,Geq,Poiseq,RMSf,Hp;  // increased for CM model [MO - 18 July 2014]
+  double kn,kt,gamman,gammat,xmu,Geq,Poiseq,RMSf,Hp;  // increased for CM & CMD models [MO - 18 July 2014]
+  double *xmu_p,*Geq_p,*Poiseq_p,*RMSf_p,*Hp_p;    // parameters of the contacting particle [MO - 05 December 2014]
   double lo,hi,cylradius;
   double loINI,hiINI; // for wiggle only
   double velwall[3],fwall[3],fwall_all[3];
@@ -68,12 +69,13 @@ class FixWallGran : public Fix {
   int time_origin;
   int numshearquants; //~ The number of shear quantities [KH - 30 October 2013]
   int *rolling,*model_type; //~ Quantities for rolling resistance model [KH - 30 October 2013]
+  int *D_spin,*D_switch; // Quantities for D_spin model [MO - 30 November 2014]
   double *rolling_delta,*kappa,*post_limit_index;
   int lastwarning[2]; //~ Used to control frequencies at which warnings about failures to calculate contact stiffnesses are output in the rolling resistance model [KH - 6 November 2013]
 
-  //~ Add quantities for tracing global energy [KH - 20 February 2014]
-  int pairenergy, *trace_energy;;
-  double dissipfriction, normalstrain, shearstrain;
+  //~ Add quantities for tracing global energy [KH - 20 February 2014] also for spinenergy [MO - 30 November 2014]
+  int pairenergy, *trace_energy;
+  double dissipfriction, normalstrain, shearstrain, spinenergy;
 
   /*~ Used for accessing fix old_omega when rolling resistance model
     is active [KH - 30 October 2013]*/
@@ -100,10 +102,14 @@ class FixWallGran : public Fix {
   void HMD_history(double, double, double, double, double *,
 		     double *, double *, double *, double *, double, double,
 		     double *, int); //~ [MO - 21 July 2014]
+  void CMD_history(double, double, double, double, double *,
+		     double *, double *, double *, double *, double, double,
+		     double *, int); //~ [MO - 30 November 2014]
   void move_wall();
   void velscontrol();
   void ev_tally_wall(int, double, double, double, double, double, double, double);
   void rolling_resistance(int, int, double, double, double, double, double, double, double, double, double *, double *, double *, double *, double *); //~ Added this function [KH - 30 October 2013]
+  void Deresiewicz1954_spin(int, int, double, double, double, double, double, double *, double *, double *, double &, double &, double *, double &, double &, double &, double &, double, double, double &, double, double); //~ Added this function [MO - 30 November 2014]
 };
 
 }

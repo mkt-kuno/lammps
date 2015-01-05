@@ -1,4 +1,4 @@
-/* -*- c++ -*- ----------------------------------------------------------
+/* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -31,6 +31,7 @@ class FixShearHistory : public Fix {
   friend class PairGranShmHistory; //~ Added this [KH - 23 November 2012]
   friend class PairGranCMHistory; //~ Added this [MO - 05 June 2014]
   friend class PairGranHMDHistory; //~ Added this [MO - 21 July 2014]
+  friend class PairGranCMDHistory; //~ Added this [MO - 18 November 2014]	
 
  public:
   FixShearHistory(class LAMMPS *, int, char **);
@@ -62,20 +63,28 @@ class FixShearHistory : public Fix {
     numbers of shear quantities. There are no space implications as
     memory will be allocated for only one of these later on (using new)
     [KH - 9 January 2014]*/
+  /*~~ CM, HMD and CMD models have been added where HMD and CMD use
+    the same number of shear quantities. [KH - 18 November 2014] ~~*/
   //~ ----------------- without energy tracing ----------------------
   double (**shearpartner3)[3]; //~ hooke/history or hertz/history
   double (**shearpartner4)[4]; //~ shm/history
-  double (**shearpartner5)[5]; //~ CM/history [MO 04 June 2014]
-  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling or HMD/history [21 July 2014]
+  double (**shearpartner5)[5]; //~ CM/history [MO - 04 June 2014]
+  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling
   double (**shearpartner19)[19]; //~ shm/history with rolling
-  double (**shearpartner20)[20]; //~ CM/history with rolling [MO 04 June 2014]
+  double (**shearpartner26)[26]; //~ HMD/history [MO - 14 November 2014]
+  double (**shearpartner24)[24]; //~ shm/history with D_spin [MO - 14 November 2014]
+  double (**shearpartner25)[25]; //~ CM/history with D_spin  [MO - 14 November 2014]
+  double (**shearpartner46)[46]; //~ HMD/history with D_spin [MO - 14 November 2014]
   //~ ----------------- with energy tracing ----------------------
   double (**shearpartner7)[7]; //~ hooke/history or hertz/history
   double (**shearpartner8)[8]; //~ shm/history 
   double (**shearpartner9)[9]; //~ CM/history [MO 04 June 2014]
-  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling or HMD/history [21 July 2014]
+  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
   double (**shearpartner23)[23]; //~ shm/history with rolling 
-  double (**shearpartner24)[24]; //~ CM/history with rolling [MO 04 June 2014]
+  double (**shearpartner30)[30]; //~ HMD/history [MO - 14 November 2014]
+  double (**shearpartner28)[28]; //~ shm/history with D_spin [MO - 14 November 2014]
+  double (**shearpartner29)[29]; //~ CM/history with D_spin  [MO - 14 November 2014]
+  double (**shearpartner50)[50]; //~ HMD/history with D_spin [MO - 14 November 2014]	
 
   int num_quants;               // the number of extra quantities for each partner (i.e. contact) modified GM
   int maxtouch;                 // max # of touching partners for my atoms
@@ -93,14 +102,21 @@ class FixShearHistory : public Fix {
   MyPage<double[5]> *dpage5; //~ CM/history [MO 04 June 2014]
   MyPage<double[7]> *dpage7;
   MyPage<double[8]> *dpage8;
-  MyPage<double[9]> *dpage9; //~ CM/history [MO 04 June 2014]
+  MyPage<double[9]> *dpage9;
   MyPage<double[18]> *dpage18;
   MyPage<double[19]> *dpage19;
-  MyPage<double[20]> *dpage20; //~ CM/history [MO 04 June 2014]
   MyPage<double[22]> *dpage22;
   MyPage<double[23]> *dpage23;
-  MyPage<double[24]> *dpage24; //~ CM/history [MO 04 June 2014]
-
+  // added [MO - 14 November 2014]
+  MyPage<double[24]> *dpage24; 
+  MyPage<double[25]> *dpage25;
+  MyPage<double[26]> *dpage26;	 
+  MyPage<double[28]> *dpage28;
+  MyPage<double[29]> *dpage29;
+  MyPage<double[30]> *dpage30; 
+  MyPage<double[46]> *dpage46;
+  MyPage<double[50]> *dpage50;
+  
   void allocate_pages();
 };
 

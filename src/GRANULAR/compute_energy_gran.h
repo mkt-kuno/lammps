@@ -1,4 +1,4 @@
-/* -*- c++ -*- ----------------------------------------------------------
+/* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -31,7 +31,10 @@
   Shear spring contribution to strain energy ('shear_strain')
   Total strain energy ('strain')
 
-  [KH - 12 March 2014]
+  spin spring contribution to spin energy ('spin_energy')
+  only if D_spin function is called
+
+  [KH - 12 March 2014]   "spin_energy" was added [MO - 15 November 2014]
 */
 
 #ifdef COMPUTE_CLASS

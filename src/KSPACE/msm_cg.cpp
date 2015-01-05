@@ -248,16 +248,7 @@ void MSMCG::compute(int eflag, int vflag)
 
   if (evflag_atom) fieldforce_peratom();
 
-  // update qsum and qsqsum, if needed
-
-  if (eflag_global || eflag_atom) {
-    if (qsum_update_flag || (atom->natoms != natoms_original)) {
-      qsum_qsq(0);
-      natoms_original = atom->natoms;
-    }
-  }
-
-  // sum global energy across procs and add in self-energy term
+  // total long-range energy
 
   const double qscale = force->qqrd2e * scale;
 
@@ -266,7 +257,7 @@ void MSMCG::compute(int eflag, int vflag)
     MPI_Allreduce(&energy,&energy_all,1,MPI_DOUBLE,MPI_SUM,world);
     energy = energy_all;
 
-    double e_self = qsqsum*gamma(0.0)/cutoff;
+    double e_self = qsqsum*gamma(0.0)/cutoff;  // Self-energy term
     energy -= e_self;
     energy *= 0.5*qscale;
   }

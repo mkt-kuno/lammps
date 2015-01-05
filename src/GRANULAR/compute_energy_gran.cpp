@@ -26,7 +26,7 @@
 
 using namespace LAMMPS_NS;
 
-enum{FRICTION,RKINETIC,TKINETIC,KINETIC,NSTRAIN,SSTRAIN,STRAIN,BOUNDARY,LDAMP,VDAMP,DAMP};
+enum{FRICTION,RKINETIC,TKINETIC,KINETIC,NSTRAIN,SSTRAIN,STRAIN,BOUNDARY,LDAMP,VDAMP,DAMP,SPIN};
 
 /* ---------------------------------------------------------------------- */
 
@@ -43,7 +43,7 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
 
   /*~ Read in the user-defined inputs. The order of the inputs
     corresponds exactly to the ordering in the output vector.*/
-  length_enum = 11;
+  length_enum = 12; // Inreaded to 12 [MO - 15 November 2014]
   inputs = new int[length_enum];
   for (int i = 0; i < length_enum; i++) inputs[i] = -1;
 
@@ -91,7 +91,12 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(arg[iarg],"damping") == 0) {
       if (inputs[iarg-3] < 0) inputs[iarg-3] = DAMP;
       else error->all(FLERR,"Duplicated damping input to ComputeEnergyGran");
-    } else error->all(FLERR,"Invalid input to ComputeEnergyGran");
+      // Added for D_spin [MO - 15 November 2014]
+    } else if (strcmp(arg[iarg],"spin_energy") == 0) {
+      if (inputs[iarg-3] < 0) inputs[iarg-3] = SPIN;
+      else error->all(FLERR,"Duplicated spin energy input to ComputeEnergyGran");
+      pairenergy = 1;
+    }else error->all(FLERR,"Invalid input to ComputeEnergyGran");
   }
 
   nmax = 0;
@@ -169,6 +174,7 @@ void ComputeEnergyGran::compute_vector()
     else if (inputs[i] == 9) vector[i] = damping_extract("viscous",1); //~ VDAMP
     else if (inputs[i] == 10) vector[i] = damping_extract("damp/local",0)
 				+ damping_extract("viscous",1); //~ DAMP
+    else if (inputs[i] == 11) vector[i] = pair_extract("spinenergy"); //~ SPIN
   }
 }
 

@@ -17,8 +17,7 @@
 
 #ifdef PAIR_CLASS
 
-//PairStyle(nb3b/harmonic/omp,PairNb3bHarmonicOMP)
-PairStyle(disabled,PairNb3bHarmonicOMP)
+PairStyle(nb3b/harmonic/omp,PairNb3bHarmonicOMP)
 
 #else
 
