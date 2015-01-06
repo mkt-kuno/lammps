@@ -44,22 +44,30 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
   /*~ The number of shear quantities is not necessarily 3, but can
     be several different values as discussed in fix_shear_history.h
     [KH - 9 January 2014]*/
-  /*~~ The number of 5 is added for the CM model [MO 05 June 2014] ~~*/
+  /*~~ CM, HMD and CMD models are added where HMD and CMD use the
+    same number of shear quantities. [MO - 18 November 2014]*/
   //~ ----------------- without energy tracing ----------------------
   double (**shearpartner3)[3]; //~ hooke/history or hertz/history
   double (**shearpartner4)[4]; //~ shm/history
   double (**shearpartner5)[5]; //~ CM/history
-  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling  //~~ HMD or CMD model are added [MO - 23 July 2014]
+  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling  
   double (**shearpartner19)[19]; //~ shm/history with rolling
-  double (**shearpartner20)[20]; //~ CM/history with rolling
+  double (**shearpartner26)[26]; //~ HMD/history
+  double (**shearpartner24)[24]; //~ shm/history with D_spin
+  double (**shearpartner25)[25]; //~ CM/history with D_spin
+  double (**shearpartner46)[46]; //~ HMD/history with D_spin
 
   //~ ----------------- with energy tracing ----------------------
   double (**shearpartner7)[7]; //~ hooke/history or hertz/history
   double (**shearpartner8)[8]; //~ shm/history
   double (**shearpartner9)[9]; //~ CM/history
-  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling  //~~ HMD or CMD model are added [MO - 21 July 2014]
+  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
   double (**shearpartner23)[23]; //~ shm/history with rolling
-  double (**shearpartner24)[24]; //~ CM/history with rolling
+  double (**shearpartner30)[30]; //~ HMD/history
+  double (**shearpartner28)[28]; //~ shm/history with D_spin
+  double (**shearpartner29)[29]; //~ CM/history with D_spin
+  double (**shearpartner50)[50]; //~ HMD/history with D_spin
+
 
   int **firsttouch;
   double **firstshear;
@@ -112,8 +120,18 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
     case 19:
       shearpartner19 = fix_history->shearpartner19;
       break;
-    case 20:
-      shearpartner20 = fix_history->shearpartner20;
+      //~~  24, 25, 26, 46 were added [MO - 14 November 2014]
+    case 24:
+      shearpartner24 = fix_history->shearpartner24;
+      break;
+    case 25:
+      shearpartner25 = fix_history->shearpartner25;
+      break;
+    case 26:
+      shearpartner26 = fix_history->shearpartner26;
+      break;
+    case 46:
+      shearpartner46 = fix_history->shearpartner46;
       break;
     case 8:
       shearpartner8 = fix_history->shearpartner8;
@@ -130,9 +148,19 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
     case 23:
       shearpartner23 = fix_history->shearpartner23;
       break;
-    case 24:
-      shearpartner24 = fix_history->shearpartner24;
+    //~~ 28, 29, 30, 50 were added [MO - 14 November 2014]
+    case 28:
+      shearpartner28 = fix_history->shearpartner28;
       break;
+    case 29:
+      shearpartner29 = fix_history->shearpartner29;
+      break;
+    case 30:
+      shearpartner30 = fix_history->shearpartner30;
+      break;
+    case 50:
+      shearpartner50 = fix_history->shearpartner50;
+      break;  
     default:
       //~ If no cases matched, there is a problem
       error->all(FLERR,"Incorrect number of shear quantities");
@@ -274,25 +302,83 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 		shearptr[nn++] = 0.0;
 	    }
 	    break;
-	  case 20:
+	    //~~ 24, 25, 26, 46 were added [MO - 14 November 2014] 
+	  case 24:
     	    if (rsq < radsum*radsum) {
 	      for (m = 0; m < npartner[i]; m++)
 		if (partner[i][m] == tag[j]) break;
 	      if (m < npartner[i]) {
 		touchptr[n] = 1;
-		for (int kk = 0; kk < 20; kk++)
-		  shearptr[nn++] = shearpartner20[i][m][kk];
+		for (int kk = 0; kk < 24; kk++)
+		  shearptr[nn++] = shearpartner24[i][m][kk];
 	      } else {
 		touchptr[n] = 0;
-		for (int kk = 0; kk < 20; kk++)
+		for (int kk = 0; kk < 24; kk++)
 		  shearptr[nn++] = 0.0;
 	      }
 	    } else {
 	      touchptr[n] = 0;
-	      for (int kk = 0; kk < 20; kk++)
+	      for (int kk = 0; kk < 24; kk++)
 		shearptr[nn++] = 0.0;
 	    }
 	    break;
+	  case 25:
+    	    if (rsq < radsum*radsum) {
+	      for (m = 0; m < npartner[i]; m++)
+		if (partner[i][m] == tag[j]) break;
+	      if (m < npartner[i]) {
+		touchptr[n] = 1;
+		for (int kk = 0; kk < 25; kk++)
+		  shearptr[nn++] = shearpartner25[i][m][kk];
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 25; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	    } else {
+	      touchptr[n] = 0;
+	      for (int kk = 0; kk < 25; kk++)
+		shearptr[nn++] = 0.0;
+	    }
+	    break;
+	  case 26:
+    	    if (rsq < radsum*radsum) {
+	      for (m = 0; m < npartner[i]; m++)
+		if (partner[i][m] == tag[j]) break;
+	      if (m < npartner[i]) {
+		touchptr[n] = 1;
+		for (int kk = 0; kk < 26; kk++)
+		  shearptr[nn++] = shearpartner26[i][m][kk];
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 26; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	    } else {
+	      touchptr[n] = 0;
+	      for (int kk = 0; kk < 26; kk++)
+		shearptr[nn++] = 0.0;
+	    }
+	    break;  
+	  case 46:
+    	    if (rsq < radsum*radsum) {
+	      for (m = 0; m < npartner[i]; m++)
+		if (partner[i][m] == tag[j]) break;
+	      if (m < npartner[i]) {
+		touchptr[n] = 1;
+		for (int kk = 0; kk < 46; kk++)
+		  shearptr[nn++] = shearpartner46[i][m][kk];
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 46; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	    } else {
+	      touchptr[n] = 0;
+	      for (int kk = 0; kk < 46; kk++)
+		shearptr[nn++] = 0.0;
+	    }
+	    break;    
 	  case 8:
     	    if (rsq < radsum*radsum) {
 	      for (m = 0; m < npartner[i]; m++)
@@ -388,25 +474,83 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 		shearptr[nn++] = 0.0;
 	    }
 	    break;
-	  case 24:
+	  //~~ 28, 29, 30, 50 were added [MO - 14 November 2014] 
+	  case 28:
     	    if (rsq < radsum*radsum) {
 	      for (m = 0; m < npartner[i]; m++)
 		if (partner[i][m] == tag[j]) break;
 	      if (m < npartner[i]) {
 		touchptr[n] = 1;
-		for (int kk = 0; kk < 24; kk++)
-		  shearptr[nn++] = shearpartner24[i][m][kk];
+		for (int kk = 0; kk < 28; kk++)
+		  shearptr[nn++] = shearpartner28[i][m][kk];
 	      } else {
 		touchptr[n] = 0;
-		for (int kk = 0; kk < 24; kk++)
+		for (int kk = 0; kk < 28; kk++)
 		  shearptr[nn++] = 0.0;
 	      }
 	    } else {
 	      touchptr[n] = 0;
-	      for (int kk = 0; kk < 24; kk++)
+	      for (int kk = 0; kk < 28; kk++)
 		shearptr[nn++] = 0.0;
 	    }
 	    break;
+	  case 29:
+    	    if (rsq < radsum*radsum) {
+	      for (m = 0; m < npartner[i]; m++)
+		if (partner[i][m] == tag[j]) break;
+	      if (m < npartner[i]) {
+		touchptr[n] = 1;
+		for (int kk = 0; kk < 29; kk++)
+		  shearptr[nn++] = shearpartner29[i][m][kk];
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 29; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	    } else {
+	      touchptr[n] = 0;
+	      for (int kk = 0; kk < 29; kk++)
+		shearptr[nn++] = 0.0;
+	    }
+	    break;
+	  case 30:
+    	    if (rsq < radsum*radsum) {
+	      for (m = 0; m < npartner[i]; m++)
+		if (partner[i][m] == tag[j]) break;
+	      if (m < npartner[i]) {
+		touchptr[n] = 1;
+		for (int kk = 0; kk < 30; kk++)
+		  shearptr[nn++] = shearpartner30[i][m][kk];
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 30; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	    } else {
+	      touchptr[n] = 0;
+	      for (int kk = 0; kk < 30; kk++)
+		shearptr[nn++] = 0.0;
+	    }
+	    break;  
+	  case 50:
+    	    if (rsq < radsum*radsum) {
+	      for (m = 0; m < npartner[i]; m++)
+		if (partner[i][m] == tag[j]) break;
+	      if (m < npartner[i]) {
+		touchptr[n] = 1;
+		for (int kk = 0; kk < 50; kk++)
+		  shearptr[nn++] = shearpartner50[i][m][kk];
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 50; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	    } else {
+	      touchptr[n] = 0;
+	      for (int kk = 0; kk < 50; kk++)
+		shearptr[nn++] = 0.0;
+	    }
+	    break; 
 	  }
         }
 
@@ -545,13 +689,17 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
   tagint **partner;
   
   //~ As in granular_nsq_no_newton [KH - 9 January 2014]
+  //~~ several lines were added [MO - 14 November 2014]
   //~ ----------------- without energy tracing ----------------------
   double (**shearpartner3)[3]; //~ hooke/history or hertz/history
   double (**shearpartner4)[4]; //~ shm/history
   double (**shearpartner5)[5]; //~ CM/history
   double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling
   double (**shearpartner19)[19]; //~ shm/history with rolling
-  double (**shearpartner20)[20]; //~ CM/history with rolling
+  double (**shearpartner26)[26]; //~ HMD/history [MO - 14 November 2014]
+  double (**shearpartner24)[24]; //~ shm/history with D_spin [MO - 14 November 2014]
+  double (**shearpartner25)[25]; //~ CM/history with D_spin  [MO - 14 November 2014]
+  double (**shearpartner46)[46]; //~ HMD/history with D_spin [MO - 14 November 2014]
 
   //~ ----------------- with energy tracing ----------------------
   double (**shearpartner7)[7]; //~ hooke/history or hertz/history
@@ -559,7 +707,10 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
   double (**shearpartner9)[9]; //~ CM/history
   double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
   double (**shearpartner23)[23]; //~ shm/history with rolling
-  double (**shearpartner24)[24]; //~ CM/history with rolling
+  double (**shearpartner30)[30]; //~ HMD/history [MO - 14 November 2014]
+  double (**shearpartner28)[28]; //~ shm/history with D_spin [MO - 14 November 2014]
+  double (**shearpartner29)[29]; //~ CM/history with D_spin  [MO - 14 November 2014]
+  double (**shearpartner50)[50]; //~ HMD/history with D_spin [MO - 14 November 2014]	
 
   int **firsttouch;
   double **firstshear;
@@ -616,6 +767,20 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
     case 19:
       shearpartner19 = fix_history->shearpartner19;
       break;
+    // 24, 25, 26, 46 were added [MO - 14 November 2014]
+    case 24: 
+      shearpartner24 = fix_history->shearpartner24;
+      break;
+    case 25:
+      shearpartner25 = fix_history->shearpartner25;
+      break;
+    case 26:
+      shearpartner26 = fix_history->shearpartner26;
+      break;
+    case 46:
+      shearpartner46 = fix_history->shearpartner46;
+      break;
+      /////
     case 8:
       shearpartner8 = fix_history->shearpartner8;
       break;
@@ -631,8 +796,18 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
     case 23:
       shearpartner23 = fix_history->shearpartner23;
       break;
-    case 24:
-      shearpartner24 = fix_history->shearpartner24;
+    // 28, 29, 30, 50 were added [MO - 14 November 2014]
+    case 28:
+      shearpartner28 = fix_history->shearpartner28;
+      break;
+    case 29:
+      shearpartner29 = fix_history->shearpartner29;
+      break;
+    case 30:
+      shearpartner30 = fix_history->shearpartner30;
+      break;
+    case 50:
+      shearpartner50 = fix_history->shearpartner50;
       break;
     default:
       //~ If no cases matched, there is a problem
@@ -780,25 +955,84 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
 		  shearptr[nn++] = 0.0;
 	      }
 	      break;
-	    case 20:
+	    // 24, 25, 26, 46 were added [MO - 14 November 2014]
+	    case 24:
 	      if (rsq < radsum*radsum) {
 		for (m = 0; m < npartner[i]; m++)
 		  if (partner[i][m] == tag[j]) break;
 		if (m < npartner[i]) {
 		  touchptr[n] = 1;
-		  for (int kk = 0; kk < 20; kk++)
-		    shearptr[nn++] = shearpartner20[i][m][kk];
+		  for (int kk = 0; kk < 24; kk++)
+		    shearptr[nn++] = shearpartner24[i][m][kk];
 		} else {
 		  touchptr[n] = 0;
-		  for (int kk = 0; kk < 20; kk++)
+		  for (int kk = 0; kk < 24; kk++)
 		    shearptr[nn++] = 0.0;
 		}
 	      } else {
 		touchptr[n] = 0;
-		for (int kk = 0; kk < 20; kk++)
+		for (int kk = 0; kk < 24; kk++)
 		  shearptr[nn++] = 0.0;
 	      }
-	      break;
+	      break;  
+	     case 25:
+	      if (rsq < radsum*radsum) {
+		for (m = 0; m < npartner[i]; m++)
+		  if (partner[i][m] == tag[j]) break;
+		if (m < npartner[i]) {
+		  touchptr[n] = 1;
+		  for (int kk = 0; kk < 25; kk++)
+		    shearptr[nn++] = shearpartner25[i][m][kk];
+		} else {
+		  touchptr[n] = 0;
+		  for (int kk = 0; kk < 25; kk++)
+		    shearptr[nn++] = 0.0;
+		}
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 25; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	      break;  
+	    case 26:
+	      if (rsq < radsum*radsum) {
+		for (m = 0; m < npartner[i]; m++)
+		  if (partner[i][m] == tag[j]) break;
+		if (m < npartner[i]) {
+		  touchptr[n] = 1;
+		  for (int kk = 0; kk < 26; kk++)
+		    shearptr[nn++] = shearpartner26[i][m][kk];
+		} else {
+		  touchptr[n] = 0;
+		  for (int kk = 0; kk < 26; kk++)
+		    shearptr[nn++] = 0.0;
+		}
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 26; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	      break;    
+	     case 46:
+	      if (rsq < radsum*radsum) {
+		for (m = 0; m < npartner[i]; m++)
+		  if (partner[i][m] == tag[j]) break;
+		if (m < npartner[i]) {
+		  touchptr[n] = 1;
+		  for (int kk = 0; kk < 46; kk++)
+		    shearptr[nn++] = shearpartner46[i][m][kk];
+		} else {
+		  touchptr[n] = 0;
+		  for (int kk = 0; kk < 46; kk++)
+		    shearptr[nn++] = 0.0;
+		}
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 46; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	      break;    
+	    ////
 	    case 8:
 	      if (rsq < radsum*radsum) {
 		for (m = 0; m < npartner[i]; m++)
@@ -894,22 +1128,80 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
 		  shearptr[nn++] = 0.0;
 	      }
 	      break;
-	    case 24:
+	    // 28, 29, 30, 50 were added [MO - 14 November 2014]
+	    case 28:
 	      if (rsq < radsum*radsum) {
 		for (m = 0; m < npartner[i]; m++)
 		  if (partner[i][m] == tag[j]) break;
 		if (m < npartner[i]) {
 		  touchptr[n] = 1;
-		  for (int kk = 0; kk < 24; kk++)
-		    shearptr[nn++] = shearpartner24[i][m][kk];
+		  for (int kk = 0; kk < 28; kk++)
+		    shearptr[nn++] = shearpartner28[i][m][kk];
 		} else {
 		  touchptr[n] = 0;
-		  for (int kk = 0; kk < 24; kk++)
+		  for (int kk = 0; kk < 28; kk++)
 		    shearptr[nn++] = 0.0;
 		}
 	      } else {
 		touchptr[n] = 0;
-		for (int kk = 0; kk < 24; kk++)
+		for (int kk = 0; kk < 28; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	      break;  
+	     case 29:
+	      if (rsq < radsum*radsum) {
+		for (m = 0; m < npartner[i]; m++)
+		  if (partner[i][m] == tag[j]) break;
+		if (m < npartner[i]) {
+		  touchptr[n] = 1;
+		  for (int kk = 0; kk < 29; kk++)
+		    shearptr[nn++] = shearpartner29[i][m][kk];
+		} else {
+		  touchptr[n] = 0;
+		  for (int kk = 0; kk < 29; kk++)
+		    shearptr[nn++] = 0.0;
+		}
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 29; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	      break;    
+	    case 30:
+	      if (rsq < radsum*radsum) {
+		for (m = 0; m < npartner[i]; m++)
+		  if (partner[i][m] == tag[j]) break;
+		if (m < npartner[i]) {
+		  touchptr[n] = 1;
+		  for (int kk = 0; kk < 30; kk++)
+		    shearptr[nn++] = shearpartner30[i][m][kk];
+		} else {
+		  touchptr[n] = 0;
+		  for (int kk = 0; kk < 30; kk++)
+		    shearptr[nn++] = 0.0;
+		}
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 30; kk++)
+		  shearptr[nn++] = 0.0;
+	      }
+	      break;      
+	     case 50:
+	      if (rsq < radsum*radsum) {
+		for (m = 0; m < npartner[i]; m++)
+		  if (partner[i][m] == tag[j]) break;
+		if (m < npartner[i]) {
+		  touchptr[n] = 1;
+		  for (int kk = 0; kk < 50; kk++)
+		    shearptr[nn++] = shearpartner50[i][m][kk];
+		} else {
+		  touchptr[n] = 0;
+		  for (int kk = 0; kk < 50; kk++)
+		    shearptr[nn++] = 0.0;
+		}
+	      } else {
+		touchptr[n] = 0;
+		for (int kk = 0; kk < 50; kk++)
 		  shearptr[nn++] = 0.0;
 	      }
 	      break;

@@ -151,8 +151,8 @@ void PairGranShmHistory::compute(int eflag, int vflag)
   /*~ The number of shear quantities is 19 if rolling resistance
     is active [KH - 29 July 2013]*/
   /*~ Another 4 shear quantities were added for per-contact energy
-    tracing [KH - 6 March 2014]*/
-  int numshearquants = 4 + 15*rolling + 4*trace_energy;
+    tracing [KH - 6 March 2014]. Modified by MO [4 November 2014]*/
+  int numshearquants = 4 + 15*rolling + 20*D_spin + 4*trace_energy;
 
   //~ Use tags to consider contacts only once [KH - 28 February 2014]
   tagint *tag = atom->tag; 
@@ -348,6 +348,10 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	double effectivekt = kt*polyhertz;
 	double aveshearforce, slipdisp, oldshearforce, newshearforce;
 	double incdissipf, nstr, sstr, incrementaldisp, rkt;
+	
+	double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy,a,N;
+	a = polyhertz;
+	N = ccel*r;
 
 	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
 	  
@@ -358,6 +362,13 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	    rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
 			       fslim,effectivekt,torque,shear,dur,dus,localdM,
 			       globaldM);
+	  }
+
+	  //~~ Call function for twisting resistance model [MO - 04 November 2014]]
+	  if (D_spin && shearupdate) {
+	    Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
+				 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
+				 M_limit,Geq,Poiseq,Dspin_energy,a,N);
 	  }
 
 	  //~ Add contributions to traced energy [KH - 20 February 2014]
@@ -386,6 +397,12 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	    nstr = 0.4*kn*polyhertz*deltan*deltan;
 	    normalstrain += nstr;
 	    if (trace_energy) shear[5] = nstr;
+
+	     //~~ Update the spin contribution [MO - 13 November 2014]
+	    if (D_spin == 1) {
+	      spinenergy += Dspin_energy;
+	      if (trace_energy) shear[7] += Dspin_energy;
+	    }
 
 	    //~ The shear component does require incremental calculation
 	    if (shearupdate) {
@@ -436,10 +453,12 @@ void PairGranShmHistory::compute(int eflag, int vflag)
   }
 
   //~ Accumulate per-processor energy terms [KH - 17 October 2014]
-  gatheredf = gatheredss = 0.0;
+  //~~ Added for D_spin model [MO - 13 November 2014]
+  gatheredf = gatheredss = gatheredse = 0.0;
   if (pairenergy) {
     MPI_Allreduce(&dissipfriction,&gatheredf,1,MPI_DOUBLE,MPI_SUM,world);
     MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
+    MPI_Allreduce(&spinenergy,&gatheredse,1,MPI_DOUBLE,MPI_SUM,world);
   }
 }
 
@@ -497,7 +516,8 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
 
   /*~ The number of optional entries in svector for energy
     tracing and/or rolling resistance [KH - 6 March 2014]*/
-  int optionalq = 4*trace_energy + 27*rolling;
+  // D_spin was added [MO - 05 November 2014]
+  int optionalq = 4*trace_energy + 27*rolling + 27*D_spin;
 
   if (rsq >= radsum*radsum) {
     fforce = 0.0;
@@ -557,8 +577,8 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
   /*~ The number of shear quantities is 19 if rolling resistance
     is active [KH - 29 July 2014]*/
   /*~ Another 4 shear quantities were added for per-contact energy
-    tracing [KH - 6 March 2014]*/
-  int numshearquants = 4 + 15*rolling + 4*trace_energy;
+    tracing [KH - 6 March 2014]. Modified by MO [04 November 2014]*/
+  int numshearquants = 4 + 15*rolling + 20*D_spin + 4*trace_energy;
   double *shear = &allshear[numshearquants*neighprev];
 
   //~ Call function for rolling resistance model [KH - 30 October 2013]
@@ -576,6 +596,16 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
       called by the single function rather than the compute*/
     rolling_resistance(1,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
 		       fslim,effectivekt,torque,shear,dur,dus,localdM,globaldM);
+  }
+
+  double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy,a,N;
+   
+  //~~ Added for Deresiewicz1954_spin function [MO - 4 November 2014]
+  if (D_spin) {
+    a = polyhertz;
+    N = ccel*r;
+    Deresiewicz1954_spin(1,i,j,numshearquants,r,torque,shear,dspin_i,
+			 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,M_limit,Geq,Poiseq,Dspin_energy,a,N);
   }
 
   /*~ Some of the following are included only for convenience as
@@ -617,6 +647,31 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
     svector[nq+39] = shear[numshearquants-2]; //~ stored rolling (kappa+1)
     svector[nq+40] = shear[numshearquants-1]; //~ stored twisting (kappa+1)
   }
+  
+  //~ Add for the Deresiewicz1954_spin model [MO - 19 November 2014]
+  if (D_spin) {
+    for (int q = 0; q < 3; q++) {
+      svector[q+nq+14] = dspin_i[q]; // dspin_i
+      svector[q+nq+17] = shear[numshearquants-3+q]; // spin_i
+      svector[q+nq+22] = dM_i[q];
+      svector[q+nq+25] = shear[numshearquants-16+q];// M_i;
+    }
+    svector[nq+20] = dspin_stm; // system value 
+    svector[nq+21] = spin_stm;  // system value
+    svector[nq+28] = dM; // system value 
+    svector[nq+29] = shear[numshearquants-4]; // M, system value
+    svector[nq+30] = K_spin; 
+    svector[nq+31] = theta_r; 
+    svector[nq+32] = shear[numshearquants-12]; // step
+    svector[nq+33] = M_limit; 
+    svector[nq+34] = shear[numshearquants-5]; // M_star1
+    svector[nq+35] = shear[numshearquants-6]; // M_star2
+    svector[nq+36] = 0; 
+    svector[nq+37] = 0; 
+    svector[nq+38] = 0;
+    svector[nq+39] = 0;
+    svector[nq+40] = 0;
+  } 
 
   return 0.0;
 }
@@ -639,8 +694,8 @@ void PairGranShmHistory::init_style()
   /*~ Have 19 shear quantities if rolling resistance is included
     [KH - 29 July 2014]*/
   /*~ Another 4 shear quantities are needed for per-contact energy
-    tracing [KH - 6 March 2014]*/
-  int numshearquants = 4 + 15*rolling + 4*trace_energy;
+    tracing [KH - 6 March 2014]. Modified by MO [4 November 2014]*/
+  int numshearquants = 4 + 15*rolling + 20*D_spin + 4*trace_energy;
 
   // need a granular neigh list and optionally a granular history neigh list
 
@@ -792,8 +847,10 @@ void PairGranShmHistory::write_restart_settings(FILE *fp)
   fwrite(&xmu,sizeof(double),1,fp);
 
   //~ Added energy terms [KH - 28 February 2014]
+  //~~ Added for D_spin model [MO - 13 November 2014]
   fwrite(&gatheredf,sizeof(double),1,fp);
   fwrite(&gatheredss,sizeof(double),1,fp);
+  fwrite(&gatheredse,sizeof(double),1,fp);
 }
 
 /* ----------------------------------------------------------------------
@@ -812,8 +869,10 @@ void PairGranShmHistory::read_restart_settings(FILE *fp)
     /*~ Added energy terms. The total energy is read to the root
     proc and is NOT broadcast to all procs as only the total summed
     across all procs is of interest [KH - 28 February 2014]*/
+    //~~ Added for D_spin model [MO - 13 November 2014]
     fread(&dissipfriction,sizeof(double),1,fp);
     fread(&shearstrain,sizeof(double),1,fp);
+    fread(&spinenergy,sizeof(double),1,fp);
   }
   MPI_Bcast(&kn,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&kt,1,MPI_DOUBLE,0,world);

@@ -1728,7 +1728,8 @@ double Input::auto_timestep()
   int calc_method;
   if (force->pair_match("gran/hooke/history",1))
     calc_method = 1;
-  else if (force->pair_match("gran/hertz/history",1) || force->pair_match("gran/shm/history",1) || force->pair_match("gran/CM/history",1)|| force->pair_match("gran/HMD/history",1))
+  // Added for CM, HMD and CMD pairstyles [MO - 06 January 2015]
+  else if (force->pair_match("gran/hertz/history",1) || force->pair_match("gran/shm/history",1) || force->pair_match("gran/CM/history",1)|| force->pair_match("gran/HMD/history",1) || force->pair_match("gran/CMD/history",1))
     calc_method = 2;
   else error->all(FLERR,"A granular pairstyle with shear history must be defined before timestep auto");
 

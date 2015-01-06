@@ -77,6 +77,8 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
     pair = force->pair_match("gran/CM/history",1);
   else if (force->pair_match("gran/HMD/history",1))  // Added this [MO - 21 July 2014]
     pair = force->pair_match("gran/HMD/history",1);
+  else if (force->pair_match("gran/CMD/history",1))  // Added this [MO - 18 November 2014]
+    pair = force->pair_match("gran/CMD/history",1);
   else error->all(FLERR,"fix_write_insurance_shear_history not defined for the chosen pairstyle");
 
   int dim;  
@@ -87,14 +89,21 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
   int numshearquants = 3;
 
   //~ pair/gran/shm/history has 4 shear quantities
+  //~ pair/gran/CM/history has 5 shear quantities
+  //~ pair/gran/HMD/history has 26 shear quantities (also CMD)
   if (force->pair_match("shm",0)) numshearquants++;
   if (force->pair_match("CM",0)) numshearquants += 2;
-  if (force->pair_match("HMD",0)) numshearquants += 15;   // Added this [MO - 21 July 2014] 
+  if (force->pair_match("HMD",0)) numshearquants += 23;   
+  if (force->pair_match("CMD",0)) numshearquants += 23;  
 
   /*~ Adding a rolling resistance model causes the number of
     shear quantities to be increased by 15 [KH - 29 July 2014]*/
   int *rolling = (int *) pair->extract("rolling",dim);
   if (*rolling) numshearquants += 15;
+
+  // Added for D_spin model [MO - 13 November 2014]
+  int *D_spin = (int *) pair->extract("D_spin",dim);
+  if (*D_spin) numshearquants += 20;
 
   /*~ Per-contact energy tracing causes the number of shear quantities
     to increase by 4 [KH - 6 March 2014]*/

@@ -3571,6 +3571,10 @@ void Variable::peratom2global(int flag, char *word,
       else if (strcmp(word,"omegax") == 0) mine = atom->omega[index][0];
       else if (strcmp(word,"omegay") == 0) mine = atom->omega[index][1];
       else if (strcmp(word,"omegaz") == 0) mine = atom->omega[index][2];
+      // torquex, y and z are added [MO - 05 December 2014]
+      else if (strcmp(word,"torquex") == 0) mine = atom->torque[index][0];
+      else if (strcmp(word,"torquey") == 0) mine = atom->torque[index][1];
+      else if (strcmp(word,"torquez") == 0) mine = atom->torque[index][2];
       else if (strcmp(word,"q") == 0) {
         if (!atom->q_flag) 
           error->one(FLERR,"Variable uses atom property that isn't allocated");
