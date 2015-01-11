@@ -314,6 +314,7 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	  quantities were stored as 10000 instead of -1 and called with 'fabs', and changed to -1 
 	  again at the next step.[MO - 15 December 2014] */
 	//*****************************************************************************************
+
         // normal force = Hertzian contact 
 	double R_star = 1.0 / (1.0/radi + 1.0/radj);  // equivalent radius of spheres
 	double E_star = Geq/(1.0-Poiseq);             // equivalent Young's modulus at contact
@@ -382,22 +383,20 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	  // inter_product becomes negative if the direction of tangential loading changes
 	  inter_product = Tdisp1*Tdisp1_old + Tdisp2*Tdisp2_old + Tdisp3*Tdisp3_old;
 	  
-	  if (shearupdate){ 
-	    if (Tdisp_mag <= tolerance && fabs(Tdisp_old) <= tolerance){
-	      CTD = 1;                                     // when there is no shear disp at all.
-	      CDF = 1;
-	    }
-	    else if (Tdisp_mag > tolerance && fabs(Tdisp_old) <= tolerance){    
-	      CTD = 1;                                   // this is for the first increment of tangential displacement
-	      CDF = 1;
-	    }
-	    else if (inter_product >= 0.0)                   CTD *= 1;
-	    else if (inter_product < 0.0)                    CTD *= -1;
-	    else fprintf(screen,"Unexpected case occurred in zone A. ERROR!!");
-	    
-	    Tdisp =  CTD * Tdisp_mag;                      // give the sign for tangential displacement based on the value of the inter product 
-	    dTdisp = Tdisp - Tdisp_old;                    // dTdisp includes direction of tangential displacement (not magnitude)
+	  if (Tdisp_mag <= tolerance && fabs(Tdisp_old) <= tolerance){
+	    CTD = 1;                                     // when there is no shear disp at all.
+	    CDF = 1;
 	  }
+	  else if (Tdisp_mag > tolerance && fabs(Tdisp_old) <= tolerance){    
+	    CTD = 1;                                   // this is for the first increment of tangential displacement
+	    CDF = 1;
+	  }
+	  else if (inter_product >= 0.0)                   CTD *= 1;
+	  else if (inter_product < 0.0)                    CTD *= -1;
+	  else fprintf(screen,"Unexpected case occurred in zone A. ERROR!!");
+	  
+	  Tdisp =  CTD * Tdisp_mag;                      // give the sign for tangential displacement based on the value of the inter product 
+	  dTdisp = Tdisp - Tdisp_old;                    // dTdisp includes direction of tangential displacement (not magnitude)
 	}
 	else {
 	  dTdisp = Tdisp = Tdisp1 = Tdisp2 = Tdisp3 = Tdisp_mag = 0.0; // if xmu >=  0
@@ -625,17 +624,19 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	    normalstrain += nstr;
 	    if (trace_energy) shear[27] = nstr;
 
-	    //~~ Update the spin contribution [MO - 13 November 2014]
-	    if (D_spin == 1) {
-	      spinenergy += Dspin_energy;
-	      if (trace_energy) shear[29] += Dspin_energy;
+	    if (shearupdate) {
+	      //~~ Update the spin contribution [MO - 13 November 2014]
+	      if (D_spin) {
+		spinenergy += Dspin_energy;
+		if (trace_energy) shear[29] += Dspin_energy;
+	      }
+	      /* Full sliding can be considered as accumulation of partial slip for HMD model.
+		 Theoretically speaking, full sliding does not take place for HMD modle.
+		 Thus, shear strain energy here is summation of shear strain energy + friction energy for shm model.*/  
+	      sstr = 0.5*dTdisp*(T + T_temp);
+	      shearstrain += sstr;
+	      if (trace_energy) shear[28] += sstr;
 	    }
-	    /* Full sliding can be considered as accumulation of partial slip for HMD model.
-	       Theoretically speaking, full sliding does not take place for HMD modle.
-	       Thus, shear strain energy here is summation of shear strain energy + friction energy for shm model.*/  
-	    sstr = 0.5*dTdisp*(T + T_temp);
-	    shearstrain += sstr;
-	    if (trace_energy) shear[28] += sstr;
 	  }
 	}
 	//*********************************************************************************************************
@@ -686,16 +687,6 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	  T_star1 = 0.0;
 	  T_star2 = 0.0;
 	}
-  	//*********************************************************************************************************
-	/*output the values
-	  double lim = xmu*N;
-	  double slip = T/lim;
-	  double sp = Tdisp_DD;
-	  /*
-	  if (update->ntimestep % 10 == 0){
-	  if (tag[i] == 1)
-	  fprintf(screen,"timestep %i Tstep %i slip %1.6e K_R %1.6e theta_t %1.6e T* %1.6e Tdisp %1.6e T %1.6e dTdisp %1.6e T_old %1.6e Tdisp_DD %1.6e lim %1.6e Tdisp_DSC %1.6e dN %1.6e\n",update->ntimestep,T_step,slip,K_R,theta_t,T_star1,Tdisp,T,dTdisp,T_old,Tdisp_DD,-lim,Tdisp_DSC,dN);
-	  }*/
 	//*******************************************************************************************	    
 	/*~~ modified for MD model [MO - 17 July 2014] ~~*/
 	if (zero == 1)  Tdisp = Tdisp1 = Tdisp2 = Tdisp3 = 0.0;
@@ -704,27 +695,28 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	if (CTD == -1) CTD = 10000;
 	if (CDF == -1) CDF = 10000;
 
-	// shear[0], shear[1] and shear[2] are tangential force of x, y and z directions, respectively.
-	shear[3] = overlap;           // previous overlap
-	shear[4] = Tdisp;             // previous tangential displacement
-	shear[5] = Tdisp1;            // tangential displacement of x direction in the previous step
-	shear[6] = Tdisp2;            // tangential displacement of y direction in the previous step
-	shear[7] = Tdisp3;            // tangential displacement of z direction in the previous step
-       	shear[8] = T_star1;           // first reverse point of tangential load (T) from loading to unloading
-	shear[9] = T_star2;           // second reverse point of tangential load from unloading to re-loading
-	shear[10] = slip_T;           // if full slip is mobilized, slip_T = 1 (int 0 or 1);
-	shear[11] = CDF;              // CDF indicates wheather system is loading or unloading (int 1 or -1)       
-	shear[12] = T;                // tangential contact force 
-	shear[13] = Tdisp_DD;         // Tdisp_DD <= 0.0 should be satisfied to move on a new loading curve for N+dN 
-	shear[14] = CTD;              // +1 and -1 mean positive and negative shear disp, respectively (int 1 or -1)   
-	shear[15] = T_step;           // loading step (absolute values)
-	shear[16] = 0;       
-	shear[17] = a;
-	shear[18] = N;
-	shear[19] = 0;
-	shear[20] = 0;
-	shear[21] = ccel;
-
+	if (shearupdate) {
+	  // shear[0], shear[1] and shear[2] are tangential force of x, y and z directions, respectively.
+	  shear[3] = overlap;           // previous overlap
+	  shear[4] = Tdisp;             // previous tangential displacement
+	  shear[5] = Tdisp1;            // tangential displacement of x direction in the previous step
+	  shear[6] = Tdisp2;            // tangential displacement of y direction in the previous step
+	  shear[7] = Tdisp3;            // tangential displacement of z direction in the previous step
+	  shear[8] = T_star1;           // first reverse point of tangential load (T) from loading to unloading
+	  shear[9] = T_star2;           // second reverse point of tangential load from unloading to re-loading
+	  shear[10] = slip_T;           // if full slip is mobilized, slip_T = 1 (int 0 or 1);
+	  shear[11] = CDF;              // CDF indicates wheather system is loading or unloading (int 1 or -1)       
+	  shear[12] = T;                // tangential contact force 
+	  shear[13] = Tdisp_DD;         // Tdisp_DD <= 0.0 should be satisfied to move on a new loading curve for N+dN 
+	  shear[14] = CTD;              // +1 and -1 mean positive and negative shear disp, respectively (int 1 or -1)   
+	  shear[15] = T_step;           // loading step (absolute values)
+	  shear[16] = 0;       
+	  shear[17] = a;
+	  shear[18] = N;
+	  shear[19] = 0;
+	  shear[20] = 0;
+	  shear[21] = ccel;
+	}
         //*******************************************************************************************/
 
 	if (evflag) ev_tally_gran(i,j,nlocal,fx,fy,fz,x[i][0],x[i][1],x[i][2],

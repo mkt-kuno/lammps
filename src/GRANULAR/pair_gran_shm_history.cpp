@@ -399,7 +399,7 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	    if (trace_energy) shear[5] = nstr;
 
 	     //~~ Update the spin contribution [MO - 13 November 2014]
-	    if (D_spin == 1) {
+	    if (D_spin && shearupdate) {
 	      spinenergy += Dspin_energy;
 	      if (trace_energy) shear[7] += Dspin_energy;
 	    }

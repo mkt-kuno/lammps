@@ -344,7 +344,7 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	overlap_offset = overlap_max - overlap_hertz_max;   
 	//**************************************************************************
 	if (overlap >= overlap_GT) {
-	  if (overlap >= overlap_max - tolerance) N_step = 15;
+	  if (overlap >= (overlap_max - tolerance)) N_step = 15;
 	  else if (overlap < overlap_max) {
 	    if (overlap >= overlap_old) N_step = 35;
 	    else if (overlap < overlap_old) N_step = 25;
@@ -354,7 +354,7 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	  effectivekt = polyhertz*kt;
 	}
 	else if (overlap < overlap_GT) {
-	  if (overlap >= overlap_max - tolerance) { 
+	  if (overlap >= (overlap_max - tolerance)) { 
 	    N_step = 14;
 	    overlap_hertz = overlap - overlap_offset;
 	    polyhertz = sqrt(overlap_hertz*R_star);
@@ -366,9 +366,7 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	      if (overlap >= overlap_old) N_step = 36;
 	      else if (overlap < overlap_old) N_step = 26;
 	      // Particles are separated due to squahed asperities.
-	      overlap_hertz = tolerance;
-	      polyhertz = sqrt(overlap_hertz*R_star);    
-	      effectivekt = polyhertz*kt;
+	      overlap_hertz = polyhertz = effectivekt = 0.0;
 	    }
 	    else if (overlap >= overlap_offset){
 	      if (overlap >= overlap_old) N_step = 35;
@@ -379,27 +377,27 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	    }
 	  }
 	}
-	// Calculate ccel = N/r ******************
+	// Calculate ccel = N/r **********************
 	ccel = kn*overlap_hertz*rinv*polyhertz;
-	//****************************************
+	if (N_step == 26 || N_step == 36) ccel = 0.0;
+	//********************************************
                 	
 	//********************************************************************
 	// Calculation of normal strain energy
 	//********************************************************************	
 	double nstr, sstr;
-	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once		  
-	  //~ Add contributions to traced energy [KH - 20 February 2014]
-	  if (pairenergy) {  	    
-	    /*~ Normal contribution to strain energy doesn't need to be calculated incrementally*/
-	    /*~~ However, the hysterisys should be considered using CM model [MO - 18 Jun 2014] ~~*/
+	if (pairenergy ) { /*~ Normal contribution to strain energy doesn't need to be calculated incrementally*/
+	  if (j < nlocal || tag[j] < tag[i]) {  	    
+	    //~ Consider contacts only once		  
+	    //~ Add contributions to traced energy [KH - 20 February 2014]
 	    if(N_step == 14){        // 14 stands for loading on asperity contact   [MO - 18 Jun 2014]
 	      nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap,b+1.0);
 	    }
-	    if(N_step == 15){       
+	    else if(N_step == 15){       
 	      nstr = N_GT*overlap_GT*b1inv
 		-0.4*kn*sqrt(R_star)*(pow(overlap_GT-overlap_p,2.5)-pow(overlap-overlap_p,2.5));     
 	    }	    
-	    if(N_step == 26 || N_step == 36){  
+	    else if(N_step == 26 || N_step == 36){  
 	      if(overlap_max < overlap_GT){
 		nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap_max,b+1.0)
 		  -0.4*kn*sqrt(R_star)*pow(overlap_max-overlap_offset,2.5);
@@ -408,7 +406,7 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 		nstr = N_GT*overlap_GT*b1inv-0.4*kn*sqrt(R_star)*pow(overlap_GT-overlap_p,2.5);
 	      }
 	    }
-	    if(N_step == 25 || N_step == 35){ 
+	    else if(N_step == 25 || N_step == 35){ 
 	      if(overlap_max < overlap_GT){
 		nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap_max,b+1.0)
 		  -0.4*kn*sqrt(R_star)*(pow(overlap_max-overlap_offset,2.5)-pow(overlap-overlap_offset,2.5));      
@@ -489,23 +487,21 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	  // inter_product becomes negative if the direction of tangential loading changes
 	  inter_product = Tdisp1*Tdisp1_old + Tdisp2*Tdisp2_old + Tdisp3*Tdisp3_old;
 	  
-	  if (shearupdate){ 
-	    if (Tdisp_mag <= tolerance && fabs(Tdisp_old) <= tolerance){
-	      CTD = 1;                                     // when there is no shear disp at all.
-	      CDF = 1;
-	    }
-	    else if (Tdisp_mag > tolerance && fabs(Tdisp_old) <= tolerance){    
-	      CTD = 1;                                   // this is for the first increment of tangential displacement
-	      CDF = 1;
-	    }
-	    else if (inter_product >= 0.0)                   CTD *= 1;
-	    else if (inter_product < 0.0)                    CTD *= -1;
-	    else fprintf(screen,"Unexpected case occurred in zone A. ERROR!!");
-	    Tdisp =  CTD * Tdisp_mag;                      // sign for tangential displacement based on the value of the inter product 
-	    dTdisp = Tdisp - Tdisp_old;                    // dTdisp includes direction of tangential displacement (not magnitude)
+	  if (Tdisp_mag <= tolerance && fabs(Tdisp_old) <= tolerance){
+	    CTD = 1;                                     // when there is no shear disp at all.
+	    CDF = 1;
 	  }
+	  else if (Tdisp_mag > tolerance && fabs(Tdisp_old) <= tolerance){    
+	    CTD = 1;                                   // this is for the first increment of tangential displacement
+	    CDF = 1;
+	  }
+	  else if (inter_product >= 0.0)                   CTD *= 1;
+	  else if (inter_product < 0.0)                    CTD *= -1;
+	  else fprintf(screen,"Unexpected case occurred in zone A. ERROR!!");
+	  Tdisp =  CTD * Tdisp_mag;                      // sign for tangential displacement based on the value of the inter product 
+	  dTdisp = Tdisp - Tdisp_old;                    // dTdisp includes direction of tangential displacement (not magnitude)
 	}
-	else {
+      	else {
 	  dTdisp = Tdisp = Tdisp1 = Tdisp2 = Tdisp3 = Tdisp_mag = 0.0; // if xmu >=  0
 	  zero = 1;
 	}
@@ -664,7 +660,7 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	fs = fabs(T);                                  // re-use fs for re-scale the tangential force         
 	fs_ratio2 = fslim/fs;
 	T_temp = T;
-        if (fs > fslim) {
+        if (fs > fslim && N_step != 26 && N_step != 36) {
           if (fs > tolerance) {
 	    if (shearupdate) {
 	      T *= fs_ratio2;
@@ -706,25 +702,27 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
 	  //~ Add contributions to traced energy [KH - 20 February 2014]
 	  //~~ Call function for twisting resistance model [MO - 04 November 2014]
-	  if (D_spin && shearupdate) {
-	    Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
-				 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
-				 M_limit,Geq,Poiseq,Dspin_energy,a,N);
-	  }
-	  //~ Add contributions to traced energy [KH - 20 February 2014]
-	  if (pairenergy) {
-	    /* Full sliding can be considered as accumulation of partial slip for HMD model.
-	       Theoretically speaking, full sliding does not take place for HMD modle.
-	       Thus, shear strain energy here is summation of shear strain energy + friction for shm model.*/
-	    sstr = 0.5*dTdisp*(T + T_temp);
-	    shearstrain += sstr;
-	    if (trace_energy) shear[28] += sstr; // 26 is empty. 
-
-	    //~~ Update the spin contribution [MO - 13 November 2014]
-	    if (D_spin == 1) {
-	      spinenergy += Dspin_energy;
-	      if (trace_energy) shear[29] += Dspin_energy;
-	    }	    
+	  if (shearupdate) {
+	    if (D_spin) {
+	      Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
+				   dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
+				   M_limit,Geq,Poiseq,Dspin_energy,a,N);
+	    }
+	    //~ Add contributions to traced energy [KH - 20 February 2014]
+	    if (pairenergy) {
+	      /* Full sliding can be considered as accumulation of partial slip for HMD model.
+		 Theoretically speaking, full sliding does not take place for HMD modle.
+		 Thus, shear strain energy here is summation of shear strain energy + friction for shm model.*/
+	      sstr = 0.5*dTdisp*(T + T_temp);
+	      shearstrain += sstr;
+	      if (trace_energy) shear[28] += sstr; // 26 is empty. 
+	      
+	      //~~ Update the spin contribution [MO - 13 November 2014]
+	      if (D_spin) {
+		spinenergy += Dspin_energy;
+		if (trace_energy) shear[29] += Dspin_energy;
+	      }	    
+	    }
 	  }
 	}
 	//*************************************************************************************
@@ -780,26 +778,28 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	if (CTD == -1) CTD = 10000;
 	if (CDF == -1) CDF = 10000;
 
- 	// shear[0], shear[1] and shear[2] are tangential force of x, y and z directions, espectively.	
-	shear[3] = overlap;               // overlap
-	shear[4] = Tdisp;                 // tangential displacement
-	shear[5] = Tdisp1;                // tangential displacement of x direction 
-	shear[6] = Tdisp2;                // tangential displacement of y direction
-	shear[7] = Tdisp3;                // tangential displacement of z direction 
-       	shear[8] = T_star1;               // first reverse point of tangential load (T) from loading to unloading
-	shear[9] = T_star2;               // second reverse point of tangential load from unloading to re-loading
-	shear[10] = slip_T;               // if full slip is mobilized, slip_T = 1 (int);
-	shear[11] = CDF;                  // CDF indicates wheather system is loading or unloading //T_star4;       
-	shear[12] = T;                    // tangential contact force 
-	shear[13] = Tdisp_DD;             // Tdisp_DD <= 0.0 should be satisfied to move on a new loading curve for N+dN 
-	shear[14] = CTD;                  // +1 and -1 mean positive and negative shear disp, respectively.       
-	shear[15] = T_step;               // tangential contact force 
-	shear[16] = overlap_max;          // shear[3] in CM model
-	shear[17] = a;
-	shear[18] = N;
-	shear[19] = N_step;
-	shear[20] = overlap_hertz;
-	shear[21] = ccel;
+	if (shearupdate) {
+	  // shear[0], shear[1] and shear[2] are tangential force of x, y and z directions, espectively.	
+	  shear[3] = overlap;               // overlap
+	  shear[4] = Tdisp;                 // tangential displacement
+	  shear[5] = Tdisp1;                // tangential displacement of x direction 
+	  shear[6] = Tdisp2;                // tangential displacement of y direction
+	  shear[7] = Tdisp3;                // tangential displacement of z direction 
+	  shear[8] = T_star1;               // first reverse point of tangential load (T) from loading to unloading
+	  shear[9] = T_star2;               // second reverse point of tangential load from unloading to re-loading
+	  shear[10] = slip_T;               // if full slip is mobilized, slip_T = 1 (int);
+	  shear[11] = CDF;                  // CDF indicates wheather system is loading or unloading //T_star4;       
+	  shear[12] = T;                    // tangential contact force 
+	  shear[13] = Tdisp_DD;             // Tdisp_DD <= 0.0 should be satisfied to move on a new loading curve for N+dN 
+	  shear[14] = CTD;                  // +1 and -1 mean positive and negative shear disp, respectively.       
+	  shear[15] = T_step;               // tangential contact force 
+	  shear[16] = overlap_max;          // shear[3] in CM model
+	  shear[17] = a;
+	  shear[18] = N;
+	  shear[19] = N_step;
+	  shear[20] = overlap_hertz;
+	  shear[21] = ccel;
+	}
 	//*****************************************************************************************
        	
 	if (evflag) ev_tally_gran(i,j,nlocal,fx,fy,fz,x[i][0],x[i][1],x[i][2],
