@@ -408,50 +408,53 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 	double aveshearforce, slipdisp; //~ Required for energy
 	double incdissipf, nstr, sstr;
 
-	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
+	int consideronce = 0; //~ Consider contacts only once
+	if (j < nlocal || tag[j] < tag[i]) consideronce = 1;
 
-	  //~ Call function for rolling resistance model [KH - 25 October 2013]
-	  if (rolling && shearupdate) {
-	    /*~ The first '0' indicates that the rolling_resistance function is
-	      called by the compute rather than the single function*/
-	    rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
-			       fn,kt,torque,shear,dur,dus,localdM,globaldM);
+	//~ Call function for rolling resistance model [KH - 25 October 2013]
+	if (rolling && shearupdate && consideronce) {
+	  /*~ The first '0' indicates that the rolling_resistance function is
+	    called by the compute rather than the single function*/
+	  rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
+			     fn,kt,torque,shear,dur,dus,localdM,globaldM);
+	}
+
+	//~ Add contributions to traced energy [KH - 19 February 2014]
+	if (pairenergy) {
+	  /*~ Increment the friction energy only if the slip condition
+	    is invoked*/
+	  if (fs > fn && fn > 0.0) {
+	    //~~ Added to avoid enormous energy value [MO 22 October 2014]
+	    if (kt > 1.0e-30) slipdisp = (fs-fn)/kt;
+	    else slipdisp = 0.0;
+	    aveshearforce = 0.5*(fn + fs);
+
+	    //~ slipdisp and aveshearforce are both positive
+	    incdissipf = aveshearforce*slipdisp;
+	    if (consideronce) dissipfriction += incdissipf;
+	    if (trace_energy) shear[3] += incdissipf;
 	  }
 
-	  //~ Add contributions to traced energy [KH - 19 February 2014]
-	  if (pairenergy) {
-	    /*~ Increment the friction energy only if the slip condition
-	      is invoked*/
-	    if (fs > fn && fn > 0.0) {
-	      //~~ Added to avoid enormous energy value [MO 22 October 2014]
-	      if (kt > 1.0e-30) slipdisp = (fs-fn)/kt;
-	      else slipdisp = 0.0;
-	      aveshearforce = 0.5*(fn + fs);
+	  /*~ Update the strain energy terms which don't need to
+	    be calculated incrementally*/
+	  nstr = 0.5*kn*deltan*deltan;
+	  //~~ Added to avoid enormous energy value [MO 22 October 2014]
+	  if (kt > 1.0e-30) sstr = 0.5*(fs1*fs1 + fs2*fs2 + fs3*fs3)/kt;
+	  else sstr = 0.0;
 
-	      //~ slipdisp and aveshearforce are both positive
-	      incdissipf = aveshearforce*slipdisp;
-	      dissipfriction += incdissipf;
-	      if (trace_energy) shear[3] += incdissipf;
-	    }
-
-	    /*~ Update the strain energy terms which don't need to
-	      be calculated incrementally*/
-	    nstr = 0.5*kn*deltan*deltan;
-	    //~~ Added to avoid enormous energy value [MO 22 October 2014]
-	    if (kt > 1.0e-30) sstr = 0.5*(fs1*fs1 + fs2*fs2 + fs3*fs3)/kt;
-	    else sstr = 0.0;
+	  if (consideronce) {
 	    normalstrain += nstr;
 	    shearstrain += sstr;
+	  }
 
-	    if (trace_energy) {
-	      shear[4] = nstr;
-	      shear[5] = sstr;
-	    }
+	  if (trace_energy) {
+	    shear[4] = nstr;
+	    shear[5] = sstr;
 	  }
 	}
 
         if (evflag) ev_tally_gran(i,j,nlocal,fx,fy,fz,x[i][0],x[i][1],x[i][2],
-                                 radius[i],x[j][0],x[j][1],x[j][2],radius[j]);
+				  radius[i],x[j][0],x[j][1],x[j][2],radius[j]);
       }
     }
   }

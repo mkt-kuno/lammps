@@ -351,46 +351,46 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
 	double aveshearforce, slipdisp, oldsheardisp, incrementaldisp;
 	double incdissipf, nstr, sstr;
 
-	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
+	int consideronce = 0; //~ Consider contacts only once
+	if (j < nlocal || tag[j] < tag[i]) consideronce = 1;
 
-	  //~ Call function for rolling resistance model [KH - 25 October 2013]
-	  if (rolling && shearupdate) {
-	    /*~ The first '0' indicates that the rolling_resistance function is
-	      called by the compute rather than the single function*/
-	    rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
-			       fn,effectivekt,torque,shear,dur,dus,localdM,
-			       globaldM);
+	//~ Call function for rolling resistance model [KH - 25 October 2013]
+	if (rolling && shearupdate && consideronce) {
+	  /*~ The first '0' indicates that the rolling_resistance function is
+	    called by the compute rather than the single function*/
+	  rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
+			     fn,effectivekt,torque,shear,dur,dus,localdM,
+			     globaldM);
+	}
+
+	//~ Add contributions to traced energy [KH - 20 February 2014]
+	if (pairenergy) {
+	  /*~ Increment the friction energy only if the slip condition
+	    is invoked*/
+	  if (fs > fn && fn > 0.0) {
+	    //~ current shear displacement = fn/effectivekt;
+	    slipdisp = (fs-fn)/effectivekt;
+	    aveshearforce = 0.5*(fn + fs);
+	      
+	    //~ slipdisp and aveshearforce are both positive
+	    incdissipf = aveshearforce*slipdisp;
+	    if (consideronce) dissipfriction += incdissipf;
+	    if (trace_energy) shear[3] += incdissipf;
 	  }
 
-	  //~ Add contributions to traced energy [KH - 20 February 2014]
-	  if (pairenergy) {
-	    /*~ Increment the friction energy only if the slip condition
-	      is invoked*/
-	    if (fs > fn && fn > 0.0) {
-	      //~ current shear displacement = fn/effectivekt;
-	      slipdisp = (fs-fn)/effectivekt;
-	      aveshearforce = 0.5*(fn + fs);
-	      
-	      //~ slipdisp and aveshearforce are both positive
-	      incdissipf = aveshearforce*slipdisp;
-	      dissipfriction += incdissipf;
-	      if (trace_energy) shear[3] += incdissipf;
-	    }
+	  /*~ Update the normal contribution to strain energy which 
+	    doesn't need to be calculated incrementally*/
+	  nstr = 0.4*kn*polyhertz*deltan*deltan;
+	  if (consideronce) normalstrain += nstr;
+	  if (trace_energy) shear[4] = nstr;
 
-	    /*~ Update the normal contribution to strain energy which 
-	      doesn't need to be calculated incrementally*/
-	    nstr = 0.4*kn*polyhertz*deltan*deltan;
-	    normalstrain += nstr;
-	    if (trace_energy) shear[4] = nstr;
-
-	    //~ The shear component does require incremental calculation
-	    if (shearupdate) {
-	      oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
-	      incrementaldisp = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]) - oldsheardisp;
-	      sstr = 0.5*incrementaldisp*(2.0*sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3)-effectivekt*incrementaldisp);
-	      shearstrain += sstr;
-	      if (trace_energy) shear[5] += sstr;
-	    }
+	  //~ The shear component does require incremental calculation
+	  if (shearupdate) {
+	    oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
+	    incrementaldisp = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]) - oldsheardisp;
+	    sstr = 0.5*incrementaldisp*(2.0*sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3)-effectivekt*incrementaldisp);
+	    if (consideronce) shearstrain += sstr;
+	    if (trace_energy) shear[5] += sstr;
 	  }
 	}
 

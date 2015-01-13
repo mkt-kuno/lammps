@@ -403,85 +403,85 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 	a = polyhertz;
 	N = ccel*r;
 	
-	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
+	int consideronce = 0; //~ Consider contacts only once
+	if (j < nlocal || tag[j] < tag[i]) consideronce = 1;
 		  
-	  //~~ Call function for twisting resistance model [MO - 04 November 2014]
-	  if (D_spin && shearupdate) {
-	    Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
-				 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
-				 M_limit,Geq,Poiseq,Dspin_energy,a,N);
-	  }
+	//~~ Call function for twisting resistance model [MO - 04 November 2014]
+	if (D_spin && shearupdate && consideronce) {
+	  Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
+			       dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
+			       M_limit,Geq,Poiseq,Dspin_energy,a,N);
+	}
 	   
-	  //~ Add contributions to traced energy [KH - 20 February 2014]
-	  if (pairenergy) {	   	    	    
-	    /*~ Update the normal contribution to strain energy which 
-	      doesn't need to be calculated incrementally*/
-	    /*~~ However, the hysterisys should be considered using CM model [MO - 18 Jun 2014] ~~*/
-	    if(N_step == 14){        // 14 stands for loading on asperity contact   [MO - 18 Jun 2014]
-	      nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap,b+1.0);
+	//~ Add contributions to traced energy [KH - 20 February 2014]
+	if (pairenergy) {	   	    	    
+	  /*~ Update the normal contribution to strain energy which 
+	    doesn't need to be calculated incrementally*/
+	  /*~~ However, the hysterisys should be considered using CM model [MO - 18 Jun 2014] ~~*/
+	  if(N_step == 14){        // 14 stands for loading on asperity contact   [MO - 18 Jun 2014]
+	    nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap,b+1.0);
+	  }
+	  else if(N_step == 15){        // *5 stands for hertzian contact   [MO - 18 Jun 2014]
+	    // overlap-overlap_p for Hertzian curve [MO - 18 Jun 2014]
+	    nstr = N_GT*overlap_GT*b1inv
+	      -0.4*kn*sqrt(R_star)*(pow(overlap_GT-overlap_p,2.5)-pow(overlap-overlap_p,2.5));     
+	  }	    
+	  else if(N_step == 26 || N_step == 36){   
+	    // 2* and 3* stand for unloading and reloading. *6 means ccel = 0.0 [MO - 18 Jun 2014] 
+	    if(overlap_max < overlap_GT){
+	      nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap_max,b+1.0)
+		-0.4*kn*sqrt(R_star)*pow(overlap_max - overlap_offset,2.5);
 	    }
-	    else if(N_step == 15){        // *5 stands for hertzian contact   [MO - 18 Jun 2014]
-	      // overlap-overlap_p for Hertzian curve [MO - 18 Jun 2014]
-	      nstr = N_GT*overlap_GT*b1inv
-		-0.4*kn*sqrt(R_star)*(pow(overlap_GT-overlap_p,2.5)-pow(overlap-overlap_p,2.5));     
+	    if(overlap_max >= overlap_GT){
+	      nstr = N_GT*overlap_GT*b1inv-0.4*kn*sqrt(R_star)*pow(overlap_GT-overlap_p,2.5);
+	    }
+	  }
+	  else if(N_step == 25 || N_step == 35){        // *5 stands for hertzian contact [MO - 18 Jun 2014]
+	    // overlap-overlap_offset for Hertzian contact [MO - 18 Jun 2014]
+	    if(overlap_max < overlap_GT){
+	      nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap_max,b+1.0)
+		-0.4*kn*sqrt(R_star)*(pow(overlap_max-overlap_offset,2.5)-pow(overlap-overlap_offset,2.5));      
 	    }	    
-	    else if(N_step == 26 || N_step == 36){   
-	      // 2* and 3* stand for unloading and reloading. *6 means ccel = 0.0 [MO - 18 Jun 2014] 
-	      if(overlap_max < overlap_GT){
-		nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap_max,b+1.0)
-		  -0.4*kn*sqrt(R_star)*pow(overlap_max - overlap_offset,2.5);
-	      }
-	      if(overlap_max >= overlap_GT){
-		nstr = N_GT*overlap_GT*b1inv-0.4*kn*sqrt(R_star)*pow(overlap_GT-overlap_p,2.5);
-	      }
+	    if(overlap_max >= overlap_GT){
+	      nstr = N_GT*overlap_GT*b1inv
+		-0.4*kn*sqrt(R_star)*(pow(overlap_GT-overlap_p,2.5)-pow(overlap-overlap_p,2.5));
 	    }
-	    else if(N_step == 25 || N_step == 35){        // *5 stands for hertzian contact [MO - 18 Jun 2014]
-	      // overlap-overlap_offset for Hertzian contact [MO - 18 Jun 2014]
-	      if(overlap_max < overlap_GT){
-		nstr = N_GT*b1inv*pow(overlap_GT,-b)*pow(overlap_max,b+1.0)
-		  -0.4*kn*sqrt(R_star)*(pow(overlap_max-overlap_offset,2.5)-pow(overlap-overlap_offset,2.5));      
-	      }	    
-	      if(overlap_max >= overlap_GT){
-		nstr = N_GT*overlap_GT*b1inv
-		  -0.4*kn*sqrt(R_star)*(pow(overlap_GT-overlap_p,2.5)-pow(overlap-overlap_p,2.5));
-	      }
-	    }
-	    normalstrain += nstr;
-	    if (trace_energy) shear[6] = nstr;
+	  }
+	  if (consideronce) normalstrain += nstr;
+	  if (trace_energy) shear[6] = nstr;
 
-	    /*~ Increment the friction energy only if the slip condition
-	      is invoked*/
-	    if (fs > fslim && fslim > 0.0) {
-	      //~ current shear displacement = fslim/effectivekt;	      
-	      //~~ Added to avoid enormous energy value [MO - 22 October 2014]
-	      if (effectivekt > tolerance) slipdisp = (fs-fslim)/effectivekt;
-	      else slipdisp = 0.0;
-	      aveshearforce = 0.5*(fs + fslim);
-	      //~ slipdisp and aveshearforce are both positive
-	      incdissipf = aveshearforce*slipdisp;
-	      if (N_step == 26 || N_step == 36) incdissipf = 0.0;
-	      dissipfriction += incdissipf;
-	      if (trace_energy) shear[5] += incdissipf;
-	    }
+	  /*~ Increment the friction energy only if the slip condition
+	    is invoked*/
+	  if (fs > fslim && fslim > 0.0) {
+	    //~ current shear displacement = fslim/effectivekt;	      
+	    //~~ Added to avoid enormous energy value [MO - 22 October 2014]
+	    if (effectivekt > tolerance) slipdisp = (fs-fslim)/effectivekt;
+	    else slipdisp = 0.0;
+	    aveshearforce = 0.5*(fs + fslim);
+	    //~ slipdisp and aveshearforce are both positive
+	    incdissipf = aveshearforce*slipdisp;
+	    if (N_step == 26 || N_step == 36) incdissipf = 0.0;
+	    if (consideronce) dissipfriction += incdissipf;
+	    if (trace_energy) shear[5] += incdissipf;
+	  }
 
-	    //~~ Update the spin contribution [MO - 13 November 2014]
-	    if (D_spin && shearupdate) {
-	      spinenergy += Dspin_energy;
-	      if (trace_energy) shear[8] += Dspin_energy;
-	    }
+	  //~~ Update the spin contribution [MO - 13 November 2014]
+	  if (D_spin && shearupdate) {
+	    if (consideronce) spinenergy += Dspin_energy;
+	    if (trace_energy) shear[8] += Dspin_energy;
+	  }
 
-	    //~ The shear component does require incremental calculation
-	    if (shearupdate) {
-	      oldshearforce = sqrt(shsqmag);
-	      newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-	      //~~ Added to avoid enormous energy value [MO 22 October 2014]
-	      if (effectivekt > tolerance) incrementaldisp = (newshearforce - oldshearforce)/effectivekt;   
-	      else incrementaldisp = 0.0; // because no incremental shear force [MO - 21 July 2014]
-	      sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
-	      if (N_step == 26 || N_step == 36) sstr = 0.0;
-	      shearstrain += sstr;
-	      if (trace_energy) shear[7] += sstr;
-	    }
+	  //~ The shear component does require incremental calculation
+	  if (shearupdate) {
+	    oldshearforce = sqrt(shsqmag);
+	    newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+	    //~~ Added to avoid enormous energy value [MO 22 October 2014]
+	    if (effectivekt > tolerance) incrementaldisp = (newshearforce - oldshearforce)/effectivekt;   
+	    else incrementaldisp = 0.0; // because no incremental shear force [MO - 21 July 2014]
+	    sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
+	    if (N_step == 26 || N_step == 36) sstr = 0.0;
+	    if (consideronce) shearstrain += sstr;
+	    if (trace_energy) shear[7] += sstr;
 	  }
 	}
 	

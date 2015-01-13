@@ -353,92 +353,92 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	a = polyhertz;
 	N = ccel*r;
 
-	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
+	int consideronce = 0; //~ Consider contacts only once
+	if (j < nlocal || tag[j] < tag[i]) consideronce = 1;
 	  
-	  //~ Call function for rolling resistance model [KH - 25 October 2013]
-	  if (rolling && shearupdate) {
-	    /*~ The first '0' indicates that the rolling_resistance function is
-	      called by the compute rather than the single function*/
-	    rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
-			       fslim,effectivekt,torque,shear,dur,dus,localdM,
-			       globaldM);
-	  }
+	//~ Call function for rolling resistance model [KH - 25 October 2013]
+	if (rolling && shearupdate && consideronce) {
+	  /*~ The first '0' indicates that the rolling_resistance function is
+	    called by the compute rather than the single function*/
+	  rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
+			     fslim,effectivekt,torque,shear,dur,dus,localdM,
+			     globaldM);
+	}
 
-	  //~~ Call function for twisting resistance model [MO - 04 November 2014]]
-	  if (D_spin && shearupdate) {
-	    Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
-				 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
-				 M_limit,Geq,Poiseq,Dspin_energy,a,N);
-	  }
+	//~~ Call function for twisting resistance model [MO - 04 November 2014]]
+	if (D_spin && shearupdate && consideronce) {
+	  Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
+			       dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
+			       M_limit,Geq,Poiseq,Dspin_energy,a,N);
+	}
 
-	  //~ Add contributions to traced energy [KH - 20 February 2014]
-	  if (pairenergy) {
-	    //~ Ensure rkt cannot become infinite [KH - 21 October 2014]
-	    if (effectivekt > 1.0e-30) rkt = 1.0/effectivekt;
-	    else rkt = 0.0;
-	    /*~~ A tiny effective kt should reult in a negligile energy.rkt=0 is reasonable 
+	//~ Add contributions to traced energy [KH - 20 February 2014]
+	if (pairenergy) {
+	  //~ Ensure rkt cannot become infinite [KH - 21 October 2014]
+	  if (effectivekt > 1.0e-30) rkt = 1.0/effectivekt;
+	  else rkt = 0.0;
+	  /*~~ A tiny effective kt should reult in a negligile energy.rkt=0 is reasonable 
 	    under this circumstance to avoid an enormous energy value [MO - 22 October 2014]~~*/
 
-	    /*~ Increment the friction energy only if the slip condition
-	      is invoked*/
-	    if (fs > fslim && fslim > 0.0) {
-	      //~ current shear displacement = fslim/effectivekt;
-	      slipdisp = rkt*(fs-fslim);
-	      aveshearforce = 0.5*(fs + fslim);
+	  /*~ Increment the friction energy only if the slip condition
+	    is invoked*/
+	  if (fs > fslim && fslim > 0.0) {
+	    //~ current shear displacement = fslim/effectivekt;
+	    slipdisp = rkt*(fs-fslim);
+	    aveshearforce = 0.5*(fs + fslim);
 
-	      //~ slipdisp and aveshearforce are both positive
-	      incdissipf = aveshearforce*slipdisp;
-	      dissipfriction += incdissipf;
-	      if (trace_energy) shear[4] += incdissipf;
-	    }
+	    //~ slipdisp and aveshearforce are both positive
+	    incdissipf = aveshearforce*slipdisp;
+	    if (consideronce) dissipfriction += incdissipf;
+	    if (trace_energy) shear[4] += incdissipf;
+	  }
 
-	    /*~ Update the normal contribution to strain energy which 
-	      doesn't need to be calculated incrementally*/
-	    nstr = 0.4*kn*polyhertz*deltan*deltan;
-	    normalstrain += nstr;
-	    if (trace_energy) shear[5] = nstr;
+	  /*~ Update the normal contribution to strain energy which 
+	    doesn't need to be calculated incrementally*/
+	  nstr = 0.4*kn*polyhertz*deltan*deltan;
+	  if (consideronce) normalstrain += nstr;
+	  if (trace_energy) shear[5] = nstr;
 
-	     //~~ Update the spin contribution [MO - 13 November 2014]
-	    if (D_spin && shearupdate) {
-	      spinenergy += Dspin_energy;
-	      if (trace_energy) shear[7] += Dspin_energy;
-	    }
+	  //~~ Update the spin contribution [MO - 13 November 2014]
+	  if (D_spin && shearupdate) {
+	    if (consideronce) spinenergy += Dspin_energy;
+	    if (trace_energy) shear[7] += Dspin_energy;
+	  }
 
-	    //~ The shear component does require incremental calculation
-	    if (shearupdate) {
-	      oldshearforce = sqrt(shsqmag);
-	      newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-	      incrementaldisp = rkt*(newshearforce - oldshearforce);
-	      sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
-	      shearstrain += sstr;
-	      if (trace_energy) shear[6] += sstr;
+	  //~ The shear component does require incremental calculation
+	  if (shearupdate) {
+	    oldshearforce = sqrt(shsqmag);
+	    newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+	    incrementaldisp = rkt*(newshearforce - oldshearforce);
+	    sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
+	    if (consideronce) shearstrain += sstr;
+	    if (trace_energy) shear[6] += sstr;
 
-	      /*~ If Colin Thornton's shear force rescaling has been used,
-		the adjustment made to the energy is added to dissipfriction
-		so that energy will still be balanced [KH - 12 March 2014]*/
-	      double fsunscaled[3], fsunscaledmag, a, b, c;
-	      double d = 0.0;
-	      if (ctcorrection) {
-		//~ Guard against division by tiny polyhertz [KH - 23 October 2014]
-		polyhertz > 1.0e-30 ? b = shear[3]/polyhertz : b = 0.0;
-		fs > fslim ? a = b*fs/fslim : a = b;
-		c = effectivekt*dt*(b - 1.0);
+	    /*~ If Colin Thornton's shear force rescaling has been used,
+	      the adjustment made to the energy is added to dissipfriction
+	      so that energy will still be balanced [KH - 12 March 2014]*/
+	    double fsunscaled[3], fsunscaledmag, a, b, c;
+	    double d = 0.0;
+	    if (ctcorrection) {
+	      //~ Guard against division by tiny polyhertz [KH - 23 October 2014]
+	      polyhertz > 1.0e-30 ? b = shear[3]/polyhertz : b = 0.0;
+	      fs > fslim ? a = b*fs/fslim : a = b;
+	      c = effectivekt*dt*(b - 1.0);
 
-		fsunscaled[0] = a*shear[0] + c*vtr1;
-		fsunscaled[1] = a*shear[1] + c*vtr2;
-		fsunscaled[2] = a*shear[2] + c*vtr3;
-		fsunscaledmag = sqrt(fsunscaled[0]*fsunscaled[0] + fsunscaled[1]*fsunscaled[1] + fsunscaled[2]*fsunscaled[2]);
+	      fsunscaled[0] = a*shear[0] + c*vtr1;
+	      fsunscaled[1] = a*shear[1] + c*vtr2;
+	      fsunscaled[2] = a*shear[2] + c*vtr3;
+	      fsunscaledmag = sqrt(fsunscaled[0]*fsunscaled[0] + fsunscaled[1]*fsunscaled[1] + fsunscaled[2]*fsunscaled[2]);
 	
-		//~ Guard against division by tiny fsunscaledmag [KH - 23 October 2014]
-		if (fs > fslim && fslim > 0.0 && fsunscaledmag > 1.0e-30) {
-		  d += 0.5*rkt*(fsunscaledmag + fslim)*(fsunscaledmag - fslim) - incdissipf;
-		  fsunscaledmag *= fslim/fsunscaledmag;
-		}
-
-		d += 0.5*rkt*(fsunscaledmag - oldshearforce)*(fsunscaledmag + oldshearforce) - sstr;
-		dissipfriction += d;
-		if (trace_energy) shear[4] += d;
+	      //~ Guard against division by tiny fsunscaledmag [KH - 23 October 2014]
+	      if (fs > fslim && fslim > 0.0 && fsunscaledmag > 1.0e-30) {
+		d += 0.5*rkt*(fsunscaledmag + fslim)*(fsunscaledmag - fslim) - incdissipf;
+		fsunscaledmag *= fslim/fsunscaledmag;
 	      }
+
+	      d += 0.5*rkt*(fsunscaledmag - oldshearforce)*(fsunscaledmag + oldshearforce) - sstr;
+	      if (consideronce) dissipfriction += d;
+	      if (trace_energy) shear[4] += d;
 	    }
 	  }
 	}

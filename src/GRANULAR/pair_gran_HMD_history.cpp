@@ -609,34 +609,35 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	double nstr, sstr;
 	double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy;
 	
-	if (j < nlocal || tag[j] < tag[i]) {//~ Consider contacts only once
-	  //~~ Call function for twisting resistance model [MO - 04 November 2014]]
-	  if (D_spin && shearupdate) {
-	    Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
-				 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
-				 M_limit,Geq,Poiseq,Dspin_energy,a,N);
-	  }	  
-	  //~ Add contributions to traced energy [KH - 20 February 2014]
-	  if (pairenergy) {
-	    /*~ Update the normal contribution to strain energy which 
-	      doesn't need to be calculated incrementally*/
-	    nstr = 0.4*kn*a*overlap*overlap;                             // peviously, nstr = 0.4*kn*polyhertz*deltan*deltan;
-	    normalstrain += nstr;
-	    if (trace_energy) shear[27] = nstr;
+	int consideronce = 0; //~ Consider contacts only once
+	if (j < nlocal || tag[j] < tag[i]) consideronce = 1;
 
-	    if (shearupdate) {
-	      //~~ Update the spin contribution [MO - 13 November 2014]
-	      if (D_spin) {
-		spinenergy += Dspin_energy;
-		if (trace_energy) shear[29] += Dspin_energy;
-	      }
-	      /* Full sliding can be considered as accumulation of partial slip for HMD model.
-		 Theoretically speaking, full sliding does not take place for HMD modle.
-		 Thus, shear strain energy here is summation of shear strain energy + friction energy for shm model.*/  
-	      sstr = 0.5*dTdisp*(T + T_temp);
-	      shearstrain += sstr;
-	      if (trace_energy) shear[28] += sstr;
+	//~~ Call function for twisting resistance model [MO - 04 November 2014]]
+	if (D_spin && shearupdate && consideronce) {
+	  Deresiewicz1954_spin(0,i,j,numshearquants,r,torque,shear,dspin_i,
+			       dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
+			       M_limit,Geq,Poiseq,Dspin_energy,a,N);
+	}	  
+	//~ Add contributions to traced energy [KH - 20 February 2014]
+	if (pairenergy) {
+	  /*~ Update the normal contribution to strain energy which 
+	    doesn't need to be calculated incrementally*/
+	  nstr = 0.4*kn*a*overlap*overlap;                             // peviously, nstr = 0.4*kn*polyhertz*deltan*deltan;
+	  if (consideronce) normalstrain += nstr;
+	  if (trace_energy) shear[27] = nstr;
+
+	  if (shearupdate) {
+	    //~~ Update the spin contribution [MO - 13 November 2014]
+	    if (D_spin) {
+	      if (consideronce) spinenergy += Dspin_energy;
+	      if (trace_energy) shear[29] += Dspin_energy;
 	    }
+	    /* Full sliding can be considered as accumulation of partial slip for HMD model.
+	       Theoretically speaking, full sliding does not take place for HMD modle.
+	       Thus, shear strain energy here is summation of shear strain energy + friction energy for shm model.*/  
+	    sstr = 0.5*dTdisp*(T + T_temp);
+	    if (consideronce) shearstrain += sstr;
+	    if (trace_energy) shear[28] += sstr;
 	  }
 	}
 	//*********************************************************************************************************
