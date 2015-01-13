@@ -565,13 +565,12 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
 
   int *jlist = list->firstneigh[i];
   int jnum = list->numneigh[i];
-  int *touch = list->listgranhistory->firstneigh[i];
   double *allshear = list->listgranhistory->firstdouble[i];
 
   for (int jj = 0; jj < jnum; jj++) {
     neighprev++;
     if (neighprev >= jnum) neighprev = 0;
-    if (touch[neighprev] == j) break;
+    if (jlist[neighprev] == j) break;
   }
 
   /*~ The number of shear quantities is 19 if rolling resistance
