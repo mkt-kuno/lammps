@@ -50,7 +50,7 @@ FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
 
   //~ pair/gran/shm/history has 4 shear quantities
   if (force->pair_match("shm",0)) numshearquants++;
-  if (force->pair_match("CM",0)) numshearquants += 2;
+  if (force->pair_match("gran/CM/history",1)) numshearquants += 2;
   if (force->pair_match("HMD",0)) numshearquants += 23; //Increased [MO - 14 November 2014]  
   if (force->pair_match("CMD",0)) numshearquants += 23; //Added [MO - 18 November 2014]  
   /*~ Adding a rolling resistance model causes the number of

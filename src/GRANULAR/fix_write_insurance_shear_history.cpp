@@ -92,7 +92,7 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
   //~ pair/gran/CM/history has 5 shear quantities
   //~ pair/gran/HMD/history has 26 shear quantities (also CMD)
   if (force->pair_match("shm",0)) numshearquants++;
-  if (force->pair_match("CM",0)) numshearquants += 2;
+  if (force->pair_match("gran/CM/history",1)) numshearquants += 2;
   if (force->pair_match("HMD",0)) numshearquants += 23;   
   if (force->pair_match("CMD",0)) numshearquants += 23;  
 
