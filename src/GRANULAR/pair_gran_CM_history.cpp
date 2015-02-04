@@ -457,7 +457,8 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 	    //~~ Added to avoid enormous energy value [MO - 22 October 2014]
 	    if (effectivekt > tolerance) slipdisp = (fs-fslim)/effectivekt;
 	    else slipdisp = 0.0;
-	    aveshearforce = 0.5*(fs + fslim);
+	    oldshearforce = sqrt(shsqmag);
+	    aveshearforce = 0.5*(oldshearforce + fslim);
 	    //~ slipdisp and aveshearforce are both positive
 	    incdissipf = aveshearforce*slipdisp;
 	    if (N_step == 26 || N_step == 36) incdissipf = 0.0;
@@ -473,7 +474,6 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 
 	  //~ The shear component does require incremental calculation
 	  if (shearupdate) {
-	    oldshearforce = sqrt(shsqmag);
 	    newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
 	    //~~ Added to avoid enormous energy value [MO 22 October 2014]
 	    if (effectivekt > tolerance) incrementaldisp = (newshearforce - oldshearforce)/effectivekt;   

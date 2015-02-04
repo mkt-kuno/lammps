@@ -385,7 +385,8 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	  if (fs > fslim && fslim > 0.0) {
 	    //~ current shear displacement = fslim/effectivekt;
 	    slipdisp = rkt*(fs-fslim);
-	    aveshearforce = 0.5*(fs + fslim);
+	    oldshearforce = sqrt(shsqmag);
+	    aveshearforce = 0.5*(oldshearforce + fslim);
 
 	    //~ slipdisp and aveshearforce are both positive
 	    incdissipf = aveshearforce*slipdisp;
@@ -407,7 +408,6 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 
 	  //~ The shear component does require incremental calculation
 	  if (shearupdate) {
-	    oldshearforce = sqrt(shsqmag);
 	    newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
 	    incrementaldisp = rkt*(newshearforce - oldshearforce);
 	    sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);

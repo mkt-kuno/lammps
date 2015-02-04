@@ -370,7 +370,8 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
 	  if (fs > fn && fn > 0.0) {
 	    //~ current shear displacement = fn/effectivekt;
 	    slipdisp = (fs-fn)/effectivekt;
-	    aveshearforce = 0.5*(fn + fs);
+	    oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
+	    aveshearforce = 0.5*(fn + polyhertz*kt*oldsheardisp);
 	      
 	    //~ slipdisp and aveshearforce are both positive
 	    incdissipf = aveshearforce*slipdisp;
@@ -386,7 +387,6 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
 
 	  //~ The shear component does require incremental calculation
 	  if (shearupdate) {
-	    oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
 	    incrementaldisp = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]) - oldsheardisp;
 	    sstr = 0.5*incrementaldisp*(2.0*sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3)-effectivekt*incrementaldisp);
 	    if (consideronce) shearstrain += sstr;

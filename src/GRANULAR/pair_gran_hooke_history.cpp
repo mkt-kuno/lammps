@@ -329,6 +329,7 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 
         touch[jj] = 1;
         shear = &allshear[numshearquants*jj];
+	double oldfs = kt*sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
 
         if (shearupdate) {
           shear[0] += vtr1*dt;
@@ -427,7 +428,7 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 	    //~~ Added to avoid enormous energy value [MO 22 October 2014]
 	    if (kt > 1.0e-30) slipdisp = (fs-fn)/kt;
 	    else slipdisp = 0.0;
-	    aveshearforce = 0.5*(fn + fs);
+	    aveshearforce = 0.5*(fn + oldfs);
 
 	    //~ slipdisp and aveshearforce are both positive
 	    incdissipf = aveshearforce*slipdisp;
