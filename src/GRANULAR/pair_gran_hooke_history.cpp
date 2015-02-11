@@ -330,7 +330,6 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
         touch[jj] = 1;
         shear = &allshear[numshearquants*jj];
 	double oldfs = kt*sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-
         if (shearupdate) {
           shear[0] += vtr1*dt;
           shear[1] += vtr2*dt;
@@ -1481,7 +1480,7 @@ void PairGranHookeHistory::Deresiewicz1954_spin(int issingle, int i, int j, int 
   //********************************************************************************************************
   // Skip the folowing calculation if incremental spin is null.
   //********************************************************************************************************
-  if (fabs(dspin) <= tolerance) { 
+  if (fabs(dspin) < tolerance) { 
     spin_stm = sign_stm * spin_old;
     spin = spin_old;
     dspin_stm = 0.0;
@@ -1500,6 +1499,7 @@ void PairGranHookeHistory::Deresiewicz1954_spin(int issingle, int i, int j, int 
     // check if a special case is invoked*****************************************************************************
     if (a_old < tolerance) dspin_min = 0; // to initialize spin_DD
     else dspin_min = M_limit*(dN/N)/K_spin_max;; // required min. spin angle not to invoke a special case
+    if (fabs(dspin) < tolerance) dspin_min = 0.0;
     spin_DD = spin_DD - dspin_mag + dspin_min; // accumulated shortage of spin to return normal case
     special = 0;
     if (spin_DD < tolerance) spin_DD = 0.0; // spin_DD <= 0.0 moves onto a new normal curve
