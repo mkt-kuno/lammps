@@ -755,6 +755,7 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
 
   // shear history effects
 
+  double oldfs = kt*sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
   if (shearupdate) {
     shear[0] += vtr1*dt;
     shear[1] += vtr2*dt;
@@ -824,7 +825,7 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
       is invoked*/
     if (fs > fn && fn > 0.0) {
       slipdisp = (fs-fn)/kt;
-      aveshearforce = 0.5*(fn + fs);
+      aveshearforce = 0.5*(fn + oldfs);
 
       //~ slipdisp and aveshearforce are both positive
       incdissipf = aveshearforce*slipdisp;
@@ -980,10 +981,11 @@ void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
   if (pairenergy) {
     /*~ Increment the friction energy only if the slip condition
       is invoked*/
+    oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
     if (fs > fn && fn > 0.0) {
       //~ current shear displacement = fn/effectivekt;
       slipdisp = (fs-fn)/effectivekt;
-      aveshearforce = 0.5*(fn + fs);
+      aveshearforce = 0.5*(fn + polyhertz*kt*oldsheardisp);
 
       //~ slipdisp and aveshearforce are both positive
       incdissipf = aveshearforce*slipdisp;
@@ -999,7 +1001,6 @@ void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
 	    
     //~ The shear component does require incremental calculation
     if (shearupdate) {
-      oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
       incrementaldisp = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]) - oldsheardisp;
       sstr = 0.5*incrementaldisp*(2.0*sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3)-effectivekt*incrementaldisp);
       shearstrain += sstr;
@@ -1178,10 +1179,11 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
     else rkt = 0.0;
     /*~ Increment the friction energy only if the slip condition
       is invoked*/
+    oldshearforce = sqrt(shsqmag);
     if (fs > fslim && fslim > 0.0) {
       //~ current shear displacement = fslim/effectivekt;
       slipdisp = rkt*(fs-fslim);
-      aveshearforce = 0.5*(fs + fslim);
+      aveshearforce = 0.5*(oldshearforce + fslim);
 
       //~ slipdisp and aveshearforce are both positive
       incdissipf = aveshearforce*slipdisp;
@@ -1197,7 +1199,6 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
 
     //~ The shear component does require incremental calculation
     if (shearupdate) {
-      oldshearforce = sqrt(shsqmag);
       newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
       incrementaldisp = rkt*(newshearforce - oldshearforce);
       sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
@@ -1459,10 +1460,11 @@ void FixWallGran::CM_history(double rsq, double dx, double dy, double dz,
     
     /*~ Increment the friction energy only if the slip condition
       is invoked*/
+    oldshearforce = sqrt(shsqmag);
     if (fs > fslim && fslim > 0.0) {
       //~ current shear displacement = fslim/effectivekt;
       slipdisp = (fs-fslim)/effectivekt;
-      aveshearforce = 0.5*(fs + fslim);
+      aveshearforce = 0.5*(oldshearforce + fslim);
       
       //~ slipdisp and aveshearforce are both positive
       incdissipf = aveshearforce*slipdisp;
@@ -1512,7 +1514,6 @@ void FixWallGran::CM_history(double rsq, double dx, double dy, double dz,
 
     //~ The shear component does require incremental calculation
     if (shearupdate) {
-      oldshearforce = sqrt(shsqmag);
       newshearforce = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
       //~~ Added to avoid enormous energy value [MO 22 October 2014]
       if (effectivekt > 1.0e-30) incrementaldisp = (newshearforce - oldshearforce)/effectivekt;   
