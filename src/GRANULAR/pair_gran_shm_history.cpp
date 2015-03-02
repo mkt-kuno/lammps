@@ -382,10 +382,10 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 
 	  /*~ Increment the friction energy only if the slip condition
 	    is invoked*/
+	  oldshearforce = sqrt(shsqmag);
 	  if (fs > fslim && fslim > 0.0) {
 	    //~ current shear displacement = fslim/effectivekt;
 	    slipdisp = rkt*(fs-fslim);
-	    oldshearforce = sqrt(shsqmag);
 	    aveshearforce = 0.5*(oldshearforce + fslim);
 
 	    //~ slipdisp and aveshearforce are both positive

@@ -367,10 +367,10 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
 	if (pairenergy) {
 	  /*~ Increment the friction energy only if the slip condition
 	    is invoked*/
+	  oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
 	  if (fs > fn && fn > 0.0) {
 	    //~ current shear displacement = fn/effectivekt;
 	    slipdisp = (fs-fn)/effectivekt;
-	    oldsheardisp = sqrt(oldshear[0]*oldshear[0] + oldshear[1]*oldshear[1] + oldshear[2]*oldshear[2]);
 	    aveshearforce = 0.5*(fn + polyhertz*kt*oldsheardisp);
 	      
 	    //~ slipdisp and aveshearforce are both positive
