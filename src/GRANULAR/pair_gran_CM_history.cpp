@@ -641,13 +641,14 @@ double PairGranCMHistory::single(int i, int j, int itype, int jtype,
   int numshearquants = 5 + 20*D_spin + 4*trace_energy;
   double *shear = &allshear[numshearquants*neighprev];
 
-  // CM model for normal component (O'Donovan, 2013) [MO 2/Jun/2014]      
+  // CM model for normal component (O'Donovan, 2013) [MO 2/Jun/2014]    
+  double RMSf_eq = sqrt(2.0)*RMSf;
   double overlap = radsum-r;
   double R_star = 1.0 / (1.0/radi + 1.0/radj);
   double E_star = Geq/(1.0-Poiseq);
   double pi = 4.0*atan(1.0);
   double overlap_p = R_star*pow(3.0/4.0*pi*Hp/E_star,2.0);  
-  double N_GT = 100.0*RMSf*E_star*sqrt(2.0*R_star*RMSf);
+  double N_GT = 100.0*RMSf_eq*E_star*sqrt(2.0*R_star*RMSf_eq);
   double overlap_GT = pow(3.0*N_GT/(4.0*sqrt(R_star)*E_star),2.0/3.0)+overlap_p; 
   double b = 2.0*E_star*sqrt(R_star*(overlap_GT-overlap_p))*overlap_GT/N_GT;
   double tolerance = 1.0e-20;

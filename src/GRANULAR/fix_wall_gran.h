@@ -53,6 +53,7 @@ class FixWallGran : public Fix {
 
  protected:
   int wallstyle,pairstyle,wiggle,wshear,axis,dampflag;
+  int wcoordnos; // coordination number of wall [MO - 12 March 2014]
   int wtranslate,wscontrol; //flags for wall movement and wall stress control respectively
   double kn,kt,gamman,gammat,xmu,Geq,Poiseq,RMSf,Hp;  // increased for CM & CMD models [MO - 18 July 2014]
   double *xmu_p,*Geq_p,*Poiseq_p,*RMSf_p,*Hp_p;    // parameters of the contacting particle [MO - 05 December 2014]
