@@ -26,6 +26,7 @@
 #include "fix_store.h"
 #include "input.h"
 #include "variable.h"
+#include "respa.h"
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
@@ -174,8 +175,6 @@ FixAdapt::~FixAdapt()
   }
   delete [] adapt;
 
-  if (chgflag && force->kspace) force->kspace->qsum_update_flag = 0;
-
   // check nfix in case all fixes have already been deleted
 
   if (id_fix_diam && modify->nfix) modify->delete_fix(id_fix_diam);
@@ -191,6 +190,7 @@ int FixAdapt::setmask()
   int mask = 0;
   mask |= PRE_FORCE;
   mask |= POST_RUN;
+  mask |= PRE_FORCE_RESPA;
   return mask;
 }
 
@@ -351,11 +351,6 @@ void FixAdapt::init()
     }
   }
 
-  // when adapting charge and using kspace, 
-  // need to recompute additional params in kspace->setup()
-
-  if (chgflag && force->kspace) force->kspace->qsum_update_flag = 1;
-
   // fixes that store initial per-atom values
   
   if (id_fix_diam) {
@@ -368,6 +363,9 @@ void FixAdapt::init()
     if (ifix < 0) error->all(FLERR,"Could not find fix adapt storage fix ID");
     fix_chg = (FixStore *) modify->fix[ifix];
   }
+
+  if (strstr(update->integrate_style,"respa"))
+    nlevels_respa = ((Respa *) update->integrate)->nlevels;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -379,11 +377,27 @@ void FixAdapt::setup_pre_force(int vflag)
 
 /* ---------------------------------------------------------------------- */
 
+void FixAdapt::setup_pre_force_respa(int vflag, int ilevel)
+{
+  if (ilevel < nlevels_respa-1) return;
+  setup_pre_force(vflag);
+}
+
+/* ---------------------------------------------------------------------- */
+
 void FixAdapt::pre_force(int vflag)
 {
   if (nevery == 0) return;
   if (update->ntimestep % nevery) return;
   change_settings();
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixAdapt::pre_force_respa(int vflag, int ilevel, int)
+{
+  if (ilevel < nlevels_respa-1) return;
+  pre_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -483,10 +497,9 @@ void FixAdapt::change_settings()
 
   if (anypair) force->pair->reinit();
 
-  // re-setup KSpace if it exists and adapting charges
-  // since charges have changed
+  // reset KSpace charges if charges have changed
 
-  if (chgflag && force->kspace) force->kspace->setup();
+  if (chgflag && force->kspace) force->kspace->qsum_qsq();
 }
 
 /* ----------------------------------------------------------------------
@@ -539,5 +552,5 @@ void FixAdapt::restore_settings()
   }
 
   if (anypair) force->pair->reinit();
-  if (chgflag && force->kspace) force->kspace->setup();
+  if (chgflag && force->kspace) force->kspace->qsum_qsq();
 }

@@ -255,7 +255,7 @@ void DeleteAtoms::delete_overlap(int narg, char **arg)
 
   // request a full neighbor list for use by this command
 
-  int irequest = neighbor->request((void *) this);
+  int irequest = neighbor->request(this);
   neighbor->requests[irequest]->pair = 0;
   neighbor->requests[irequest]->command = 1;
   neighbor->requests[irequest]->half = 0;
@@ -273,7 +273,9 @@ void DeleteAtoms::delete_overlap(int narg, char **arg)
   if (force->pair == NULL)
     error->all(FLERR,"Delete_atoms requires a pair style be defined");
   if (cut > neighbor->cutneighmax)
-    error->all(FLERR,"Delete_atoms cutoff > neighbor cutoff");
+    error->all(FLERR,"Delete_atoms cutoff > max neighbor cutoff");
+  if (cut > neighbor->cutneighmin && comm->me == 0)
+    error->warning(FLERR,"Delete_atoms cutoff > minimum neighbor cutoff");
 
   // setup domain, communication and neighboring
   // acquire ghosts and build standard neighbor lists
@@ -302,7 +304,7 @@ void DeleteAtoms::delete_overlap(int narg, char **arg)
 
   // double loop over owned atoms and their full neighbor list
   // at end of loop, there are no more overlaps
-  // only ever delete owned atom I, never J even if owned
+  // only ever delete owned atom I in I loop iteration, never J even if owned
 
   tagint *tag = atom->tag;
   int *mask = atom->mask;
@@ -341,10 +343,18 @@ void DeleteAtoms::delete_overlap(int narg, char **arg)
       if (factor_lj == 0.0 && factor_coul == 0.0) continue;
 
       // only consider deletion if I,J distance < cutoff
+      // compute rsq identically on both I,J loop iterations
+      // ignoring possibility that I,J tags are equal
 
-      delx = xtmp - x[j][0];
-      dely = ytmp - x[j][1];
-      delz = ztmp - x[j][2];
+      if (tag[i] < tag[j]) {
+        delx = xtmp - x[j][0];
+        dely = ytmp - x[j][1];
+        delz = ztmp - x[j][2];
+      } else {
+        delx = x[j][0] - xtmp;
+        dely = x[j][1] - ytmp;
+        delz = x[j][2] - ztmp;
+      }
       rsq = delx*delx + dely*dely + delz*delz;
       if (rsq >= cutsq) continue;
 
@@ -558,24 +568,24 @@ void DeleteAtoms::bondring(int nbuf, char *cbuf)
   int *num_improper = cptr->atom->num_improper;
 
   int **bond_type = cptr->atom->bond_type;
-  int **bond_atom = cptr->atom->bond_atom;
+  tagint **bond_atom = cptr->atom->bond_atom;
 
   int **angle_type = cptr->atom->angle_type;
-  int **angle_atom1 = cptr->atom->angle_atom1;
-  int **angle_atom2 = cptr->atom->angle_atom2;
-  int **angle_atom3 = cptr->atom->angle_atom3;
+  tagint **angle_atom1 = cptr->atom->angle_atom1;
+  tagint **angle_atom2 = cptr->atom->angle_atom2;
+  tagint **angle_atom3 = cptr->atom->angle_atom3;
 
   int **dihedral_type = cptr->atom->dihedral_type;
-  int **dihedral_atom1 = cptr->atom->dihedral_atom1;
-  int **dihedral_atom2 = cptr->atom->dihedral_atom2;
-  int **dihedral_atom3 = cptr->atom->dihedral_atom3;
-  int **dihedral_atom4 = cptr->atom->dihedral_atom4;
+  tagint **dihedral_atom1 = cptr->atom->dihedral_atom1;
+  tagint **dihedral_atom2 = cptr->atom->dihedral_atom2;
+  tagint **dihedral_atom3 = cptr->atom->dihedral_atom3;
+  tagint **dihedral_atom4 = cptr->atom->dihedral_atom4;
 
   int **improper_type = cptr->atom->improper_type;
-  int **improper_atom1 = cptr->atom->improper_atom1;
-  int **improper_atom2 = cptr->atom->improper_atom2;
-  int **improper_atom3 = cptr->atom->improper_atom3;
-  int **improper_atom4 = cptr->atom->improper_atom4;
+  tagint **improper_atom1 = cptr->atom->improper_atom1;
+  tagint **improper_atom2 = cptr->atom->improper_atom2;
+  tagint **improper_atom3 = cptr->atom->improper_atom3;
+  tagint **improper_atom4 = cptr->atom->improper_atom4;
 
   int nlocal = cptr->atom->nlocal;
 
@@ -625,7 +635,8 @@ void DeleteAtoms::bondring(int nbuf, char *cbuf)
       while (m < n) {
         if (hash->find(dihedral_atom1[i][m]) != hash->end() ||
             hash->find(dihedral_atom2[i][m]) != hash->end() ||
-            hash->find(dihedral_atom3[i][m]) != hash->end()) {
+            hash->find(dihedral_atom3[i][m]) != hash->end() ||
+            hash->find(dihedral_atom4[i][m]) != hash->end()) {
           dihedral_type[i][m] = dihedral_type[i][n-1];
           dihedral_atom1[i][m] = dihedral_atom1[i][n-1];
           dihedral_atom2[i][m] = dihedral_atom2[i][n-1];
@@ -643,7 +654,8 @@ void DeleteAtoms::bondring(int nbuf, char *cbuf)
       while (m < n) {
         if (hash->find(improper_atom1[i][m]) != hash->end() ||
             hash->find(improper_atom2[i][m]) != hash->end() ||
-            hash->find(improper_atom3[i][m]) != hash->end()) {
+            hash->find(improper_atom3[i][m]) != hash->end() ||
+            hash->find(improper_atom4[i][m]) != hash->end()) {
           improper_type[i][m] = improper_type[i][n-1];
           improper_atom1[i][m] = improper_atom1[i][n-1];
           improper_atom2[i][m] = improper_atom2[i][n-1];

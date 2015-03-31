@@ -20,6 +20,8 @@ namespace LAMMPS_NS {
 
 class Fix : protected Pointers {
  public:
+  static int instance_total;     // # of Fix classes ever instantiated
+
   char *id,*style;
   int igroup,groupbit;
 
@@ -210,6 +212,8 @@ class Fix : protected Pointers {
   virtual double *extract_pboundstart() {return 0;}
 
  protected:
+  int instance_me;        // which Fix class instantiation I am
+
   int evflag;
   int vflag_global,vflag_atom;
   int maxvatom;
