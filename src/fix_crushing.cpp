@@ -296,7 +296,7 @@ void FixCrushing::init()
   //~ If redtype == 1, need to set up a mechanism for neighbour list updating
   if (redtype == 1) {
     // need a full neighbor list, built whenever re-neighboring occurs
-    int irequest = neighbor->request((void *) this);
+    int irequest = neighbor->request(this,instance_me);
     neighbor->requests[irequest]->pair = 0;
     neighbor->requests[irequest]->fix = 1;
     neighbor->requests[irequest]->half = 0;
