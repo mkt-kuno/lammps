@@ -42,10 +42,18 @@ class CreateBonds : protected Pointers {
 
 /* ERROR/WARNING messages:
 
-E: Delete_atoms command before simulation box is defined
+E: Create_bonds command before simulation box is defined
 
-The delete_atoms command cannot be used before a read_data,
-read_restart, or create_box command.
+Self-explanatory.
+
+E: Cannot use create_bonds unless atoms have IDs
+
+This command requires a mapping from global atom IDs to local atoms,
+but the atoms that have been defined have no IDs.
+
+E: Cannot use create_bonds with non-molecular system
+
+Self-explanatory.
 
 E: Illegal ... command
 
@@ -53,26 +61,40 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-E: Cannot use delete_atoms unless atoms have IDs
+E: Cannot find create_bonds group ID
 
-Your atoms do not have IDs, so the delete_atoms command cannot be
-used.
+Self-explanatory.
 
-E: Could not find delete_atoms group ID
+E: Invalid bond type in create_bonds command
 
-Group ID used in the delete_atoms command does not exist.
+Self-explanatory.
 
-E: Could not find delete_atoms region ID
+E: Create_bonds requires a pair style be defined
 
-Region ID used in the delete_atoms command does not exist.
+Self-explanatory.
 
-E: Delete_atoms requires a pair style be defined
+E: Create_bonds max distance > neighbor cutoff
 
-This is because atom deletion within a cutoff uses a pairwise
-neighbor list.
+Can only create bonds for atom pairs that will be in neighbor list.
 
-E: Delete_atoms cutoff > neighbor cutoff
+W: Create_bonds max distance > minimum neighbor cutoff
 
-Cannot delete atoms further away than a processor knows about.
+This means atom pairs for some atom types may not be in the neighbor
+list and thus no bond can be created between them.
+
+E: Create_bonds command requires special_bonds 1-2 weights be 0.0
+
+This is so that atom pairs that are already bonded to not appear in
+the neighbor list.
+
+E: Create_bonds command requires no kspace_style be defined
+
+This is so that atom pairs that are already bonded to not appear
+in the neighbor list.
+
+E: New bond exceeded bonds per atom in create_bonds
+
+See the read_data command for info on setting the "extra bond per
+atom" header value to allow for additional bonds to be formed.
 
 */

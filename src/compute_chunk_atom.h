@@ -86,7 +86,7 @@ class ComputeChunkAtom : public Compute {
 
   int molcheck;              // one-time check if all molecule atoms in chunk
   int *exclude;              // 1 if atom is not assigned to any chunk
-  std::map<int,int> *hash;   // store original chunks IDs before compression
+  std::map<tagint,int> *hash;   // store original chunks IDs before compression
 
   // static variable for ring communication callback to access class data
   // callback functions for ring communication
@@ -118,8 +118,101 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-W: More than one compute ke/atom
+E: Region ID for compute chunk/atom does not exist
 
-It is not efficient to use compute ke/atom more than once.
+Self-explanatory.
+
+E: Compute chunk/atom molecule for non-molecular system
+
+Self-explanatory.
+
+E: Compute chunk/atom without bins cannot use discard mixed
+
+That discard option only applies to the binning styles.
+
+E: Compute ID for compute chunk/atom does not exist
+
+Self-explanatory.
+
+E: Compute chunk/atom compute does not calculate per-atom values
+
+Self-explanatory.
+
+E: Compute chunk/atom compute does not calculate a per-atom vector
+
+Self-explanatory.
+
+E: Compute chunk/atom compute does not calculate a per-atom array
+
+Self-explanatory.
+
+E: Compute chunk/atom compute array is accessed out-of-range
+
+The index for the array is out of bounds.
+
+E: Fix ID for compute chunk/atom does not exist
+
+Self-explanatory.
+
+E: Compute chunk/atom fix does not calculate per-atom values
+
+Self-explanatory.
+
+E: Compute chunk/atom fix does not calculate a per-atom vector
+
+Self-explanatory.
+
+E: Compute chunk/atom fix does not calculate a per-atom array
+
+Self-explanatory.
+
+E: Compute chunk/atom fix array is accessed out-of-range
+
+the index for the array is out of bounds.
+
+E: Variable name for compute chunk/atom does not exist
+
+Self-explanatory.
+
+E: Compute chunk/atom variable is not atom-style variable
+
+Self-explanatory.
+
+E: Compute chunk/atom for triclinic boxes requires units reduced
+
+Self-explanatory.
+
+E: Molecule IDs too large for compute chunk/atom
+
+The IDs must not be larger than can be stored in a 32-bit integer
+since chunk IDs are 32-bit integers.
+
+E: Compute chunk/atom ids once but nchunk is not once
+
+You cannot assign chunks IDs to atom permanently if the number of
+chunks may change.
+
+E: Two fix ave commands using same compute chunk/atom command in incompatible ways
+
+They are both attempting to "lock" the chunk/atom command so that the
+chunk assignments persist for some number of timesteps, but are doing
+it in different ways.
+
+E: Fix used in compute chunk/atom not computed at compatible time
+
+The chunk/atom compute cannot query the output of the fix on a timestep
+it is needed.
+
+W: One or more chunks do not contain all atoms in molecule
+
+This may not be what you intended.
+
+E: Invalid bin bounds in compute chunk/atom
+
+The lo/hi values are inconsistent.
+
+E: Cannot use compute chunk/atom bin z for 2d model
+
+Self-explanatory.
 
 */

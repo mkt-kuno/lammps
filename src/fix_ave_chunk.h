@@ -35,13 +35,12 @@ class FixAveChunk : public Fix {
   void end_of_step();
   double compute_array(int,int);
   double memory_usage();
-  void reset_timestep(bigint);
 
  private:
   int me,nvalues;
   int nrepeat,nfreq,irepeat;
   int normflag,scaleflag,overwrite,biasflag,colextra;
-  bigint nvalid;
+  bigint nvalid,nvalid_last;
   double adof,cdof;
   char *tstring,*sstring,*id_bias;
   int *which,*argindex,*value2index;
@@ -55,6 +54,7 @@ class FixAveChunk : public Fix {
   int nchunk,maxchunk;
   char *idchunk;
   class ComputeChunkAtom *cchunk;
+  int lockforever;
 
   long filepos;
 
@@ -86,88 +86,87 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-E: Cannot use fix ave/spatial z for 2 dimensional model
-
-Self-explanatory.
-
-E: Same dimension twice in fix ave/spatial
-
-Self-explanatory.
-
-E: Region ID for fix ave/spatial does not exist
-
-Self-explanatory.
-
-E: Cannot open fix ave/spatial file %s
+E: Cannot open fix ave/chunk file %s
 
 The specified file cannot be opened.  Check that the path and name are
 correct.
 
-E: Compute ID for fix ave/spatial does not exist
+E: Could not find compute ID for temperature bias
 
 Self-explanatory.
 
-E: Fix ave/spatial compute does not calculate per-atom values
+E: Bias compute does not calculate temperature
 
-A compute used by fix ave/spatial must generate per-atom values.
+The specified compute must compute temperature.
 
-E: Fix ave/spatial compute does not calculate a per-atom vector
+E: Bias compute does not calculate a velocity bias
 
-A compute used by fix ave/spatial must generate per-atom values.
+The specified compute must compute a bias for temperature.
 
-E: Fix ave/spatial compute does not calculate a per-atom array
-
-Self-explanatory.
-
-E: Fix ave/spatial compute vector is accessed out-of-range
-
-The index for the vector is out of bounds.
-
-E: Fix ID for fix ave/spatial does not exist
+E: Compute ID for fix ave/chunk does not exist
 
 Self-explanatory.
 
-E: Fix ave/spatial fix does not calculate per-atom values
-
-A fix used by fix ave/spatial must generate per-atom values.
-
-E: Fix ave/spatial fix does not calculate a per-atom vector
-
-A fix used by fix ave/spatial must generate per-atom values.
-
-E: Fix ave/spatial fix does not calculate a per-atom array
+E: Fix ave/chunk compute does not calculate per-atom values
 
 Self-explanatory.
 
-E: Fix ave/spatial fix vector is accessed out-of-range
-
-The index for the vector is out of bounds.
-
-E: Variable name for fix ave/spatial does not exist
+E: Fix ave/chunk compute does not calculate a per-atom vector
 
 Self-explanatory.
 
-E: Fix ave/spatial variable is not atom-style variable
-
-A variable used by fix ave/spatial must generate per-atom values.
-
-E: Fix ave/spatial for triclinic boxes requires units reduced
+E: Fix ave/chunk compute does not calculate a per-atom array
 
 Self-explanatory.
 
-E: Fix ave/spatial settings invalid with changing box size
+E: Fix ave/chunk compute vector is accessed out-of-range
 
-If the box size changes, only the units reduced option can be
-used.
+Self-explanatory.
 
-E: Fix for fix ave/spatial not computed at compatible time
+E: Fix ID for fix ave/chunk does not exist
 
-Fixes generate their values on specific timesteps.  Fix ave/spatial is
+Self-explanatory.
+
+E: Fix ave/chunk fix does not calculate per-atom values
+
+Self-explanatory.
+
+E: Fix ave/chunk fix does not calculate a per-atom vector
+
+Self-explanatory.
+
+E: Fix ave/chunk fix does not calculate a per-atom array
+
+Self-explanatory.
+
+E: Fix ave/chunk fix vector is accessed out-of-range
+
+Self-explanatory.
+
+E: Variable name for fix ave/chunk does not exist
+
+Self-explanatory.
+
+E: Fix ave/chunk variable is not atom-style variable
+
+Self-explanatory.
+
+E: Chunk/atom compute does not exist for fix ave/chunk
+
+Self-explanatory.
+
+E: Fix ave/chunk does not use chunk/atom compute
+
+The specified conpute is not for a compute chunk/atom command.
+
+E: Fix for fix ave/chunk not computed at compatible time
+
+Fixes generate their values on specific timesteps.  Fix ave/chunk is
 requesting a value on a non-allowed timestep.
 
-E: Fix ave/spatial missed timestep
+E: Invalid timestep reset for fix ave/chunk
 
-You cannot reset the timestep to a value beyond where the fix
-expects to next perform averaging.
+Resetting the timestep has invalidated the sequence of timesteps this
+fix needs to process.
 
 */

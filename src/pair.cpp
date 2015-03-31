@@ -126,10 +126,10 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
 
 Pair::~Pair()
 {
-  if (!copymode) {
-    memory->destroy(eatom);
-    memory->destroy(vatom);
-  }
+  if (copymode) return;
+
+  memory->destroy(eatom);
+  memory->destroy(vatom);
 }
 
 /* ----------------------------------------------------------------------
@@ -355,7 +355,7 @@ void Pair::init_tables(double cut_coul, double *cut_respa)
   double qqrd2e = force->qqrd2e;
 
   if (force->kspace == NULL)
-    error->all(FLERR,"Pair style requres a KSpace style");
+    error->all(FLERR,"Pair style requires a KSpace style");
   double g_ewald = force->kspace->g_ewald;
   
   double cut_coulsq = cut_coul * cut_coul;

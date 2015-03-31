@@ -33,9 +33,10 @@
 #include "update.h"
 #include "group.h"
 #include "output.h"
-#include "error.h"
 #include "force.h"
+#include "comm.h"
 #include "memory.h"
+#include "error.h"
 
 using namespace LAMMPS_NS;
 
@@ -69,7 +70,7 @@ DumpXTC::DumpXTC(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg)
   // allocate global array for atom coords
 
   bigint n = group->count(igroup);
-  if (n > MAXSMALLINT/3/sizeof(float))
+  if (n > static_cast<bigint>(MAXSMALLINT/3/sizeof(float)))
     error->all(FLERR,"Too many atoms for dump xtc");
   natoms = static_cast<int> (n);
 
@@ -85,8 +86,9 @@ DumpXTC::DumpXTC(LAMMPS *lmp, int narg, char **arg) : Dump(lmp, narg, arg)
   // in reduced units we do not scale anything
   if (strcmp(update->unit_style,"lj") == 0) {
     sfactor = tfactor = 1.0;
-    error->warning(FLERR,"No automatic unit conversion to XTC file "
-                   "format conventions possible for 'units lj'");
+    if (comm->me == 0) 
+      error->warning(FLERR,"No automatic unit conversion to XTC file "
+                     "format conventions possible for units lj");
   }
 
   openfile();
@@ -292,13 +294,13 @@ int DumpXTC::modify_param(int narg, char **arg)
     if (narg < 2) error->all(FLERR,"Illegal dump_modify command");
     sfactor = force->numeric(FLERR,arg[1]);
     if (sfactor <= 0.0)
-      error->all(FLERR,"Illegal dump_modify sfactor value (must be >0.0)");
+      error->all(FLERR,"Illegal dump_modify sfactor value (must be > 0.0)");
     return 2;
   } else if (strcmp(arg[0],"tfactor") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal dump_modify command");
     tfactor = force->numeric(FLERR,arg[1]);
     if (tfactor <= 0.0)
-      error->all(FLERR,"Illegal dump_modify tfactor value (must be >0.0)");
+      error->all(FLERR,"Illegal dump_modify tfactor value (must be > 0.0)");
     return 2;
   }
   return 0;

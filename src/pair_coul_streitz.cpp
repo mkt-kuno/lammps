@@ -204,7 +204,7 @@ void PairCoulStreitz::coeff(int narg, char **arg)
 void PairCoulStreitz::init_style()
 {
   if (!atom->q_flag)
-    error->all(FLERR,"Pair style coul/sm requires atom attribute q");
+    error->all(FLERR,"Pair style coul/streitz requires atom attribute q");
 
   //neighbor->request(this);
   int irequest = neighbor->request(this,instance_me);
@@ -217,7 +217,7 @@ void PairCoulStreitz::init_style()
 
   if (ewaldflag) {
     if (force->kspace == NULL)
-      error->all(FLERR,"Pair style requires KSpace style ewald");
+      error->all(FLERR,"Pair style requires a KSpace style");
     g_ewald = force->kspace->g_ewald;
   }
 
@@ -259,7 +259,7 @@ void PairCoulStreitz::read_file(char *file)
     fp = fopen(file,"r");
     if (fp == NULL) {
       char str[128];
-      sprintf(str,"Cannot open coul/Streitz potential file %s",file);
+      sprintf(str,"Cannot open coul/streitz potential file %s",file);
       error->one(FLERR,str);
     }
   }
@@ -286,7 +286,7 @@ void PairCoulStreitz::read_file(char *file)
 
     // strip comment, skip line if blank
 
-    if (ptr = strchr(line,'#')) *ptr = '\0';
+    if ((ptr = strchr(line,'#'))) *ptr = '\0';
     nwords = atom->count_words(line);
     if (nwords == 0) continue;
 
@@ -305,18 +305,18 @@ void PairCoulStreitz::read_file(char *file)
       if (eof) break;
       MPI_Bcast(&n,1,MPI_INT,0,world);
       MPI_Bcast(line,n,MPI_CHAR,0,world);
-      if (ptr = strchr(line,'#')) *ptr = '\0';
+      if ((ptr = strchr(line,'#'))) *ptr = '\0';
       nwords = atom->count_words(line);
     }
 
     if (nwords != params_per_line)
-      error->all(FLERR,"Incorrect format in coul/Streitz potential file");
+      error->all(FLERR,"Incorrect format in coul/streitz potential file");
 
     // words = ptrs to all words in line
 
     nwords = 0;
     words[nwords++] = strtok(line," \t\n\r\f");
-    while (words[nwords++] = strtok(NULL," \t\n\r\f")) continue;
+    while ((words[nwords++] = strtok(NULL," \t\n\r\f"))) continue;
 
     // ielement = 1st args
 
@@ -343,7 +343,7 @@ void PairCoulStreitz::read_file(char *file)
     
     if (params[nparams].eta < 0.0 || params[nparams].zeta < 0.0 || 
         params[nparams].zcore < 0.0 || params[nparams].gamma != 0.0 )
-      error->all(FLERR,"Illegal coul/Streitz parameter");
+      error->all(FLERR,"Illegal coul/streitz parameter");
 
     nparams++;
   }
@@ -355,7 +355,7 @@ void PairCoulStreitz::read_file(char *file)
 
 void PairCoulStreitz::setup()
 {
-  int i,j,k,m,n;
+  int i,m,n;
 
   // set elem2param 
 
@@ -391,29 +391,27 @@ void PairCoulStreitz::setup()
 void PairCoulStreitz::compute(int eflag, int vflag)
 {
   int i, j, ii, jj, inum, jnum;
-  int itag, jtag, itype, jtype, iparam_i,iparam_j;
+  int itype, jtype, iparam_i,iparam_j;
   int *ilist, *jlist, *numneigh, **firstneigh;
 
-  int *tag = atom->tag;
   int *type = atom->type;
   int nlocal = atom->nlocal;
   int newton_pair = force->newton_pair;
 
-  double xtmp, ytmp, ztmp, evdwl, ecoul, fpair;
+  double xtmp, ytmp, ztmp, ecoul, fpair;
   double qi, qj, selfion, r, rsq, delr[3];
-  double zei, zej, zi, zj, ci_jfi, dci_jfi, ci_fifj, dci_fifj; 
-  double prefactor, forcecoul, factor_coul;
+  double zei, zej, zj, ci_jfi, dci_jfi, ci_fifj, dci_fifj; 
+  double forcecoul, factor_coul;
 
   double **x = atom->x;
   double **f = atom->f;
   double *q = atom->q;
-  double qqrd2e = force->qqrd2e;
   double *special_coul = force->special_coul;
 
-  evdwl = ecoul = 0.0;
+  ecoul = 0.0;
   selfion = fpair = 0.0;
   ci_jfi = ci_fifj = dci_jfi = dci_fifj = 0.0;
-  prefactor = forcecoul = 0.0;
+  forcecoul = 0.0;
 
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = vflag_atom = 0;
@@ -429,7 +427,6 @@ void PairCoulStreitz::compute(int eflag, int vflag)
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
-    itag = tag[i];
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
@@ -437,7 +434,6 @@ void PairCoulStreitz::compute(int eflag, int vflag)
     iparam_i = elem2param[itype];
     qi = q[i];
     zei = params[iparam_i].zeta;
-    zi = params[iparam_i].zcore;
 
     // self energy: ionization + wolf sum
 
@@ -454,7 +450,6 @@ void PairCoulStreitz::compute(int eflag, int vflag)
       j = jlist[jj];
       j &= NEIGHMASK;
 
-      jtag = tag[j];
       jtype = map[type[j]];
       iparam_j = elem2param[jtype];
       qj = q[j];
@@ -505,7 +500,6 @@ void PairCoulStreitz::compute(int eflag, int vflag)
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
-    itag = tag[i];
     xtmp = x[i][0];
     ytmp = x[i][1];
     ztmp = x[i][2];
@@ -513,7 +507,6 @@ void PairCoulStreitz::compute(int eflag, int vflag)
     iparam_i = elem2param[itype];
     qi = q[i];
     zei = params[iparam_i].zeta;
-    zi = params[iparam_i].zcore;
 
     // self ionizition energy, only on i atom
 
@@ -529,7 +522,6 @@ void PairCoulStreitz::compute(int eflag, int vflag)
     for (jj = 0; jj < jnum; jj++) {
       j = jlist[jj];
       j &= NEIGHMASK;
-      jtag = tag[j];
       jtype = map[type[j]];
       iparam_j = elem2param[jtype];
       qj = q[j];
@@ -587,6 +579,8 @@ double PairCoulStreitz::self(Param *param, double qi)
  if (kspacetype == 1) return 1.0*qi*(s1+qi*(0.50*s2 - qqrd2e*woself));
  
  if (kspacetype == 2) return 1.0*qi*(s1+qi*(0.50*s2));
+
+ return 0.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -673,8 +667,8 @@ void PairCoulStreitz::wolf_sum(double qi, double qj, double zj, double r,
   double derfcr = exp(-a*a*r*r);
   double erfcrc = erfc(a*rc);
 
-  double etmp1, etmp2, etmp3, etmp4;
-  double ftmp1, ftmp2, ftmp3, ftmp4;
+  double etmp1, etmp2, etmp3;
+  double ftmp1, ftmp2, ftmp3;
 
   etmp = etmp1 = etmp2 = etmp3 = 0.0;
   ftmp = ftmp1 = ftmp2 = ftmp3 = 0.0;

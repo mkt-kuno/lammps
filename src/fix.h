@@ -49,6 +49,7 @@ class Fix : protected Pointers {
   int wd_header;                 // # of header values fix writes to data file
   int wd_section;                // # of sections fix writes to data file
   int dynamic_group_allow;       // 1 if can be used with dynamic group, else 0
+  int dof_flag;                  // 1 if has dof() method (not min_dof())
   int cudable_comm;              // 1 if fix has CUDA-enabled communication
 
   int scalar_flag;               // 0/1 if compute_scalar() function exists
@@ -179,7 +180,6 @@ class Fix : protected Pointers {
   virtual void deform(int) {}
   virtual void reset_target(double) {}
   virtual void reset_dt() {}
-  virtual void reset_timestep(bigint) {}
 
   virtual void read_data_header(char *) {}
   virtual void read_data_section(char *, int, char *) {}

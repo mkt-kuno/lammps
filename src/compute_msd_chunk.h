@@ -67,12 +67,18 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-E: Compute com/molecule requires molecular atom style
+E: Chunk/atom compute does not exist for compute msd/chunk
 
 Self-explanatory.
 
-E: Molecule count changed in compute com/molecule
+E: Compute msd/chunk does not use chunk/atom compute
 
-Number of molecules must remain constant over time.
+The style of the specified compute is not chunk/atom.
+
+E: Compute msd/chunk nchunk is not static
+
+This is required because the MSD cannot be computed consistently if
+the number of chunks is changing.  Compute chunk/atom allows setting
+nchunk to be static.
 
 */

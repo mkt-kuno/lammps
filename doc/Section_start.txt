@@ -165,7 +165,7 @@ all good starting points if you find you need to change them for your
 machine.  Put any file you edit into the src/MAKE/MINE directory and
 it will be never be touched by any LAMMPS updates.
 
-From within the src directory, type "make" or "gmake".  You should see
+>From within the src directory, type "make" or "gmake".  You should see
 a list of available choices from src/MAKE and all of its
 sub-directories.  If one of those has the options you want or is the
 machine you want, you can type a command like:
@@ -371,10 +371,11 @@ need to build the STUBS library for your platform before making LAMMPS
 itself.  Note that if you are building with src/MAKE/Makefile.serial,
 e.g. by typing "make serial", then the STUBS library is built for you.
 
-To build the STUBS library from the src directory, type "make stubs",
-or from the src/STUBS dir, type "make".  This should create a
-libmpi_stubs.a file suitable for linking to LAMMPS.  If the build
-fails, you will need to edit the STUBS/Makefile for your platform.
+To build the STUBS library from the src directory, type "make
+mpi-stubs", or from the src/STUBS dir, type "make".  This should
+create a libmpi_stubs.a file suitable for linking to LAMMPS.  If the
+build fails, you will need to edit the STUBS/Makefile for your
+platform.
 
 The file STUBS/mpi.c provides a CPU timer function called MPI_Wtime()
 that calls gettimeofday() .  If your system doesn't support
@@ -765,20 +766,30 @@ options.
 [{Packages that require extra libraries:}] :link(start_3_3)
 
 A few of the standard and user packages require additional auxiliary
-libraries.  They must be compiled first, before LAMMPS is built.  If
-you get a LAMMPS build error about a missing library, this is likely
-the reason.  See the "Section_packages"_Section_packages.html doc page
-for a list of packages that have auxiliary libraries.
+libraries.  Most of them are provided with LAMMPS, in which case they
+must be compiled first, before LAMMPS is built if you wish to include
+that package.  If you get a LAMMPS build error about a missing
+library, this is likely the reason.  See the
+"Section_packages"_Section_packages.html doc page for a list of
+packages that have these kinds of auxiliary libraries.
 
 The lib directory in the distribution has sub-directories with package
-names that correspond to the needed auxiliary libs, e.g.  lib/reax.
+names that correspond to the needed auxiliary libs, e.g. lib/reax.
 Each sub-directory has a README file that gives more details.  Code
 for most of the auxiliary libraries is included in that directory.
-Examples are the USER-ATC and MEAM packages.  A few of the
-sub-directories do not include code, but do include instructions and
-sometimes scripts that automate the process of downloading the
-auxiliary library and installing it so LAMMPS can link to it.
-Examples are the KIM and VORONOI and USER-MOLFILE packages.
+Examples are the USER-ATC and MEAM packages.
+
+A few of the lib sub-directories do not include code, but do include
+instructions and sometimes scripts that automate the process of
+downloading the auxiliary library and installing it so LAMMPS can link
+to it.  Examples are the KIM and VORONOI and USER-MOLFILE packages.
+
+The lib/python directory (for the PYTHON package) contains only a
+choice of Makefile.lammps.* files.  This is because no auxiliary code
+or libraries are needed, only the Python library and other system libs
+that already available on your system.  However, the Makefile.lammps
+file is needed to tell the LAMMPS build which libs to use and where to
+find them.
 
 For libraries with provided code, the sub-directory README file
 (e.g. lib/reax/README) has instructions on how to build that library.
@@ -1039,50 +1050,57 @@ more info on wrapping and running LAMMPS from Python.
 
 To build LAMMPS as a static library (*.a file on Linux), type
 
-make makelib
-make -f Makefile.lib foo :pre
+make foo mode=lib :pre
 
 where foo is the machine name.  This kind of library is typically used
 to statically link a driver application to LAMMPS, so that you can
-insure all dependencies are satisfied at compile time.  Note that
-inclusion or exclusion of any desired optional packages should be done
-before typing "make makelib".  The first "make" command will create a
-current Makefile.lib with all the file names in your src dir.  The
-second "make" command will use it to build LAMMPS as a static library,
-using the ARCHIVE and ARFLAGS settings in src/MAKE/Makefile.foo.  The
-build will create the file liblammps_foo.a which another application can
-link to.
+insure all dependencies are satisfied at compile time.  This will use
+the ARCHIVE and ARFLAGS settings in src/MAKE/Makefile.foo.  The build
+will create the file liblammps_foo.a which another application can
+link to.  It will also create a soft link liblammps.a, which will
+point to the most recently built static library.
 
 [Shared library:] :h5
 
 To build LAMMPS as a shared library (*.so file on Linux), which can be
 dynamically loaded, e.g. from Python, type
 
-make makeshlib
-make -f Makefile.shlib foo :pre
+make foo mode=shlib :pre
 
 where foo is the machine name.  This kind of library is required when
 wrapping LAMMPS with Python; see "Section_python"_Section_python.html
-for details.  Again, note that inclusion or exclusion of any desired
-optional packages should be done before typing "make makelib".  The
-first "make" command will create a current Makefile.shlib with all the
-file names in your src dir.  The second "make" command will use it to
-build LAMMPS as a shared library, using the SHFLAGS and SHLIBFLAGS
-settings in src/MAKE/Makefile.foo.  The build will create the file
-liblammps_foo.so which another application can link to dyamically.  It
-will also create a soft link liblammps.so, which the Python wrapper uses
-by default.
+for details.  This will use the SHFLAGS and SHLIBFLAGS settings in
+src/MAKE/Makefile.foo and perform the build in the directory
+Obj_shared_foo.  This is so that each file can be compiled with the
+-fPIC flag which is required for inclusion in a shared library.  The
+build will create the file liblammps_foo.so which another application
+can link to dyamically.  It will also create a soft link liblammps.so,
+which will point to the most recently built shared library.  This is
+the file the Python wrapper loads by default.
 
 Note that for a shared library to be usable by a calling program, all
 the auxiliary libraries it depends on must also exist as shared
 libraries.  This will be the case for libraries included with LAMMPS,
 such as the dummy MPI library in src/STUBS or any package libraries in
-lib/packges, since they are always built as shared libraries with the
--fPIC switch.  However, if a library like MPI or FFTW does not exist
-as a shared library, the second make command will generate an error.
-This means you will need to install a shared library version of the
-package.  The build instructions for the library should tell you how
-to do this.
+lib/packages, since they are always built as shared libraries using
+the -fPIC switch.  However, if a library like MPI or FFTW does not
+exist as a shared library, the shared library build will generate an
+error.  This means you will need to install a shared library version
+of the auxiliary library.  The build instructions for the library
+should tell you how to do this.
+
+Here is an example of such errors when the system FFTW or provided
+lib/colvars library have not been built as shared libraries:
+
+/usr/bin/ld: /usr/local/lib/libfftw3.a(mapflags.o): relocation
+R_X86_64_32 against `.rodata' can not be used when making a shared
+object; recompile with -fPIC
+/usr/local/lib/libfftw3.a: could not read symbols: Bad value :pre
+
+/usr/bin/ld: ../../lib/colvars/libcolvars.a(colvarmodule.o):
+relocation R_X86_64_32 against `__pthread_key_create' can not be used
+when making a shared object; recompile with -fPIC
+../../lib/colvars/libcolvars.a: error adding symbols: Bad value :pre
 
 As an example, here is how to build and install the "MPICH
 library"_mpich, a popular open-source version of MPI, distributed by

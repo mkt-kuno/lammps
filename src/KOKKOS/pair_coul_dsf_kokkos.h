@@ -34,7 +34,7 @@ struct TagPairCoulDSFKernelA{};
 template<class DeviceType>
 class PairCoulDSFKokkos : public PairCoulDSF {
  public:
-  enum {EnabledNeighFlags=FULL&HALFTHREAD&HALF};
+  enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   enum {COUL_FLAG=1};
   typedef DeviceType device_type;
   typedef EV_FLOAT value_type;
@@ -95,5 +95,9 @@ class PairCoulDSFKokkos : public PairCoulDSF {
 #endif
 
 /* ERROR/WARNING messages:
+
+E: Cannot use chosen neighbor list style with coul/dsf/kk
+
+That style is not supported by Kokkos.
 
 */

@@ -18,6 +18,7 @@
 #include "update.h"
 #include "force.h"
 #include "domain.h"
+#include "modify.h"
 #include "group.h"
 #include "memory.h"
 #include "error.h"
@@ -63,7 +64,6 @@ void ComputeTempPartial::setup()
 {
   dynamic = 0;
   if (dynamic_user || group->dynamic[igroup]) dynamic = 1;
-  fix_dof = -1;
   dof_compute();
 }
 
@@ -74,7 +74,7 @@ void ComputeTempPartial::setup()
 
 void ComputeTempPartial::dof_compute()
 {
-  if (fix_dof) adjust_dof_fix();
+  fix_dof = modify->adjust_dof_fix(igroup);
   double natoms = group->count(igroup);
   int nper = xflag+yflag+zflag;
   dof = nper * natoms;
@@ -120,6 +120,8 @@ double ComputeTempPartial::compute_scalar()
 
   MPI_Allreduce(&t,&scalar,1,MPI_DOUBLE,MPI_SUM,world);
   if (dynamic) dof_compute();
+  if (tfactor == 0.0 && scalar != 0.0) 
+    error->all(FLERR,"Temperature compute degrees of freedom < 0");
   scalar *= tfactor;
   return scalar;
 }
@@ -218,9 +220,9 @@ void ComputeTempPartial::remove_bias_all()
 }
 
 /* ----------------------------------------------------------------------
-   reset thermal velocity of atoms to be consistent with bias
-   called from velocity command after creating thermal velocities
-   needed to re-zero components that should stay zero
+   reset thermal velocity of all atoms to be consistent with bias
+   called from velocity command after it creates thermal velocities
+   this re-zero components that should stay zero
 ------------------------------------------------------------------------- */
 
 void ComputeTempPartial::reapply_bias_all()
@@ -228,12 +230,6 @@ void ComputeTempPartial::reapply_bias_all()
   double **v = atom->v;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-
-  if (nlocal > maxbias) {
-    memory->destroy(vbiasall);
-    maxbias = atom->nmax;
-    memory->create(vbiasall,maxbias,3,"temp/partial:vbiasall");
-  }
 
   if (!xflag) {
     for (int i = 0; i < nlocal; i++)

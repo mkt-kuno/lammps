@@ -75,16 +75,32 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-E: Compute property/molecule requires molecular atom style
+E: Compute chunk/atom stores no IDs for compute property/chunk
+
+It will only store IDs if its compress option is enabled.
+
+E: Compute chunk/atom stores no coord1 for compute property/chunk
+
+Only certain binning options for comptue chunk/atom store coordinates.
+
+E: Compute chunk/atom stores no coord2 for compute property/chunk
+
+Only certain binning options for comptue chunk/atom store coordinates.
+
+E: Compute chunk/atom stores no coord3 for compute property/chunk
+
+Only certain binning options for comptue chunk/atom store coordinates.
+
+E: Invalid keyword in compute property/chunk command
 
 Self-explanatory.
 
-E: Invalid keyword in compute property/molecule command
+E: Chunk/atom compute does not exist for compute property/chunk
 
 Self-explanatory.
 
-E: Molecule count changed in compute property/molecule
+E: Compute property/chunk does not use chunk/atom compute
 
-Number of molecules must remain constant over time.
+The style of the specified compute is not chunk/atom.
 
 */

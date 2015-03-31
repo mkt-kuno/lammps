@@ -88,6 +88,7 @@ class Modify : protected Pointers {
   void delete_fix(const char *);
   int find_fix(const char *);
   int check_package(const char *);
+  int adjust_dof_fix(int);
 
   void add_compute(int, char **, int trysuffix=0);
   void modify_compute(int, char **);
@@ -121,6 +122,9 @@ class Modify : protected Pointers {
 
   int *end_of_step_every;
 
+  int n_dofflag;             // list of fixes with dof() method
+  int *list_dofflag;
+
   int n_timeflag;            // list of computes that store time invocation
   int *list_timeflag;
 
@@ -137,6 +141,7 @@ class Modify : protected Pointers {
   void list_init(int, int &, int *&);
   void list_init_end_of_step(int, int &, int *&);
   void list_init_thermo_energy(int, int &, int *&);
+  void list_init_dofflag(int &, int *&);
   void list_init_compute();
 
  private:
@@ -155,6 +160,14 @@ class Modify : protected Pointers {
 #endif
 
 /* ERROR/WARNING messages:
+
+E: Fix %s does not allow use of dynamic group
+
+Dynamic groups have not yet been enabled for this fix.
+
+E: Compute %s does not allow use of dynamic group
+
+Dynamic groups have not yet been enabled for this compute.
 
 W: One or more atoms are time integrated more than once
 
@@ -190,7 +203,7 @@ The ID and style of a fix match for a fix you are changing with a fix
 command, but the new group you are specifying does not match the old
 group.
 
-E: Invalid fix style
+E: Unknown fix style
 
 The choice of fix style is unknown.
 
@@ -206,9 +219,9 @@ E: Reuse of compute ID
 
 A compute ID cannot be used twice.
 
-E: Invalid compute style
+E: Unknown compute style
 
-Self-explanatory.
+The choice of compute style is unknown.
 
 E: Could not find compute_modify ID
 

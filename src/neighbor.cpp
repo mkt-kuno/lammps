@@ -154,35 +154,39 @@ Neighbor::Neighbor(LAMMPS *lmp) : Pointers(lmp)
   dihedrallist = NULL;
   maximproper = 0;
   improperlist = NULL;
+
+  copymode = 0;
 }
 
 /* ---------------------------------------------------------------------- */
 
 Neighbor::~Neighbor()
 {
+  if (copymode) return;
+
   memory->destroy(cutneighsq);
   memory->destroy(cutneighghostsq);
   delete [] cuttype;
   delete [] cuttypesq;
   delete [] fixchecklist;
-
+  
   memory->destroy(xhold);
-
+  
   memory->destroy(binhead);
   memory->destroy(bins);
-
+  
   memory->destroy(ex1_type);
   memory->destroy(ex2_type);
   memory->destroy(ex_type);
-
+  
   memory->destroy(ex1_group);
   memory->destroy(ex2_group);
   delete [] ex1_bit;
   delete [] ex2_bit;
-
+  
   memory->destroy(ex_mol_group);
   delete [] ex_mol_bit;
-
+  
   for (int i = 0; i < nlist; i++) delete lists[i];
   delete [] lists;
   delete [] pair_build;
@@ -190,12 +194,12 @@ Neighbor::~Neighbor()
   delete [] blist;
   delete [] glist;
   delete [] slist;
-
+  
   for (int i = 0; i < nrequest; i++) delete requests[i];
   memory->sfree(requests);
   for (int i = 0; i < old_nrequest; i++) delete old_requests[i];
   memory->sfree(old_requests);
-
+  
   memory->destroy(bondlist);
   memory->destroy(anglelist);
   memory->destroy(dihedrallist);
@@ -832,6 +836,11 @@ void Neighbor::init()
 
   // 1st time allocation of topology lists
 
+  if (lmp->kokkos) {
+    init_topology_kokkos();
+    return;
+  }
+
   if (atom->molecular && atom->nbonds && maxbond == 0) {
     if (nprocs == 1) maxbond = atom->nbonds;
     else maxbond = static_cast<int> (LB_FACTOR * atom->nbonds / nprocs);
@@ -867,7 +876,8 @@ void Neighbor::init()
   int bond_off = 0;
   int angle_off = 0;
   for (i = 0; i < modify->nfix; i++)
-    if (strcmp(modify->fix[i]->style,"shake") == 0)
+    if ((strcmp(modify->fix[i]->style,"shake") == 0)
+        || (strcmp(modify->fix[i]->style,"rattle") == 0))
       bond_off = angle_off = 1;
   if (force->bond && force->bond_match("quartic")) bond_off = 1;
 
@@ -1187,8 +1197,10 @@ void Neighbor::choose_build(int index, NeighRequest *rq)
                      "Neighbor include group not allowed with ghost neighbors");
         else pb = &Neighbor::full_nsq_ghost_omp;
       } else if (style == BIN) {
-        if (rq->ghost == 0) pb = &Neighbor::full_bin_omp;
-        else if (includegroup)
+        if (rq->ghost == 0) {
+	  if (rq->intel) pb = &Neighbor::full_bin_intel;
+	  else pb = &Neighbor::full_bin_omp;
+        } else if (includegroup)
           error->all(FLERR,
                      "Neighbor include group not allowed with ghost neighbors");
         else pb = &Neighbor::full_bin_ghost_omp;
@@ -1521,11 +1533,8 @@ void Neighbor::build(int topoflag)
   // only for pairwise lists with buildflag set
   // blist is for standard neigh lists, otherwise is a Kokkos list
 
-  for (i = 0; i < nblist; i++) {
-    if (lists[blist[i]])
-      (this->*pair_build[blist[i]])(lists[blist[i]]);
-    else build_kokkos(i);
-  }
+  for (i = 0; i < nblist; i++)
+    (this->*pair_build[blist[i]])(lists[blist[i]]);
 
   if (atom->molecular && topoflag) build_topology();
 }
@@ -1553,7 +1562,7 @@ void Neighbor::build_one(class NeighList *mylist, int preflag)
   // check if list structure is initialized
   if (mylist == NULL)
     error->all(FLERR,"Trying to build an occasional neighbor list "
-               "before initialization is completed.");
+               "before initialization completed");
 
   // no need to build if already built since last re-neighbor
   // preflag is set by fix bond/create and fix bond/swap

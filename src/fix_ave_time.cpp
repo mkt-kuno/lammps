@@ -54,7 +54,6 @@ FixAveTime::FixAveTime(LAMMPS *lmp, int narg, char **arg) :
   nfreq = force->inumeric(FLERR,arg[5]);
 
   global_freq = nfreq;
-  time_depend = 1;
 
   // scan values to count them
   // then read options so know mode = SCALAR/VECTOR before re-reading values
@@ -275,14 +274,17 @@ FixAveTime::FixAveTime(LAMMPS *lmp, int narg, char **arg) :
   }
   
   // enable locking of row count by this fix for computes of variable length
-  // only if nrepeat > 1, so that locking spans multiple timesteps 
+  // only if nrepeat > 1 or ave = RUNNING/WINDOW,
+  //   so that locking spans multiple timesteps 
 
-  if (any_variable_length && nrepeat > 1) {
+  if (any_variable_length && 
+      (nrepeat > 1 || ave == RUNNING || ave == WINDOW)) {
     for (int i = 0; i < nvalues; i++)
       if (varlen[i]) {
         int icompute = modify->find_compute(ids[i]);
         modify->compute[icompute]->lock_enable();
       }
+    lockforever = 0;
   }
     
   // print file comment lines
@@ -355,7 +357,7 @@ FixAveTime::FixAveTime(LAMMPS *lmp, int narg, char **arg) :
 
     } else {
       vector_flag = 1;
-      size_vector = nvalues;
+      size_vector = nrows = nvalues;
       extvector = -1;
       extlist = new int[nvalues];
       for (int i = 0; i < nvalues; i++) {
@@ -427,7 +429,8 @@ FixAveTime::FixAveTime(LAMMPS *lmp, int narg, char **arg) :
   }
 
   // initializations
-  // set vector_total/array_total to zero since it accumulates
+  // set vector_total to zero since it accumulates
+  // array_total already zeroed in allocate_arrays
 
   irepeat = 0;
   iwindow = window_limit = 0;
@@ -435,15 +438,13 @@ FixAveTime::FixAveTime(LAMMPS *lmp, int narg, char **arg) :
 
   if (mode == SCALAR)
     for (int i = 0; i < nvalues; i++) vector_total[i] = 0.0;
-  else
-    for (int i = 0; i < nrows; i++)
-      for (int j = 0; j < nvalues; j++) array_total[i][j] = 0.0;
 
   // nvalid = next step on which end_of_step does something
   // add nvalid to all computes that store invocation times
   // since don't know a priori which are invoked by this fix
   // once in end_of_step() can set timestep for ones actually invoked
 
+  nvalid_last = -1;
   nvalid = nextvalid();
   modify->addstep_compute_all(nvalid);
 }
@@ -453,13 +454,17 @@ FixAveTime::FixAveTime(LAMMPS *lmp, int narg, char **arg) :
 FixAveTime::~FixAveTime()
 {
   // decrement lock counter in compute chunk/atom, it if still exists
-  // NOTE: better comment
 
-  if (any_variable_length && nrepeat > 1) {
+  if (any_variable_length && 
+      (nrepeat > 1 || ave == RUNNING || ave == WINDOW)) {
     for (int i = 0; i < nvalues; i++)
       if (varlen[i]) {
         int icompute = modify->find_compute(ids[i]);
-        if (icompute >= 0) modify->compute[icompute]->lock_disable();
+        if (icompute >= 0) {
+          if (ave == RUNNING || ave == WINDOW) 
+            modify->compute[icompute]->unlock(this);
+          modify->compute[icompute]->lock_disable();
+        }
       }
   }
 
@@ -543,9 +548,13 @@ void FixAveTime::setup(int vflag)
 void FixAveTime::end_of_step()
 {
   // skip if not step which requires doing something
+  // error check if timestep was reset in an invalid manner
 
   bigint ntimestep = update->ntimestep;
+  if (ntimestep < nvalid_last || ntimestep > nvalid) 
+    error->all(FLERR,"Invalid timestep reset for fix ave/time");
   if (ntimestep != nvalid) return;
+  nvalid_last = nvalid;
 
   if (mode == SCALAR) invoke_scalar(ntimestep);
   else invoke_vector(ntimestep);
@@ -701,15 +710,15 @@ void FixAveTime::invoke_vector(bigint ntimestep)
   // zero out arrays that accumulate over many samples, but not across epochs
   // invoke setup_chunks() to determine current nchunk
   //   re-allocate per-chunk arrays if needed
-  // then invoke lock() so nchunk cannot change until Nfreq epoch is over
-  //   use final arg = -1 for infinite-time window
+  // invoke lock() in two cases:
+  //   if nrepeat > 1: so nchunk cannot change until Nfreq epoch is over,
+  //     will be unlocked on last repeat of this Nfreq
+  //   if ave = RUNNING/WINDOW and not yet locked:
+  //     set forever, will be unlocked in fix destructor
   // wrap setup_chunks in clearstep/addstep b/c it may invoke computes
   //   both nevery and nfreq are future steps, 
   //   since call below to cchunk->ichunk() 
   //     does not re-invoke internal cchunk compute on this same step
-
-  // first sample within single Nfreq epoch
-  // zero if first step
 
   if (irepeat == 0) {
     if (any_variable_length) {
@@ -726,12 +735,19 @@ void FixAveTime::invoke_vector(bigint ntimestep)
       }
 
       bigint ntimestep = update->ntimestep;
+      int lockforever_flag = 0;
       for (i = 0; i < nvalues; i++) {
         if (!varlen[i]) continue;
-        Compute *compute = modify->compute[value2index[i]];
-        if (ave == RUNNING || ave == WINDOW) compute->lock(this,ntimestep,-1);
-        else compute->lock(this,ntimestep,ntimestep+(nrepeat-1)*nevery);
+        if (nrepeat > 1 && ave == ONE) {
+          Compute *compute = modify->compute[value2index[i]];
+          compute->lock(this,ntimestep,ntimestep+(nrepeat-1)*nevery);
+        } else if ((ave == RUNNING || ave == WINDOW) && !lockforever) {
+          Compute *compute = modify->compute[value2index[i]];
+          compute->lock(this,update->ntimestep,-1);
+          lockforever_flag = 1;
+        }
       }
+      if (lockforever_flag) lockforever = 1;
     }
 
     for (i = 0; i < nrows; i++)
@@ -813,7 +829,7 @@ void FixAveTime::invoke_vector(bigint ntimestep)
   // unlock any variable length computes at end of Nfreq epoch
   // do not unlock if ave = RUNNING or WINDOW
 
-  if (any_variable_length && ave == ONE) {
+  if (any_variable_length && nrepeat > 1 && ave == ONE) {
     for (i = 0; i < nvalues; i++) {
       if (!varlen[i]) continue;
       Compute *compute = modify->compute[value2index[i]];
@@ -876,6 +892,10 @@ void FixAveTime::invoke_vector(bigint ntimestep)
       fprintf(fp,"\n");
     }
     fflush(fp);
+    if (overwrite) {
+      long fileend = ftell(fp);
+      ftruncate(fileno(fp),fileend);
+    }
   }
 }
 
@@ -1089,6 +1109,11 @@ void FixAveTime::allocate_arrays()
     memory->destroy(array_list);
     memory->create(array_list,nwindow,nrows,nvalues,"ave/time:array_list");
   }
+
+  // reinitialize regrown array_total since it accumulates
+
+  for (int i = 0; i < nrows; i++)
+    for (int j = 0; j < nvalues; j++) array_total[i][j] = 0.0;
 }
 
 /* ----------------------------------------------------------------------
@@ -1108,11 +1133,4 @@ bigint FixAveTime::nextvalid()
     nvalid -= (nrepeat-1)*nevery;
   if (nvalid < update->ntimestep) nvalid += nfreq;
   return nvalid;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixAveTime::reset_timestep(bigint ntimestep)
-{
-  if (ntimestep > nvalid) error->all(FLERR,"Fix ave/time missed timestep");
 }

@@ -66,7 +66,6 @@ FixAveSpatial::FixAveSpatial(LAMMPS *lmp, int narg, char **arg) :
 
   global_freq = nfreq;
   no_change_box = 1;
-  time_depend = 1;
 
   ndim = 0;
   int iarg = 6;
@@ -431,6 +430,7 @@ FixAveSpatial::FixAveSpatial(LAMMPS *lmp, int narg, char **arg) :
   // since don't know a priori which are invoked by this fix
   // once in end_of_step() can set timestep for ones actually invoked
 
+  nvalid_last = -1;
   nvalid = nextvalid();
   modify->addstep_compute_all(nvalid);
 }
@@ -549,9 +549,13 @@ void FixAveSpatial::end_of_step()
   int i,j,m,n;
 
   // skip if not step which requires doing something
+  // error check if timestep was reset in an invalid manner
 
   bigint ntimestep = update->ntimestep;
+  if (ntimestep < nvalid_last || ntimestep > nvalid) 
+    error->all(FLERR,"Invalid timestep reset for fix ave/spatial");
   if (ntimestep != nvalid) return;
+  nvalid_last = nvalid;
 
   // update region if necessary
 
@@ -1531,11 +1535,4 @@ double FixAveSpatial::memory_usage()
   bytes += nwindow*nbins * sizeof(double);          // count_list
   bytes += nwindow*nbins*nvalues * sizeof(double);  // values_list
   return bytes;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixAveSpatial::reset_timestep(bigint ntimestep)
-{
-  if (ntimestep > nvalid) error->all(FLERR,"Fix ave/spatial missed timestep");
 }

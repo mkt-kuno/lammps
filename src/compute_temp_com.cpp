@@ -20,6 +20,7 @@
 #include "force.h"
 #include "group.h"
 #include "domain.h"
+#include "modify.h"
 #include "lattice.h"
 #include "error.h"
 
@@ -62,7 +63,6 @@ void ComputeTempCOM::setup()
 {
   dynamic = 0;
   if (dynamic_user || group->dynamic[igroup]) dynamic = 1;
-  fix_dof = -1;
   dof_compute();
 }
 
@@ -70,7 +70,7 @@ void ComputeTempCOM::setup()
 
 void ComputeTempCOM::dof_compute()
 {
-  if (fix_dof) adjust_dof_fix();
+  fix_dof = modify->adjust_dof_fix(igroup);
   double natoms = group->count(igroup);
   int nper = domain->dimension;
   dof = nper * natoms;
@@ -113,6 +113,8 @@ double ComputeTempCOM::compute_scalar()
 
   MPI_Allreduce(&t,&scalar,1,MPI_DOUBLE,MPI_SUM,world);
   if (dynamic) dof_compute();
+  if (tfactor == 0.0 && scalar != 0.0) 
+    error->all(FLERR,"Temperature compute degrees of freedom < 0");
   scalar *= tfactor;
   return scalar;
 }
@@ -163,7 +165,7 @@ void ComputeTempCOM::compute_vector()
    remove velocity bias from atom I to leave thermal velocity
 ------------------------------------------------------------------------- */
 
-void ComputeTempCOM::remove_bias(int, double *v)
+void ComputeTempCOM::remove_bias(int i, double *v)
 {
   v[0] -= vbias[0];
   v[1] -= vbias[1];
@@ -193,7 +195,7 @@ void ComputeTempCOM::remove_bias_all()
    assume remove_bias() was previously called
 ------------------------------------------------------------------------- */
 
-void ComputeTempCOM::restore_bias(int, double *v)
+void ComputeTempCOM::restore_bias(int i, double *v)
 {
   v[0] += vbias[0];
   v[1] += vbias[1];

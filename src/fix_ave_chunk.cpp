@@ -56,7 +56,6 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
 
   global_freq = nfreq;
   no_change_box = 1;
-  time_depend = 1;
 
   // parse values until one isn't recognized
 
@@ -298,7 +297,8 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   }
 
   // increment lock counter in compute chunk/atom
-  // only if nrepeat > 1, so that locking spans multiple timesteps 
+  // only if nrepeat > 1 or ave = RUNNING/WINDOW,
+  //   so that locking spans multiple timesteps 
 
   int icompute = modify->find_compute(idchunk);
   if (icompute < 0)
@@ -306,7 +306,9 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   cchunk = (ComputeChunkAtom *) modify->compute[icompute];
   if (strcmp(cchunk->style,"chunk/atom") != 0)
     error->all(FLERR,"Fix ave/chunk does not use chunk/atom compute");
-  if (nrepeat > 1) cchunk->lockcount++;
+
+  if (nrepeat > 1 || ave == RUNNING || ave == WINDOW) cchunk->lockcount++;
+  lockforever = 0;
 
   // print file comment lines
 
@@ -378,6 +380,7 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   // since don't know a priori which are invoked by this fix
   // once in end_of_step() can set timestep for ones actually invoked
 
+  nvalid_last = -1;
   nvalid = nextvalid();
   modify->addstep_compute_all(nvalid);
 }
@@ -409,10 +412,11 @@ FixAveChunk::~FixAveChunk()
 
   // decrement lock counter in compute chunk/atom, it if still exists
 
-  if (nrepeat > 1) {
+  if (nrepeat > 1 || ave == RUNNING || ave == WINDOW) {
     int icompute = modify->find_compute(idchunk);
     if (icompute >= 0) {
       cchunk = (ComputeChunkAtom *) modify->compute[icompute];
+      if (ave == RUNNING || ave == WINDOW) cchunk->unlock(this);
       cchunk->lockcount--;
     }
   }
@@ -503,16 +507,23 @@ void FixAveChunk::end_of_step()
   int i,j,m,n,index;
 
   // skip if not step which requires doing something
+  // error check if timestep was reset in an invalid manner
 
   bigint ntimestep = update->ntimestep;
+  if (ntimestep < nvalid_last || ntimestep > nvalid) 
+    error->all(FLERR,"Invalid timestep reset for fix ave/chunk");
   if (ntimestep != nvalid) return;
+  nvalid_last = nvalid;
 
   // first sample within single Nfreq epoch
   // zero out arrays that accumulate over many samples, but not across epochs
   // invoke setup_chunks() to determine current nchunk
   //   re-allocate per-chunk arrays if needed
-  // then invoke lock() so nchunk cannot change until Nfreq epoch is over
-  //   use final arg = -1 for infinite-time window
+  // invoke lock() in two cases:
+  //   if nrepeat > 1: so nchunk cannot change until Nfreq epoch is over,
+  //     will be unlocked on last repeat of this Nfreq
+  //   if ave = RUNNING/WINDOW and not yet locked:
+  //     set forever, will be unlocked in fix destructor
   // wrap setup_chunks in clearstep/addstep b/c it may invoke computes
   //   both nevery and nfreq are future steps, 
   //   since call below to cchunk->ichunk() 
@@ -526,8 +537,12 @@ void FixAveChunk::end_of_step()
       modify->addstep_compute(ntimestep+nfreq);
     }
     allocate();
-    if (ave == RUNNING || ave == WINDOW) cchunk->lock(this,ntimestep,-1);
-    else cchunk->lock(this,ntimestep,ntimestep+(nrepeat-1)*nevery);
+    if (nrepeat > 1 && ave == ONE)
+      cchunk->lock(this,ntimestep,ntimestep+(nrepeat-1)*nevery);
+    else if ((ave == RUNNING || ave == WINDOW) && !lockforever) {
+      cchunk->lock(this,update->ntimestep,-1);
+      lockforever = 1;
+    }
     for (m = 0; m < nchunk; m++) {
       count_many[m] = count_sum[m] = 0.0;
       for (i = 0; i < nvalues; i++) values_many[m][i] = 0.0;
@@ -559,7 +574,6 @@ void FixAveChunk::end_of_step()
   // sum within each chunk, only include atoms in fix group
   // compute/fix/variable may invoke computes so wrap with clear/add
 
-  double **x = atom->x;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
@@ -715,6 +729,8 @@ void FixAveChunk::end_of_step()
   //   exception is scaleflag = NOSCALE : no normalize by atom count
   //     check last so other options can take precedence
 
+  double mvv2e = force->mvv2e;
+
   if (normflag == ALL) {
     for (m = 0; m < nchunk; m++) {
       count_many[m] += count_one[m];
@@ -727,7 +743,8 @@ void FixAveChunk::end_of_step()
       if (count_many[m] > 0.0)
         for (j = 0; j < nvalues; j++) {
           if (which[j] == TEMPERATURE)
-            values_many[m][j] += values_one[m][j] / (cdof + adof*count_many[m]);
+            values_many[m][j] += mvv2e*values_one[m][j] / 
+              (cdof + adof*count_many[m]);
           else if (which[j] == DENSITY_NUMBER || which[j] == DENSITY_MASS ||
                    scaleflag == NOSCALE)
             values_many[m][j] += values_one[m][j];
@@ -755,7 +772,7 @@ void FixAveChunk::end_of_step()
   // unlock compute chunk/atom at end of Nfreq epoch
   // do not unlock if ave = RUNNING or WINDOW
 
-  if (ave == ONE) cchunk->unlock(this);
+  if (nrepeat > 1 && ave == ONE) cchunk->unlock(this);
 
   // time average across samples
   // if normflag = ALL, final is total value / total count
@@ -776,7 +793,7 @@ void FixAveChunk::end_of_step()
       if (count_sum[m] > 0.0)
         for (j = 0; j < nvalues; j++) {
           if (which[j] == TEMPERATURE)
-            values_sum[m][j] /= (cdof + adof*count_sum[m]);
+            values_sum[m][j] *= mvv2e / (cdof + adof*count_sum[m]);
           else if (which[j] == DENSITY_MASS)
             values_sum[m][j] *= mv2d/repeat;
           else if (which[j] == DENSITY_NUMBER || scaleflag == NOSCALE)
@@ -1030,11 +1047,4 @@ double FixAveChunk::memory_usage()
   bytes += nwindow*maxchunk * sizeof(double);          // count_list
   bytes += nwindow*maxchunk*nvalues * sizeof(double);  // values_list
   return bytes;
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixAveChunk::reset_timestep(bigint ntimestep)
-{
-  if (ntimestep > nvalid) error->all(FLERR,"Fix ave/chunk missed timestep");
 }

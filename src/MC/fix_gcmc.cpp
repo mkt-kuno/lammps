@@ -218,7 +218,6 @@ void FixGCMC::options(int narg, char **arg)
   molecule_group_inversebit = 0;
   exclusion_group = 0;
   exclusion_group_bit = 0;
-  exclusion_group_inversebit = 0;
   pressure_flag = false;
   pressure = 0.0;
   fugacity_coeff = 1.0;
@@ -345,7 +344,7 @@ void FixGCMC::init()
         (domain->triclinic == 1)) {
       full_flag = true;
       if (comm->me == 0) 
-        error->warning(FLERR,"fix gcmc using full_energy option");
+        error->warning(FLERR,"Fix gcmc using full_energy option");
     }
   }
   
@@ -432,7 +431,6 @@ void FixGCMC::init()
     if (exclusion_group == -1) 
       error->all(FLERR,"Could not find fix gcmc exclusion group ID");
     exclusion_group_bit = group->bitmask[exclusion_group];
-    exclusion_group_inversebit = exclusion_group_bit ^ ~0;
     
     // neighbor list exclusion setup
     // turn off interactions between group all and the exclusion group
@@ -1281,13 +1279,16 @@ void FixGCMC::attempt_atomic_deletion_full()
 
   int i = pick_random_gas_atom();
 
+  int tmpmask;
   if (i >= 0) {
-    atom->mask[i] |= exclusion_group_bit;
+    tmpmask = atom->mask[i];
+    atom->mask[i] = exclusion_group_bit;
     if (atom->q_flag) {
       q_tmp = atom->q[i];
       atom->q[i] = 0.0;
     }
   }
+  if (force->kspace) force->kspace->qsum_qsq();
   double energy_after = energy_full();
 
   if (random_equal->uniform() < 
@@ -1302,9 +1303,10 @@ void FixGCMC::attempt_atomic_deletion_full()
     energy_stored = energy_after;    
   } else {
     if (i >= 0) {
-      atom->mask[i] &= exclusion_group_inversebit;
+      atom->mask[i] = tmpmask;
       if (atom->q_flag) atom->q[i] = q_tmp;
     }
+    if (force->kspace) force->kspace->qsum_qsq();
     energy_stored = energy_before;
   }
   update_gas_atoms_list();
@@ -1360,7 +1362,7 @@ void FixGCMC::attempt_atomic_insertion_full()
   }
   atom->nghost = 0;
   comm->borders();
-    
+  if (force->kspace) force->kspace->qsum_qsq();
   double energy_after = energy_full();
   
   if (random_equal->uniform() <
@@ -1371,6 +1373,7 @@ void FixGCMC::attempt_atomic_insertion_full()
   } else {
     atom->natoms--;
     if (proc_flag) atom->nlocal--;
+    if (force->kspace) force->kspace->qsum_qsq();
     energy_stored = energy_before;
   }
   update_gas_atoms_list();
@@ -1565,18 +1568,20 @@ void FixGCMC::attempt_molecule_deletion_full()
   
   int m = 0;
   double q_tmp[natoms_per_molecule];
+  int tmpmask[atom->nlocal];
   for (int i = 0; i < atom->nlocal; i++) {
     if (atom->molecule[i] == deletion_molecule) {
-      atom->mask[i] |= exclusion_group_bit;
+      tmpmask[i] = atom->mask[i];
+      atom->mask[i] = exclusion_group_bit;
       if (atom->q_flag) {
         q_tmp[m] = atom->q[i];
         m++;
         atom->q[i] = 0.0;
       }
-      
+      toggle_intramolecular(i);
     }
   }
-  
+  if (force->kspace) force->kspace->qsum_qsq();
   double energy_after = energy_full();  
 
   if (random_equal->uniform() < 
@@ -1597,13 +1602,15 @@ void FixGCMC::attempt_molecule_deletion_full()
     int m = 0;
     for (int i = 0; i < atom->nlocal; i++) {
       if (atom->molecule[i] == deletion_molecule) {
-        atom->mask[i] &= exclusion_group_inversebit;
+        atom->mask[i] = tmpmask[i];
+        toggle_intramolecular(i);
         if (atom->q_flag) {
           atom->q[i] = q_tmp[m];
           m++;
         }
       }    
     }
+    if (force->kspace) force->kspace->qsum_qsq();
   }
   update_gas_atoms_list();
 }
@@ -1718,6 +1725,7 @@ void FixGCMC::attempt_molecule_insertion_full()
   if (atom->map_style) atom->map_init();
   atom->nghost = 0;
   comm->borders();
+  if (force->kspace) force->kspace->qsum_qsq();
   double energy_after = energy_full();
 
   if (random_equal->uniform() < zz*volume*natoms_per_molecule*
@@ -1742,6 +1750,7 @@ void FixGCMC::attempt_molecule_insertion_full()
         atom->nlocal--;
       } else i++;
     }
+    if (force->kspace) force->kspace->qsum_qsq();
   }
   update_gas_atoms_list();
 }
@@ -1821,6 +1830,28 @@ tagint FixGCMC::pick_random_gas_molecule()
   return gas_molecule_id_all;
 }
 
+/* ----------------------------------------------------------------------
+------------------------------------------------------------------------- */
+
+void FixGCMC::toggle_intramolecular(int i)
+{
+  if (atom->avec->bonds_allow)
+    for (int m = 0; m < atom->num_bond[i]; m++) 
+      atom->bond_type[i][m] = -atom->bond_type[i][m];
+    
+  if (atom->avec->angles_allow)
+    for (int m = 0; m < atom->num_angle[i]; m++)
+      atom->angle_type[i][m] = -atom->angle_type[i][m];
+
+  if (atom->avec->dihedrals_allow)
+    for (int m = 0; m < atom->num_dihedral[i]; m++)
+      atom->dihedral_type[i][m] = -atom->dihedral_type[i][m];
+      
+  if (atom->avec->impropers_allow)
+    for (int m = 0; m < atom->num_improper[i]; m++)
+      atom->improper_type[i][m] = -atom->improper_type[i][m];
+}
+  
 /* ----------------------------------------------------------------------
    update the list of gas atoms
 ------------------------------------------------------------------------- */

@@ -373,7 +373,7 @@ ComputeChunkAtom::ComputeChunkAtom(LAMMPS *lmp, int narg, char **arg) :
   id_fix = NULL;
   fixstore = NULL;
 
-  if (compress) hash = new std::map<int,int>();
+  if (compress) hash = new std::map<tagint,int>();
   else hash = NULL;
 
   maxvar = 0;
@@ -564,7 +564,7 @@ void ComputeChunkAtom::lock(Fix *fixptr, bigint startstep, bigint stopstep)
   }
 
   if (startstep != lockstart || stopstep != lockstop)
-    error->all(FLERR,"Two fix ave/chunk commands using "
+    error->all(FLERR,"Two fix ave commands using "
                "same compute chunk/atom command in incompatible ways");
 
   // set lock to last calling Fix, since it will be last to unlock()
@@ -1010,7 +1010,7 @@ void ComputeChunkAtom::compress_chunk_ids()
 void ComputeChunkAtom::idring(int n, char *cbuf)
 {
   tagint *list = (tagint *) cbuf;
-  std::map<int,int> *hash = cptr->hash;
+  std::map<tagint,int> *hash = cptr->hash;
   for (int i = 0; i < n; i++) (*hash)[list[i]] = 0;
 }
 
@@ -1119,7 +1119,7 @@ int ComputeChunkAtom::setup_bins()
       hi = origin[m] - n*delta[m];
     }
 
-    if (lo > hi) error->all(FLERR,"Invalid bin bounds in fix ave/spatial");
+    if (lo > hi) error->all(FLERR,"Invalid bin bounds in compute chunk/atom");
 
     offset[m] = lo;
     nlayers[m] = static_cast<int> ((hi-lo) * invdelta[m] + 0.5);

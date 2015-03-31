@@ -303,9 +303,13 @@ E: All pair coeffs are not set
 All pair coefficients must be set in the data file or by the
 pair_coeff command before running a simulation.
 
-E: Pair style requres a KSpace style
+E: Fix adapt interface to this pair style not supported
 
-Self-explanatory.
+New coding for the pair style would need to be done.
+
+E: Pair style requires a KSpace style
+
+No kspace style is defined.
 
 E: Pair style does not support pair_write
 

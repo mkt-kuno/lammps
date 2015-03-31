@@ -78,6 +78,7 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
   rigid_flag = 1;
   virial_flag = 1;
   create_attribute = 1;
+  dof_flag = 1;
 
   MPI_Comm_rank(world,&me);
   MPI_Comm_size(world,&nprocs);
@@ -2191,7 +2192,7 @@ void FixRigidSmall::setup_bodies_static()
 
 /* ----------------------------------------------------------------------
    one-time initialization of dynamic rigid body attributes
-   Vcm and angmom, computed explicitly from constituent particles
+   vcm and angmom, computed explicitly from constituent particles
    even if wrong for overlapping particles, is OK,
      since is just setting initial time=0 Vcm and angmom of the body
      which can be estimated value
@@ -2626,11 +2627,13 @@ void FixRigidSmall::set_molecule(int nlocalprev, tagint tagprev, int imol,
     displace[i][1] = onemols[imol]->dxbody[m][1];
     displace[i][2] = onemols[imol]->dxbody[m][2];
 
-    eflags[i] = 0;
-    if (onemols[imol]->radiusflag) {
-      eflags[i] |= SPHERE;
-      eflags[i] |= OMEGA;
-      eflags[i] |= TORQUE;
+    if (extended) {
+      eflags[i] = 0;
+      if (onemols[imol]->radiusflag) {
+        eflags[i] |= SPHERE;
+        eflags[i] |= OMEGA;
+        eflags[i] |= TORQUE;
+      }
     }
 
     if (bodyown[i] >= 0) {

@@ -21,6 +21,8 @@
 </H3>
 <H3>pair_style coul/debye/gpu command 
 </H3>
+<H3>pair_style coul/debye/kk command 
+</H3>
 <H3>pair_style coul/debye/omp command 
 </H3>
 <H3>pair_style coul/dsf command 
@@ -36,6 +38,8 @@
 <H3>pair_style coul/long/omp command 
 </H3>
 <H3>pair_style coul/long/gpu command 
+</H3>
+<H3>pair_style coul/long/kk command 
 </H3>
 <H3>pair_style coul/msm command 
 </H3>
@@ -248,11 +252,14 @@ cutoff + 2*qdist, to shrink the size of the neighbor list.  This leads
 to slightly larger cost for the long-range calculation, so you can
 test the trade-off for your model.
 </P>
-<P>These potentials are designed to be combined with other pair
+<HR>
+
+<P>Note that these potentials are designed to be combined with other pair
 potentials via the <A HREF = "pair_hybrid.html">pair_style hybrid/overlay</A>
 command.  This is because they have no repulsive core.  Hence if they
 are used by themselves, there will be no repulsion to keep two
-oppositely charged particles from overlapping each other.
+oppositely charged particles from moving arbitrarily close to each
+other.
 </P>
 <P>The following coefficients must be defined for each pair of atoms
 types via the <A HREF = "pair_coeff.html">pair_coeff</A> command as in the examples

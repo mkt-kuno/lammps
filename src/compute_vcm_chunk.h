@@ -65,12 +65,12 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-E: Compute vcm/molecule requires molecular atom style
+E: Chunk/atom compute does not exist for compute vcm/chunk
 
 Self-explanatory.
 
-E: Molecule count changed in compute vcm/molecule
+E: Compute vcm/chunk does not use chunk/atom compute
 
-Number of molecules must remain constant over time.
+The style of the specified compute is not chunk/atom.
 
 */
