@@ -59,7 +59,6 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
   single_extra = 45;
   svector = new double[single_extra]; //~ Changed to single_extra [KH - 25 October 2013]
 
-  computeflag = 0;
   neighprev = 0;
 
   /*~ Initialise two integers used to limit the numbers of warnings 
@@ -125,7 +124,6 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   if (eflag || vflag) ev_setup(eflag,vflag);
   else evflag = vflag_fdotr = 0;
 
-  computeflag = 1;
   int shearupdate = 1;
   if (update->setupflag) shearupdate = 0;
 
@@ -1057,8 +1055,7 @@ void PairGranHookeHistory::unpack_forward_comm(int n, int first, double *buf)
 void *PairGranHookeHistory::extract(const char *str, int &dim)
 {
   dim = 0;
-  if (strcmp(str,"computeflag") == 0) return (void *) &computeflag;
-  else if (strcmp(str,"list") == 0) return (void *) list;
+  if (strcmp(str,"list") == 0) return (void *) list;
   else if (strcmp(str,"listgranhistory") == 0) return (void *) listgranhistory;
   else if (strcmp(str,"rolling") == 0) return (void *) &rolling;
   // Added for D_spin model [MO - 13 November 2014]

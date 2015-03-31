@@ -352,12 +352,14 @@ int FixAtomSwap::attempt_semi_grand()
     comm->forward_comm_fix(this);
   }
   
+  if (force->kspace) force->kspace->qsum_qsq();
   double energy_after = energy_full();
 
   int success = 0;
-  if ((i >= 0) and (random_equal->uniform() < 
-      exp(-beta*(energy_after - energy_before) +
-              delta_mu[jtype] - delta_mu[itype]))) success = 1;
+  if (i >= 0) 
+    if (random_unequal->uniform() < 
+      exp(-beta*(energy_after - energy_before
+            + delta_mu[jtype] - delta_mu[itype]))) success = 1;
   
   int success_all = 0;
   MPI_Allreduce(&success,&success_all,1,MPI_INT,MPI_MAX,world);
@@ -378,6 +380,7 @@ int FixAtomSwap::attempt_semi_grand()
       atom->type[i] = itype;
       if (atom->q_flag) atom->q[i] = qtmp;
     }
+    if (force->kspace) force->kspace->qsum_qsq();
     energy_stored = energy_before;
     
     if (unequal_cutoffs) {
@@ -557,7 +560,6 @@ int FixAtomSwap::pick_j_swap_atom()
 void FixAtomSwap::update_semi_grand_atoms_list()
 {
   int nlocal = atom->nlocal;
-  int *type = atom->type;
   double **x = atom->x;
       
   if (nlocal > atom_swap_nmax) {
@@ -737,6 +739,7 @@ void FixAtomSwap::write_restart(FILE *fp)
   int n = 0;
   double list[4];
   list[n++] = random_equal->state();
+  list[n++] = random_unequal->state();
   list[n++] = next_reneighbor;
 
   if (comm->me == 0) {

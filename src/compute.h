@@ -114,10 +114,17 @@ class Compute : protected Pointers {
   virtual int dof_remove(int) {return 0;}
   virtual void remove_bias(int, double *) {}
   virtual void remove_bias_all() {}
+  virtual void reapply_bias_all() {}
   virtual void restore_bias(int, double *) {}
   virtual void restore_bias_all() {}
 
   virtual void reset_extra_compute_fix(const char *);
+
+  virtual void lock_enable() {}
+  virtual void lock_disable() {}
+  virtual int lock_length() {return 0;}
+  virtual void lock(class Fix *, bigint, bigint) {}
+  virtual void unlock(class Fix *) {}
 
   void addstep(bigint);
   int matchstep(bigint);
@@ -144,10 +151,6 @@ class Compute : protected Pointers {
   double vbias[3];             // stored velocity bias for one atom
   double **vbiasall;           // stored velocity bias for all atoms
   int maxbias;                 // size of vbiasall array
-
-  int *molmap;                 // convert molecule ID to local index
-
-  int molecules_in_group(tagint &, tagint &);
 
   inline int sbmask(int j) {
     return j >> SBBITS & 3;

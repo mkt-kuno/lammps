@@ -641,6 +641,7 @@ void FixGCMC::attempt_atomic_translation()
     coord[2] = x[i][2] + displace*rz;
     if (regionflag) {
       while (domain->regions[iregion]->match(coord[0],coord[1],coord[2]) == 0) {
+        rsq = 1.1;
         while (rsq > 1.0) {
           rx = 2*random_unequal->uniform() - 1.0;
           ry = 2*random_unequal->uniform() - 1.0;
@@ -822,6 +823,7 @@ void FixGCMC::attempt_molecule_translation()
     coord[1] = com[1] + displace*ry;
     coord[2] = com[2] + displace*rz;
     while (domain->regions[iregion]->match(coord[0],coord[1],coord[2]) == 0) {
+      rsq = 1.1;
       while (rsq > 1.0) {
         rx = 2*random_equal->uniform() - 1.0;
         ry = 2*random_equal->uniform() - 1.0;
@@ -1075,9 +1077,6 @@ void FixGCMC::attempt_molecule_insertion()
     tagint maxtag_all;
     MPI_Allreduce(&maxtag,&maxtag_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
     
-    int nfix = modify->nfix;
-    Fix **fix = modify->fix;
-
     int nlocalprev = atom->nlocal;
     
     double vnew[3];
@@ -1219,6 +1218,7 @@ void FixGCMC::attempt_atomic_translation_full()
     coord[2] = x[i][2] + displace*rz;
     if (regionflag) {
       while (domain->regions[iregion]->match(coord[0],coord[1],coord[2]) == 0) {
+        rsq = 1.1;
         while (rsq > 1.0) {
           rx = 2*random_unequal->uniform() - 1.0;
           ry = 2*random_unequal->uniform() - 1.0;
@@ -1421,6 +1421,7 @@ void FixGCMC::attempt_molecule_translation_full()
     coord[1] = com[1] + displace*ry;
     coord[2] = com[2] + displace*rz;
     while (domain->regions[iregion]->match(coord[0],coord[1],coord[2]) == 0) {
+      rsq = 1.1;
       while (rsq > 1.0) {
         rx = 2*random_equal->uniform() - 1.0;
         ry = 2*random_equal->uniform() - 1.0;
@@ -1630,9 +1631,6 @@ void FixGCMC::attempt_molecule_insertion_full()
   tagint maxtag_all;
   MPI_Allreduce(&maxtag,&maxtag_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
 
-  int nfix = modify->nfix;
-  Fix **fix = modify->fix;
-
   int nlocalprev = atom->nlocal;
   
   double com_coord[3];
@@ -1723,7 +1721,7 @@ void FixGCMC::attempt_molecule_insertion_full()
   double energy_after = energy_full();
 
   if (random_equal->uniform() < zz*volume*natoms_per_molecule*
-      exp(beta*(energy_before - energy_after)/(ngas + natoms_per_molecule))) {  
+      exp(beta*(energy_before - energy_after))/(ngas + natoms_per_molecule)) {  
    
     ninsertion_successes += 1.0;
     energy_stored = energy_after;

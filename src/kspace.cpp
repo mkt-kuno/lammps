@@ -61,7 +61,8 @@ KSpace::KSpace(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   order_6 = 5;
   gridflag_6 = 0;
   gewaldflag_6 = 0;
-    
+  auto_disp_flag = 0;
+
   slabflag = 0;
   differentiation_flag = 0;
   slab_volfactor = 1;
@@ -69,6 +70,7 @@ KSpace::KSpace(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   adjust_cutoff_flag = 1;
   scalar_pressure_flag = 0;
   warn_nonneutral = 1;
+  warn_nocharge = 1;
 
   accuracy_absolute = -1.0;
   accuracy_real_6 = -1.0;
@@ -278,8 +280,10 @@ void KSpace::qsum_qsq()
   MPI_Allreduce(&qsum_local,&qsum,1,MPI_DOUBLE,MPI_SUM,world);
   MPI_Allreduce(&qsqsum_local,&qsqsum,1,MPI_DOUBLE,MPI_SUM,world);
 
-  if (qsqsum == 0.0)
-    error->all(FLERR,"Cannot use kspace solver on system with no charge");
+  if ((qsqsum == 0.0) && (comm->me == 0) && warn_nocharge) {
+    error->warning(FLERR,"Using kspace solver on system with no charge");
+    warn_nocharge = 0;
+  }
 
   q2 = qsqsum * force->qqrd2e;
 
@@ -554,6 +558,12 @@ void KSpace::modify_params(int narg, char **arg)
       if (iarg+2 > narg) error->all(FLERR,"Illegal kspace_modify command");
       if (strcmp(arg[iarg+1],"yes") == 0) scalar_pressure_flag = 1;
       else if (strcmp(arg[iarg+1],"no") == 0) scalar_pressure_flag = 0;
+      else error->all(FLERR,"Illegal kspace_modify command");
+      iarg += 2;
+    } else if (strcmp(arg[iarg],"disp/auto") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal kspace_modify command");
+      if (strcmp(arg[iarg+1],"yes") == 0) auto_disp_flag = 1;
+      else if (strcmp(arg[iarg+1],"no") == 0) auto_disp_flag = 0;
       else error->all(FLERR,"Illegal kspace_modify command");
       iarg += 2;
     } else error->all(FLERR,"Illegal kspace_modify command");

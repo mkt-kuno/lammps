@@ -56,6 +56,8 @@ class KSpace : protected Pointers {
   int warn_nonneutral;           // 0 = error if non-neutral system
                                  // 1 = warn once if non-neutral system
                                  // 2 = warn, but already warned
+  int warn_nocharge;             // 0 = already warned
+                                 // 1 = warn if zero charge
 
   int order,order_6,order_allocated;
   double accuracy;                  // accuracy of KSpace solver (force units)
@@ -66,6 +68,7 @@ class KSpace : protected Pointers {
                                     // dispersion solver (force units)
   double accuracy_kspace_6;         // reciprocal space accuracy for 
                                     // dispersion solver (force units)
+  int auto_disp_flag;		    // use automatic paramter generation for pppm/disp
   double two_charge_force;          // force in user units of two point
                                     // charges separated by 1 Angstrom
 
