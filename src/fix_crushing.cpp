@@ -1088,7 +1088,7 @@ double FixCrushing::insert_particles(int nnew)
       atom->type[m] = ntype;
       atom->radius[m] = radtmp;
       atom->rmass[m] = 4.0*PI/3.0 * radtmp*radtmp*radtmp * denstmp;
-      modify->create_attribute(n);
+      modify->create_attribute(m);
     }
   }
 

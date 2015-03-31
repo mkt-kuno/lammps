@@ -183,9 +183,6 @@ void FixShearHistory::init()
     error->all(FLERR,
                "Pair style granular with history requires atoms have IDs");
 
-  int dim;
-  computeflag = (int *) pair->extract("computeflag",dim);
-
   allocate_pages();
 }
 

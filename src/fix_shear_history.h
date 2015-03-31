@@ -89,7 +89,6 @@ class FixShearHistory : public Fix {
   int maxtouch;                 // max # of touching partners for my atoms
 
   class Pair *pair;
-  int *computeflag;             // computeflag in PairGranHookeHistory
 
   int pgsize,oneatom;           // copy of settings in Neighbor
   MyPage<tagint> *ipage;        // pages of partner atom IDs
