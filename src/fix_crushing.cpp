@@ -1051,7 +1051,6 @@ double FixCrushing::insert_particles(int nnew)
   }
   
   AtomVec *avec = atom->avec;
-  Fix **fix = modify->fix;
   double *sublo = domain->sublo;
   double *subhi = domain->subhi;
 
@@ -1089,8 +1088,7 @@ double FixCrushing::insert_particles(int nnew)
       atom->type[m] = ntype;
       atom->radius[m] = radtmp;
       atom->rmass[m] = 4.0*PI/3.0 * radtmp*radtmp*radtmp * denstmp;
-      for (int j = 0; j < modify->nfix; j++)
-        if (fix[j]->create_attribute) fix[j]->set_arrays(m);
+      modify->create_attribute(n);
     }
   }
 
