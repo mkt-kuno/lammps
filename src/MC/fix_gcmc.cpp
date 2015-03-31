@@ -755,11 +755,7 @@ void FixGCMC::attempt_atomic_insertion()
       atom->v[m][0] = random_unequal->gaussian()*sigma;
       atom->v[m][1] = random_unequal->gaussian()*sigma;
       atom->v[m][2] = random_unequal->gaussian()*sigma;
-
-      int nfix = modify->nfix;
-      Fix **fix = modify->fix;
-      for (int j = 0; j < nfix; j++)
-        if (fix[j]->create_attribute) fix[j]->set_arrays(m);
+      modify->create_attribute(m);
 
       success = 1;
     }
@@ -1105,9 +1101,7 @@ void FixGCMC::attempt_molecule_insertion()
         atom->v[m][2] = vnew[2];
         
         atom->add_molecule_atom(onemols[imol],i,m,maxtag_all);
-        for (int j = 0; j < nfix; j++)
-          if (fix[j]->create_attribute) fix[j]->set_arrays(m);
-
+        modify->create_attribute(m);
       }
     }
 
@@ -1203,6 +1197,10 @@ void FixGCMC::attempt_atomic_translation_full()
 
   double **x = atom->x;
   double xtmp[3];
+  
+  xtmp[0] = xtmp[1] = xtmp[2] = 0.0;
+  
+  tagint tmptag = -1;
     
   if (i >= 0) {
   
@@ -1238,6 +1236,8 @@ void FixGCMC::attempt_atomic_translation_full()
     x[i][0] = coord[0];
     x[i][1] = coord[1];
     x[i][2] = coord[2];
+    
+    tmptag = atom->tag[i];
   }
   
   double energy_after = energy_full();
@@ -1247,10 +1247,19 @@ void FixGCMC::attempt_atomic_translation_full()
     energy_stored = energy_after;
     ntranslation_successes += 1.0;
   } else {
-    if (i >= 0) {
-      x[i][0] = xtmp[0];
-      x[i][1] = xtmp[1];
-      x[i][2] = xtmp[2];
+  
+    tagint tmptag_all;
+    MPI_Allreduce(&tmptag,&tmptag_all,1,MPI_LMP_TAGINT,MPI_MAX,world);
+    
+    double xtmp_all[3];
+    MPI_Allreduce(&xtmp,&xtmp_all,3,MPI_DOUBLE,MPI_SUM,world);
+  
+    for (int i = 0; i < atom->nlocal; i++) {
+      if (tmptag_all == atom->tag[i]) { 
+        x[i][0] = xtmp_all[0];
+        x[i][1] = xtmp_all[1];
+        x[i][2] = xtmp_all[2];
+      }
     }
     energy_stored = energy_before;
   } 
@@ -1341,11 +1350,7 @@ void FixGCMC::attempt_atomic_insertion_full()
     atom->v[m][1] = random_unequal->gaussian()*sigma;
     atom->v[m][2] = random_unequal->gaussian()*sigma;
     if (charge_flag) atom->q[m] = charge;
-    
-    int nfix = modify->nfix;
-    Fix **fix = modify->fix;
-    for (int j = 0; j < nfix; j++)
-      if (fix[j]->create_attribute) fix[j]->set_arrays(m);
+    modify->create_attribute(m);
   }
 
   atom->natoms++;
@@ -1698,9 +1703,7 @@ void FixGCMC::attempt_molecule_insertion_full()
       atom->v[m][2] = vnew[2];
 
       atom->add_molecule_atom(onemols[imol],i,m,maxtag_all);
-
-      for (int j = 0; j < nfix; j++)
-        if (fix[j]->create_attribute) fix[j]->set_arrays(m);
+      modify->create_attribute(m);
     }
   }
 
@@ -1779,8 +1782,7 @@ double FixGCMC::energy_full()
  
   update->eflag_global = update->ntimestep;
   double total_energy = c_pe->compute_scalar();
-  if (output->thermo->normflag) total_energy *= atom->natoms;
-
+  
   return total_energy;
 }
 

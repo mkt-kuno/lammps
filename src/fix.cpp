@@ -69,6 +69,7 @@ Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 
   scalar_flag = vector_flag = array_flag = 0;
   peratom_flag = local_flag = 0;
+  size_vector_variable = size_array_rows_variable = 0;
 
   comm_forward = comm_reverse = comm_border = 0;
   restart_reset = 0;
@@ -90,15 +91,19 @@ Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   execution_space = Host;
   datamask_read = ALL_MASK;
   datamask_modify = ALL_MASK;
+
+  copymode = 0;
 }
 
 /* ---------------------------------------------------------------------- */
 
 Fix::~Fix()
 {
-  delete [] id;
-  delete [] style;
-  memory->destroy(vatom);
+  if (!copymode) {
+    delete [] id;
+    delete [] style;
+    memory->destroy(vatom);
+  }
 }
 
 /* ----------------------------------------------------------------------

@@ -696,7 +696,7 @@ void Variable::compute_atom(int ivar, int igroup,
   if (style[ivar] == ATOM) {
     evaluate(data[ivar][0],&tree);
     collapse_tree(tree);
-  } else vstore = reader[ivar]->fix->vstore;
+  } else vstore = reader[ivar]->fixstore->vstore;
 
   int groupbit = group->bitmask[igroup];
   int *mask = atom->mask;
@@ -752,6 +752,18 @@ int Variable::find(char *name)
   for (int i = 0; i < nvar; i++)
     if (strcmp(name,names[i]) == 0) return i;
   return -1;
+}
+
+/* ----------------------------------------------------------------------
+   initialize one atom's storage values in all VarReaders via fix STORE
+   called when atom is created
+------------------------------------------------------------------------- */
+
+void Variable::set_arrays(int i)
+{
+  for (int i = 0; i < nvar; i++)
+    if (reader[i] && style[i] == ATOMFILE)
+      reader[i]->fixstore->vstore[i] = 0.0;
 }
 
 /* ----------------------------------------------------------------------
@@ -1069,7 +1081,8 @@ double Variable::evaluate(char *str, Tree **tree)
 
         } else if (nbracket == 1 && compute->vector_flag) {
 
-          if (index1 > compute->size_vector)
+          if (index1 > compute->size_vector &&
+              compute->size_vector_variable == 0)
             error->all(FLERR,"Variable formula compute vector "
                        "is accessed out-of-range");
           if (update->whichflag == 0) {
@@ -1081,7 +1094,9 @@ double Variable::evaluate(char *str, Tree **tree)
             compute->invoked_flag |= INVOKED_VECTOR;
           }
 
-          value1 = compute->vector[index1-1];
+          if (compute->size_vector_variable && 
+              index1 > compute->size_vector) value1 = 0.0;
+          else value1 = compute->vector[index1-1];
           if (tree) {
             Tree *newtree = new Tree();
             newtree->type = VALUE;
@@ -1095,7 +1110,8 @@ double Variable::evaluate(char *str, Tree **tree)
 
         } else if (nbracket == 2 && compute->array_flag) {
 
-          if (index1 > compute->size_array_rows)
+          if (index1 > compute->size_array_rows &&
+              compute->size_array_rows_variable == 0)
             error->all(FLERR,"Variable formula compute array "
                        "is accessed out-of-range");
           if (index2 > compute->size_array_cols)
@@ -1110,7 +1126,9 @@ double Variable::evaluate(char *str, Tree **tree)
             compute->invoked_flag |= INVOKED_ARRAY;
           }
 
-          value1 = compute->array[index1-1][index2-1];
+          if (compute->size_array_rows_variable && 
+              index1 > compute->size_array_rows) value1 = 0.0;
+          else value1 = compute->array[index1-1][index2-1];
           if (tree) {
             Tree *newtree = new Tree();
             newtree->type = VALUE;
@@ -1283,12 +1301,13 @@ double Variable::evaluate(char *str, Tree **tree)
 
         } else if (nbracket == 1 && fix->vector_flag) {
 
-          if (index1 > fix->size_vector)
-            error->all(FLERR,
-                       "Variable formula fix vector is accessed out-of-range");
+          if (index1 > fix->size_vector &&
+              fix->size_vector_variable == 0)
+            error->all(FLERR,"Variable formula fix vector is "
+                       "accessed out-of-range");
           if (update->whichflag > 0 && update->ntimestep % fix->global_freq)
             error->all(FLERR,"Fix in variable not computed at compatible time");
-
+          
           value1 = fix->compute_vector(index1-1);
           if (tree) {
             Tree *newtree = new Tree();
@@ -1303,7 +1322,8 @@ double Variable::evaluate(char *str, Tree **tree)
 
         } else if (nbracket == 2 && fix->array_flag) {
 
-          if (index1 > fix->size_array_rows)
+          if (index1 > fix->size_array_rows &&
+              fix->size_array_rows_variable == 0)
             error->all(FLERR,
                        "Variable formula fix array is accessed out-of-range");
           if (index2 > fix->size_array_cols)
@@ -1471,7 +1491,7 @@ double Variable::evaluate(char *str, Tree **tree)
                        "equal-style variable formula");
           Tree *newtree = new Tree();
           newtree->type = ATOMARRAY;
-          newtree->array = reader[ivar]->fix->vstore;
+          newtree->array = reader[ivar]->fixstore->vstore;
           newtree->nstride = 1;
           newtree->selfalloc = 0;
           newtree->first = newtree->second = NULL;
@@ -1495,7 +1515,7 @@ double Variable::evaluate(char *str, Tree **tree)
 
         } else if (nbracket && style[ivar] == ATOMFILE) {
 
-          peratom2global(1,NULL,reader[ivar]->fix->vstore,1,index,
+          peratom2global(1,NULL,reader[ivar]->fixstore->vstore,1,index,
                          tree,treestack,ntreestack,argstack,nargstack);
 
         } else error->all(FLERR,"Mismatched variable in variable formula");
@@ -3641,7 +3661,7 @@ int Variable::special_function(char *word, char *contents, Tree **tree,
 
       double *result;
       memory->create(result,atom->nlocal,"variable:result");
-      memcpy(result,reader[ivar]->fix->vstore,atom->nlocal*sizeof(double));
+      memcpy(result,reader[ivar]->fixstore->vstore,atom->nlocal*sizeof(double));
 
       int done = reader[ivar]->read_peratom();
       if (done) remove(ivar);
@@ -4293,7 +4313,7 @@ VarReader::VarReader(LAMMPS *lmp, char *name, char *file, int flag) :
   // allocate a new fix STORE, so they persist
   // id = variable-ID + VARIABLE_STORE, fix group = all
 
-  fix = NULL;
+  fixstore = NULL;
   id_fix = NULL;
   buffer = NULL;
 
@@ -4314,7 +4334,7 @@ VarReader::VarReader(LAMMPS *lmp, char *name, char *file, int flag) :
     newarg[3] = (char *) "0";
     newarg[4] = (char *) "1";
     modify->add_fix(5,newarg);
-    fix = (FixStore *) modify->fix[modify->nfix-1];
+    fixstore = (FixStore *) modify->fix[modify->nfix-1];
     delete [] newarg;
 
     buffer = new char[CHUNK*MAXLINE];
@@ -4329,7 +4349,7 @@ VarReader::~VarReader()
 
   // check modify in case all fixes have already been deleted
 
-  if (fix) {
+  if (fixstore) {
     if (modify) modify->delete_fix(id_fix);
     delete [] id_fix;
     delete [] buffer;
@@ -4385,7 +4405,7 @@ int VarReader::read_peratom()
   // set all per-atom values to 0.0
   // values that appear in file will overwrite this
 
-  double *vstore = fix->vstore;
+  double *vstore = fixstore->vstore;
 
   int nlocal = atom->nlocal;
   for (i = 0; i < nlocal; i++) vstore[i] = 0.0;

@@ -105,6 +105,8 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
   datamask_read = ALL_MASK;
   datamask_modify = ALL_MASK;
 
+  copymode = 0;
+
   /*~ Added to initialise the status of the rolling resistance
     model as disabled [KH - 23 October 2013]*/
   rolling = 0;
@@ -124,8 +126,10 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
 
 Pair::~Pair()
 {
-  memory->destroy(eatom);
-  memory->destroy(vatom);
+  if (!copymode) {
+    memory->destroy(eatom);
+    memory->destroy(vatom);
+  }
 }
 
 /* ----------------------------------------------------------------------

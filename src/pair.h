@@ -15,6 +15,7 @@
 #define LMP_PAIR_H
 
 #include "pointers.h"
+#include "accelerator_kokkos.h"
 
 namespace LAMMPS_NS {
 
@@ -174,6 +175,8 @@ class Pair : protected Pointers {
 
   virtual int pack_forward_comm(int, int *, double *, int, int *) {return 0;}
   virtual void unpack_forward_comm(int, int, double *) {}
+  virtual int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, int, DAT::tdual_xfloat_1d&, int, int *) {return 0;};
+  virtual void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d&) {}
   virtual int pack_reverse_comm(int, int, double *) {return 0;}
   virtual void unpack_reverse_comm(int, int *, double *) {}
   virtual double memory_usage();
@@ -234,6 +237,9 @@ class Pair : protected Pointers {
   /*~ Added flag which indicates whether per-contact energy tracing is
     active or not [KH - 6 March 2014]*/
   int trace_energy;
+
+  int copymode;   // if set, do not deallocate during destruction
+                  // required when classes are used as functors by Kokkos
 
   virtual void ev_setup(int, int);
   void ev_unset();

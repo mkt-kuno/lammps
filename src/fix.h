@@ -57,6 +57,8 @@ class Fix : protected Pointers {
   int size_vector;               // length of global vector
   int size_array_rows;           // rows in global array
   int size_array_cols;           // columns in global array
+  int size_vector_variable;      // 1 if vec length is unknown in advance
+  int size_array_rows_variable;  // 1 if array rows is unknown in advance
   int global_freq;               // frequency s/v data is available at
 
   int peratom_flag;              // 0/1 if per-atom data is stored
@@ -217,6 +219,9 @@ class Fix : protected Pointers {
   int evflag;
   int vflag_global,vflag_atom;
   int maxvatom;
+
+  int copymode;   // if set, do not deallocate during destruction
+                  // required when classes are used as functors by Kokkos
 
   void v_setup(int);
   void v_tally(int, int *, double, double *);
