@@ -496,8 +496,7 @@ double PairGranShmHistory::single(int i, int j, int itype, int jtype,
                                     double factor_coul, double factor_lj,
                                     double &fforce)
 {
-  /*~ This is more straightforward than in the other granular 
-    pairstyles as the shear forces are stored in shear and do
+  /*~ Since the shear forces are stored in shear, they do
     not need to be recalculated [KH - 13 December 2012]*/
 
   double radi,radj,radsum;

@@ -108,6 +108,10 @@ PairGranHookeHistory::~PairGranHookeHistory()
 
 void PairGranHookeHistory::compute(int eflag, int vflag)
 {
+  /*~ This function was modified extensively so that shear force
+    is stored in the shear array rather than displacement
+    [KH - 1 April 2015]*/
+
   int i,j,ii,jj,inum,jnum;
   double xtmp,ytmp,ztmp,delx,dely,delz,fx,fy,fz;
   double radi,radj,radsum,rsq,r,rinv,rsqinv;
@@ -115,8 +119,9 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   double wr1,wr2,wr3;
   double vtr1,vtr2,vtr3,vrel;
   double mi,mj,meff,damp,ccel,tor1,tor2,tor3;
-  double fn,fs,fs1,fs2,fs3;
+  double fslim,fs,fs1,fs2,fs3;
   double shsqmag,shsqnew,shratio,rsht;
+  double wspinx,wspiny,wspinz,shint0,shint1,shint2,omdel;
   int *ilist,*jlist,*numneigh,**firstneigh;
   int *touch,**firsttouch;
   double *shear,*allshear,**firstshear;
@@ -245,6 +250,7 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
         // unset non-touching neighbors
 
         touch[jj] = 0;
+	//~ shear now refers to force rather than displacement [KH - 1 April 2015]
         shear = &allshear[numshearquants*jj];
 	for (int q = 0; q < numshearquants; q++)
 	  shear[q] = 0.0; //~ Added the 'for' loop [KH - 23 October 2013]
@@ -327,15 +333,10 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 
         touch[jj] = 1;
         shear = &allshear[numshearquants*jj];
-	double oldfs = kt*sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-        if (shearupdate) {
-          shear[0] += vtr1*dt;
-          shear[1] += vtr2*dt;
-          shear[2] += vtr3*dt;
-        }
+
         shsqmag = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
 
-        // rotate shear displacements
+        // rotate shear forces onto new contact plane conserving length
 
         rsht = shear[0]*delx + shear[1]*dely + shear[2]*delz;
         rsht *= rsqinv;
@@ -346,49 +347,60 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
           shsqnew = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
           if (shsqnew!=0.0) {
               shratio=sqrt(shsqmag/shsqnew);
-              shear[0] *= shratio; // conserve shear length
+              shear[0] *= shratio; // conserve shear force length
               shear[1] *= shratio;
               shear[2] *= shratio;
           }
         }
 
+        // then perform rotation for rigid-body SPIN
+        omdel=(omega[i][0]+omega[j][0])*delx+(omega[i][1]+omega[j][1])*dely+(omega[i][2]+omega[j][2])*delz;
+        wspinx=0.5*rsqinv*delx*omdel;
+        wspiny=0.5*rsqinv*dely*omdel;
+        wspinz=0.5*rsqinv*delz*omdel;
+        shint0 = shear[0];
+        shint1 = shear[1];
+        shint2 = shear[2];
+
+        if (shearupdate) {
+            shear[0]=shint0+shint1*(-wspinz*dt)+shint2*wspiny*dt;
+            shear[1]=shint0*wspinz*dt+shint1+shint2*(-wspinx*dt);
+            shear[2]=shint0*(-wspiny*dt)+shint1*wspinx*dt+shint2;
+        }
+
         // tangential forces = shear + tangential velocity damping
 
-        fs1 = - (kt*shear[0] + meff*gammat*vtr1);
-        fs2 = - (kt*shear[1] + meff*gammat*vtr2);
-        fs3 = - (kt*shear[2] + meff*gammat*vtr3);
+        shear[0] = - (kt*vtr1*dt + meff*gammat*vtr1);
+        shear[1] = - (kt*vtr2*dt + meff*gammat*vtr2);
+        shear[2] = - (kt*vtr3*dt + meff*gammat*vtr3);
 
         // rescale frictional displacements and forces if needed
 
-        fs = sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3);
-        fn = xmu * fabs(ccel*r);
+        fs = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+        fslim = xmu * fabs(ccel*r);
 
-        if (fs > fn) {
+        if (fs > fslim) {
           if (fs != 0.0) {
-            shear[0] = (fn/fs) * (shear[0] + meff*gammat*vtr1/kt) -
-              meff*gammat*vtr1/kt;
-            shear[1] = (fn/fs) * (shear[1] + meff*gammat*vtr2/kt) -
-              meff*gammat*vtr2/kt;
-            shear[2] = (fn/fs) * (shear[2] + meff*gammat*vtr3/kt) -
-              meff*gammat*vtr3/kt;
-            fs1 *= fn/fs;
-            fs2 *= fn/fs;
-            fs3 *= fn/fs;
-          } else fs1 = fs2 = fs3 = 0.0;
+	    if (shearupdate) {
+	      shear[0] *= fslim/fs;
+	      shear[1] *= fslim/fs;
+	      shear[2] *= fslim/fs;
+	    }
+	  } else shear[0] = shear[1] = shear[2] = 0.0;
         }
 
         // forces & torques
 
-        fx = delx*ccel + fs1;
-        fy = dely*ccel + fs2;
-        fz = delz*ccel + fs3;
+	fx = delx*ccel + shear[0];
+        fy = dely*ccel + shear[1];
+        fz = delz*ccel + shear[2];
         f[i][0] += fx;
         f[i][1] += fy;
         f[i][2] += fz;
 
-        tor1 = rinv * (dely*fs3 - delz*fs2);
-        tor2 = rinv * (delz*fs1 - delx*fs3);
-        tor3 = rinv * (delx*fs2 - dely*fs1);
+	tor1 = rinv * (dely*shear[2] - delz*shear[1]);
+        tor2 = rinv * (delz*shear[0] - delx*shear[2]);
+        tor3 = rinv * (delx*shear[1] - dely*shear[0]);
 	torque[i][0] -= cri*tor1;
 	torque[i][1] -= cri*tor2;
 	torque[i][2] -= cri*tor3;
@@ -414,18 +426,18 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 	  /*~ The first '0' indicates that the rolling_resistance function is
 	    called by the compute rather than the single function*/
 	  rolling_resistance(0,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
-			     fn,kt,torque,shear,dur,dus,localdM,globaldM);
+			     fslim,kt,torque,shear,dur,dus,localdM,globaldM);
 	}
 
 	//~ Add contributions to traced energy [KH - 19 February 2014]
 	if (pairenergy) {
 	  /*~ Increment the friction energy only if the slip condition
 	    is invoked*/
-	  if (fs > fn && fn > 0.0) {
+	  if (fs > fslim && fslim > 0.0) {
 	    //~~ Added to avoid enormous energy value [MO 22 October 2014]
-	    if (kt > 1.0e-30) slipdisp = (fs-fn)/kt;
+	    if (kt > 1.0e-30) slipdisp = (fs-fslim)/kt;
 	    else slipdisp = 0.0;
-	    aveshearforce = 0.5*(fn + oldfs);
+	    aveshearforce = 0.5*(sqrt(shsqmag) + fslim);
 
 	    //~ slipdisp and aveshearforce are both positive
 	    incdissipf = aveshearforce*slipdisp;
@@ -437,7 +449,7 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
 	    be calculated incrementally*/
 	  nstr = 0.5*kn*deltan*deltan;
 	  //~~ Added to avoid enormous energy value [MO 22 October 2014]
-	  if (kt > 1.0e-30) sstr = 0.5*(fs1*fs1 + fs2*fs2 + fs3*fs3)/kt;
+	  if (kt > 1.0e-30) sstr = 0.5*(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2])/kt;
 	  else sstr = 0.0;
 
 	  if (consideronce) {
@@ -791,13 +803,13 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
                                     double factor_coul, double factor_lj,
                                     double &fforce)
 {
+  /*~ This function was modified extensively as shear force
+    is now stored in the shear array rather than displacement
+    [KH - 1 April 2015]*/
+
   double radi,radj,radsum;
-  double r,rinv,rsqinv,delx,dely,delz;
-  double vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3,wr1,wr2,wr3;
-  double mi,mj,meff,damp,ccel;
-  double vtr1,vtr2,vtr3,vrel;
+  double r,rinv,ccel;
   double fs1,fs2,fs3,fs,fn;
-  double deltan,cri,crj;
 
   double *radius = atom->radius;
   radi = radius[i];
@@ -842,88 +854,9 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
 
   r = sqrt(rsq);
   rinv = 1.0/r;
-  rsqinv = 1.0/rsq;
-  deltan = radsum-r;
-  cri = radi-0.5*deltan;
-  crj = radj-0.5*deltan; 
 
-  // relative translational velocity
-
-  double **v = atom->v;
-  vr1 = v[i][0] - v[j][0];
-  vr2 = v[i][1] - v[j][1];
-  vr3 = v[i][2] - v[j][2];
-
-  // normal component
-
-  delx = x[i][0] - x[j][0];
-  dely = x[i][1] - x[j][1];
-  delz = x[i][2] - x[j][2];
-
-  //~ Add in the periodic boundary updating code [KH - 13 December 2012]
-  if ((domain->xperiodic || domain->yperiodic || domain->zperiodic) &&
-      domain->box_change == 1) {
-    vr1 += (ierates[0]*delx + ierates[3]*dely + ierates[4]*delz);
-    vr2 += (ierates[3]*delx + ierates[1]*dely + ierates[5]*delz);
-    vr3 += (ierates[4]*delx + ierates[5]*dely + ierates[2]*delz);
-  }
-
-  vnnr = vr1*delx + vr2*dely + vr3*delz;
-  vn1 = delx*vnnr * rsqinv;
-  vn2 = dely*vnnr * rsqinv;
-  vn3 = delz*vnnr * rsqinv;
-
-  // tangential component
-
-  vt1 = vr1 - vn1;
-  vt2 = vr2 - vn2;
-  vt3 = vr3 - vn3;
-
-  // relative rotational velocity
-
-  double **omega = atom->omega;
-  wr1 = (cri*omega[i][0] + crj*omega[j][0]) * rinv;
-  wr2 = (cri*omega[i][1] + crj*omega[j][1]) * rinv;
-  wr3 = (cri*omega[i][2] + crj*omega[j][2]) * rinv;
-
-  // meff = effective mass of pair of particles
-  // if I or J part of rigid body, use body mass
-  // if I or J is frozen, meff is other particle
-
-  double *rmass = atom->rmass;
-  double *mass = atom->mass;
-  int *type = atom->type;
-  int *mask = atom->mask;
-
-  if (rmass) {
-    mi = rmass[i];
-    mj = rmass[j];
-  } else {
-    mi = mass[type[i]];
-    mj = mass[type[j]];
-  }
-  if (fix_rigid) {
-    // NOTE: insure mass_rigid is current for owned+ghost atoms?
-    if (mass_rigid[i] > 0.0) mi = mass_rigid[i];
-    if (mass_rigid[j] > 0.0) mj = mass_rigid[j];
-  }
-
-  meff = mi*mj / (mi+mj);
-  if (mask[i] & freeze_group_bit) meff = mj;
-  if (mask[j] & freeze_group_bit) meff = mi;
-
-  // normal forces = Hookian contact + normal velocity damping
-
-  damp = meff*gamman*vnnr*rsqinv;
-  ccel = kn*(radsum-r)*rinv - damp;
-
-  // relative velocities
-
-  vtr1 = vt1 - (delz*wr2-dely*wr3);
-  vtr2 = vt2 - (delx*wr3-delz*wr1);
-  vtr3 = vt3 - (dely*wr1-delx*wr2);
-  vrel = vtr1*vtr1 + vtr2*vtr2 + vtr3*vtr3;
-  vrel = sqrt(vrel);
+  // normal forces = Hookian contact
+  ccel = kn*(radsum-r)*rinv;
 
   // shear history effects
   // neighprev = index of found neigh on previous call
@@ -948,45 +881,29 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
   int numshearquants = 3 + 15*rolling + 4*trace_energy;
   double *shear = &allshear[numshearquants*neighprev];
 
-  // rotate shear displacements - not needed- shear already updated by compute!
-
-  // tangential forces = shear + tangential velocity damping
-
-  fs1 = - (kt*shear[0] + meff*gammat*vtr1);
-  fs2 = - (kt*shear[1] + meff*gammat*vtr2);
-  fs3 = - (kt*shear[2] + meff*gammat*vtr3);
-
-  // rescale frictional displacements and forces if needed
-
-  fs = sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3);
-  fn = xmu * fabs(ccel*r);
-
-  if (fs > fn) {
-    if (fs != 0.0) {
-      fs1 *= fn/fs;
-      fs2 *= fn/fs;
-      fs3 *= fn/fs;
-      fs *= fn/fs;
-    } else fs1 = fs2 = fs3 = fs = 0.0;
-  }
-
   //~ Call function for rolling resistance model [KH - 30 October 2013]
   double dur[3], dus[3], localdM[3], globaldM[3]; //~ Pass by reference
   double **torque = atom->torque;
+  double delx, dely, delz, fslim; //~ Calculate these to pass to function
+  fslim = xmu * fabs(ccel*r);
+  delx = x[i][0] - x[j][0];
+  dely = x[i][1] - x[j][1];
+  delz = x[i][2] - x[j][2];
+
   if (rolling) {
     /*~ The first '1' indicates that the rolling_resistance function is
       called by the single function rather than the compute*/
     rolling_resistance(1,i,j,numshearquants,delx,dely,delz,r,rinv,ccel,
-		       fn,kt,torque,shear,dur,dus,localdM,globaldM);
+		       fslim,kt,torque,shear,dur,dus,localdM,globaldM);
   }
 
   /*~ Some of the following are included only for convenience as
     the data could instead be obtained from a dump of the sphere
     coordinates [KH - 13 December 2011]*/
   fforce = ccel;
-  svector[0] = fs1;
-  svector[1] = fs2;
-  svector[2] = fs3;
+  svector[0] = shear[0];
+  svector[1] = shear[1];
+  svector[2] = shear[2];
   svector[3] = ccel;
   svector[4] = tag[i];
   svector[5] = tag[j];

@@ -713,10 +713,15 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
                                 double *f, double *omega, double *torque,
                                 double radius, double mass, double *shear, int i)
 {
+  /*~ This function was modified extensively so that shear force
+    is stored in the shear array rather than displacement
+    [KH - 1 April 2015]*/
+
   double r,vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3;
   double meff,damp,ccel,vtr1,vtr2,vtr3,vrel;
-  double fn,fs,fs1,fs2,fs3,fx,fy,fz;
-  double shrmag,rsht,rinv,rsqinv;
+  double fs,fslim,fx,fy,fz;
+  double shsqmag,shsqnew,rsht,shratio,polyhertz,rinv,rsqinv;
+  double wspinx,wspiny,wspinz,shint0,shint1,shint2,omdel;
 
   r = sqrt(rsq);
   rinv = 1.0/r;
@@ -758,16 +763,11 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
   vrel = sqrt(vrel);
 
   // shear history effects
-  
-  double oldfs = kt*sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-  if (shearupdate) {
-    shear[0] += vtr1*dt;
-    shear[1] += vtr2*dt;
-    shear[2] += vtr3*dt;
-  }
-  shrmag = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+  //~ Note that shear now refers to shear force, not shear displacement
 
-  // rotate shear displacements
+  shsqmag = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
+
+  // rotate shear forces onto new contact plane conserving length
 
   rsht = shear[0]*dx + shear[1]*dy + shear[2]*dz;
   rsht = rsht*rsqinv;
@@ -775,51 +775,70 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
     shear[0] -= rsht*dx;
     shear[1] -= rsht*dy;
     shear[2] -= rsht*dz;
+    shsqnew = shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2];
+    if (shsqnew!=0.0) {
+      shratio=sqrt(shsqmag/shsqnew);
+      shear[0] *= shratio; // conserve shear force length
+      shear[1] *= shratio;
+      shear[2] *= shratio;
+    }
+  }
+ 
+  // then perform rotation for rigid-body SPIN
+  omdel=omega[0]*dx+omega[1]*dy+omega[2]*dz;
+  wspinx=0.5*rsqinv*dx*omdel;
+  wspiny=0.5*rsqinv*dy*omdel;
+  wspinz=0.5*rsqinv*dz*omdel;
+  shint0 = shear[0];
+  shint1 = shear[1];
+  shint2 = shear[2];
+
+  if (shearupdate) {
+    shear[0]=shint0+shint1*(-wspinz*dt)+shint2*wspiny*dt;
+    shear[1]=shint0*wspinz*dt+shint1+shint2*(-wspinx*dt);
+    shear[2]=shint0*(-wspiny*dt)+shint1*wspinx*dt+shint2;
   }
 
   // tangential forces = shear + tangential velocity damping
+  if (shearupdate) {
+    shear[0] -= kt*vtr1*dt;//shear displacement =vtr*dt
+    shear[1] -= kt*vtr2*dt;
+    shear[2] -= kt*vtr3*dt;
+  }
 
-  fs1 = - (kt*shear[0] + meff*gammat*vtr1);
-  fs2 = - (kt*shear[1] + meff*gammat*vtr2);
-  fs3 = - (kt*shear[2] + meff*gammat*vtr3);
+  // rescale frictional forces if needed
 
-  // rescale frictional displacements and forces if needed
+  fs = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+  fslim = xmu * fabs(ccel*r);
 
-  fs = sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3);
-  fn = xmu * fabs(ccel*r);
-
-  if (fs > fn) {
-    if (shrmag != 0.0) {
-      shear[0] = (fn/fs) * (shear[0] + meff*gammat*vtr1/kt) -
-        meff*gammat*vtr1/kt;
-      shear[1] = (fn/fs) * (shear[1] + meff*gammat*vtr2/kt) -
-        meff*gammat*vtr2/kt;
-      shear[2] = (fn/fs) * (shear[2] + meff*gammat*vtr3/kt) -
-        meff*gammat*vtr3/kt;
-      fs1 *= fn/fs ;
-      fs2 *= fn/fs;
-      fs3 *= fn/fs;
-    } else fs1 = fs2 = fs3 = 0.0;
+  if (fs > fslim) {
+    if (fs != 0.0) {
+      if (shearupdate) {
+	shear[0] *= fslim/fs;
+	shear[1] *= fslim/fs;
+	shear[2] *= fslim/fs;
+      }
+    } else shear[0] = shear[1] = shear[2] = 0.0;
   }
 
   // forces & torques
 
-  fx = dx*ccel + fs1;
-  fy = dy*ccel + fs2;
-  fz = dz*ccel + fs3;
+  fx = dx*ccel + shear[0];
+  fy = dy*ccel + shear[1];
+  fz = dz*ccel + shear[2];
 
   f[0] += fx;
   f[1] += fy;
   f[2] += fz;
 
-  torque[0] -= dy*fs3 - dz*fs2;
-  torque[1] -= dz*fs1 - dx*fs3;
-  torque[2] -= dx*fs2 - dy*fs1;
+  torque[0] -= dy*shear[2] - dz*shear[1];
+  torque[1] -= dz*shear[0] - dx*shear[2];
+  torque[2] -= dx*shear[1] - dy*shear[0];
 
   //~ Call function for rolling resistance model [KH - 30 October 2013]
   double db[3], localdM[3], globaldM[3]; //~ Pass by reference
   if (*rolling && shearupdate)
-    rolling_resistance(i,numshearquants,dx,dy,dz,r,radius,ccel,fn,
+    rolling_resistance(i,numshearquants,dx,dy,dz,r,radius,ccel,fslim,
 		       kt,torque,shear,db,localdM,globaldM);
 
   //~ Add contributions to traced energy [KH - 20 February 2014]
@@ -827,9 +846,9 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
   if (pairenergy) {
     /*~ Increment the friction energy only if the slip condition
       is invoked*/
-    if (fs > fn && fn > 0.0) {
-      slipdisp = (fs-fn)/kt;
-      aveshearforce = 0.5*(fn + oldfs);
+    if (fs > fslim && fslim > 0.0) {
+      slipdisp = (fs-fslim)/kt;
+      aveshearforce = 0.5*(sqrt(shsqmag) + fslim);
 
       //~ slipdisp and aveshearforce are both positive
       incdissipf = aveshearforce*slipdisp;
@@ -840,7 +859,7 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
     /*~ Update the strain energy terms which don't need to be 
       calculated incrementally*/
     nstr = 0.5*kn*(radius-r)*(radius-r);
-    sstr = 0.5*(fs1*fs1 + fs2*fs2 + fs3*fs3)/kt;
+    sstr = 0.5*(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2])/kt;
     normalstrain += nstr;
     shearstrain += sstr;
 
