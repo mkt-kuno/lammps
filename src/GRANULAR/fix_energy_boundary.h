@@ -37,7 +37,7 @@ class FixEnergyBoundary : public Fix {
 
  protected:
   int sfound, pb, wallactive;
-  double boundary_work;
+  double boundary_work, deltawv, deltawd;
   class Compute *stressatom;
   class Fix *deffix;
 };

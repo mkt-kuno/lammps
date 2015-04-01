@@ -26,7 +26,7 @@
 
 using namespace LAMMPS_NS;
 
-enum{FRICTION,RKINETIC,TKINETIC,KINETIC,NSTRAIN,SSTRAIN,STRAIN,BOUNDARY,LDAMP,VDAMP,DAMP,SPIN};
+enum{FRICTION,RKINETIC,TKINETIC,KINETIC,NSTRAIN,SSTRAIN,STRAIN,BOUNDARY,VOLUMETRIC,DISTORTIONAL,LDAMP,VDAMP,DAMP,SPIN};
 
 /* ---------------------------------------------------------------------- */
 
@@ -43,7 +43,7 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
 
   /*~ Read in the user-defined inputs. The order of the inputs
     corresponds exactly to the ordering in the output vector.*/
-  length_enum = 12; // Inreaded to 12 [MO - 15 November 2014]
+  length_enum = 14;
   inputs = new int[length_enum];
   for (int i = 0; i < length_enum; i++) inputs[i] = -1;
 
@@ -82,6 +82,12 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
     } else if (strcmp(arg[iarg],"boundary") == 0) {
       if (inputs[iarg-3] < 0) inputs[iarg-3] = BOUNDARY;
       else error->all(FLERR,"Duplicated boundary input to ComputeEnergyGran");
+    } else if (strcmp(arg[iarg],"volumetric") == 0) {
+      if (inputs[iarg-3] < 0) inputs[iarg-3] = VOLUMETRIC; //~ [KH - 1 April 2015]
+      else error->all(FLERR,"Duplicated volumetric input to ComputeEnergyGran");
+    } else if (strcmp(arg[iarg],"distortional") == 0) {
+      if (inputs[iarg-3] < 0) inputs[iarg-3] = DISTORTIONAL; //~ [KH - 1 April 2015]
+      else error->all(FLERR,"Duplicated distortional input to ComputeEnergyGran");
     } else if (strcmp(arg[iarg],"local_damping") == 0) {
       if (inputs[iarg-3] < 0) inputs[iarg-3] = LDAMP;
       else error->all(FLERR,"Duplicated local damping input to ComputeEnergyGran");
@@ -96,7 +102,7 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
       if (inputs[iarg-3] < 0) inputs[iarg-3] = SPIN;
       else error->all(FLERR,"Duplicated spin energy input to ComputeEnergyGran");
       pairenergy = 1;
-    }else error->all(FLERR,"Invalid input to ComputeEnergyGran");
+    } else error->all(FLERR,"Invalid input to ComputeEnergyGran");
   }
 
   nmax = 0;
@@ -114,12 +120,12 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
   dampactive[0] = dampactive[1] = -1; //~ Increased later if damping present
   dampcheck[0] = dampcheck[1] = 0; //~ The check for damping must still be done
 
-  /*~ Set up a new fix if boundary work needs to be calculated. This
-    is in the constructor as the setmask function of this fix needs 
-    to be run before modify->init (otherwise the end_of_step function
-    will not be invoked)*/
+  /*~ Set up a new fix if boundary and/or volumetric and/or distortional work
+    need to be calculated. This is in the constructor as the setmask function
+    of this fix needs to be run before modify->init (otherwise the end_of_step
+    function will not be invoked)*/
   for (int i = 0; i < size_vector; i++)
-    if (inputs[i] == 7) {
+    if (inputs[i] > 6 && inputs[i] < 10) {
       add_fix_energy_boundary();
       break;
     }
@@ -166,15 +172,17 @@ void ComputeEnergyGran::compute_vector()
     else if (inputs[i] == 5) vector[i] = pair_extract("shearstrain"); //~ SSTRAIN
     else if (inputs[i] == 6) vector[i] = pair_extract("normalstrain") 
 			       + pair_extract("shearstrain"); //~ STRAIN
-    else if (inputs[i] == 7) {
-      //~ Fetch the boundary work from FixEnergyBoundary
+    else if (inputs[i] == 7) //~ Fetch the boundary work from FixEnergyBoundary
       vector[i] = *((double *) deffix->extract("boundary_work",dim)); //~ BOUNDARY
-    }
-    else if (inputs[i] == 8) vector[i] = damping_extract("damp/local",0); //~ LDAMP
-    else if (inputs[i] == 9) vector[i] = damping_extract("viscous",1); //~ VDAMP
-    else if (inputs[i] == 10) vector[i] = damping_extract("damp/local",0)
+    else if (inputs[i] == 8)
+      vector[i] = *((double *) deffix->extract("deltawv",dim)); //~ VOLUMETRIC
+    else if (inputs[i] == 9)
+      vector[i] = *((double *) deffix->extract("deltawd",dim)); //~ DISTORTIONAL
+    else if (inputs[i] == 10) vector[i] = damping_extract("damp/local",0); //~ LDAMP
+    else if (inputs[i] == 11) vector[i] = damping_extract("viscous",1); //~ VDAMP
+    else if (inputs[i] == 12) vector[i] = damping_extract("damp/local",0)
 				+ damping_extract("viscous",1); //~ DAMP
-    else if (inputs[i] == 11) vector[i] = pair_extract("spinenergy"); //~ SPIN
+    else if (inputs[i] == 13) vector[i] = pair_extract("spinenergy"); //~ SPIN
   }
 }
 

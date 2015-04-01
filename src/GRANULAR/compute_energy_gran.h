@@ -21,7 +21,9 @@
   Energy dissipated by viscous damping ('viscous_damping')
   Total energy dissipated by damping ('damping')
 
-  Energy added/removed by boundary work ('boundary')
+  Total energy added/removed by boundary work ('boundary')
+  Energy added/removed by volumetric work ('volumetric')
+  Energy added/removed by distortional work ('distortional')
 
   Rotational kinetic energy ('rotational_kinetic')
   Translational kinetic energy ('translational_kinetic')
@@ -35,6 +37,8 @@
   only if D_spin function is called
 
   [KH - 12 March 2014]   "spin_energy" was added [MO - 15 November 2014]
+  
+  'volumetric' and 'distortional' terms added [KH - 1 April 2015]
 */
 
 #ifdef COMPUTE_CLASS

@@ -19,7 +19,9 @@ input = one or more of the following energy terms: :l
      rotational_kinetic = rotational kinetic energy
      translational_kinetic = translational kinetic energy
      kinetic = total kinetic energy
-     boundary = energy added/removed by boundary work
+     boundary = total energy added/removed by boundary work
+     volumetric = energy added/removed by volumetric work
+     distortional = energy added/removed by distortional work
      normal_strain = normal spring contribution to strain energy
      shear_strain = shear spring contribution to strain energy
      strain = total strain energy
@@ -38,12 +40,18 @@ compute 1 all energy/gran strain friction kinetic :pre
 Define a computation that allows various specified components of
 energy to be written out periodically during a simulation. This
 compute requires a granular pairstyle to be defined. When {boundary}
-work is listed among the energy terms, a helper fix, FixEnergyBoundary,
+and/or {volumetric} and/or {distortional} work terms are listed
+among the energy terms, a helper fix, FixEnergyBoundary,
 is implicitly created in the code.
+
+Distortional and volumetric work are subdivisions of the total
+boundary work. See, for example, Eq. 1.33 (p.21) of 'Soil Behaviour
+and Critical State Soil Mechanics' by David Muir Wood (1990).
 
 At present, this compute is applicable to all granular pairstyles and
 boundary conditions with one exception. When rigid walls are present 
-AND they are moving (an unusual combination), {boundary} is not currently 
+AND they are moving (an unusual combination), {boundary}, {volumetric}
+and {distortional} are not currently 
 calculated. If this capability is needed, the framework and all of the
 hooks are already present in FixEnergyBoundary so it should be reasonably
 easy to add. Strain energy for particle-wall overlaps is seamlessly

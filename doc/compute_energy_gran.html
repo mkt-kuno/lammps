@@ -25,7 +25,9 @@
      rotational_kinetic = rotational kinetic energy
      translational_kinetic = translational kinetic energy
      kinetic = total kinetic energy
-     boundary = energy added/removed by boundary work
+     boundary = total energy added/removed by boundary work
+     volumetric = energy added/removed by volumetric work
+     distortional = energy added/removed by distortional work
      normal_strain = normal spring contribution to strain energy
      shear_strain = shear spring contribution to strain energy
      strain = total strain energy
@@ -45,12 +47,18 @@ compute 1 all energy/gran strain friction kinetic
 <P>Define a computation that allows various specified components of
 energy to be written out periodically during a simulation. This
 compute requires a granular pairstyle to be defined. When <I>boundary</I>
-work is listed among the energy terms, a helper fix, FixEnergyBoundary,
+and/or <I>volumetric</I> and/or <I>distortional</I> work terms are listed
+among the energy terms, a helper fix, FixEnergyBoundary,
 is implicitly created in the code.
+</P>
+<P>Distortional and volumetric work are subdivisions of the total
+boundary work. See, for example, Eq. 1.33 (p.21) of 'Soil Behaviour
+and Critical State Soil Mechanics' by David Muir Wood (1990).
 </P>
 <P>At present, this compute is applicable to all granular pairstyles and
 boundary conditions with one exception. When rigid walls are present 
-AND they are moving (an unusual combination), <I>boundary</I> is not currently 
+AND they are moving (an unusual combination), <I>boundary</I>, <I>volumetric</I>
+and <I>distortional</I> are not currently 
 calculated. If this capability is needed, the framework and all of the
 hooks are already present in FixEnergyBoundary so it should be reasonably
 easy to add. Strain energy for particle-wall overlaps is seamlessly
@@ -91,7 +99,7 @@ command:
 <PRE>	dump		1 all custom 100000 dump.ke_* c_2[1] c_2[2] 
 </PRE>
 <P>Finally, per-contact energy terms are available via <A HREF = "dump_local.html">dump_local</A> if the
-<I>trace_energy</I> option of <A HREF = "pair_modify.html">pair_modify</A> is enabled in the script. 
+<I>trace_energy</I> option of <A HREF = "pair_modify.html">pair_modify</A> is enabled in the script.
 As described
 in <A HREF = "USER/gran/Interpreting_ComputePairLocal_Output.doc">Interpreting_ComputePairLocal_Output.doc</A>, 
 the last four slots are 
@@ -99,8 +107,8 @@ available for energy components, though the last of these is currently
 unused. Continuing this example, write out the atom tags and three defined
 energy components using the following syntax:
 </P>
-<PRE>	pair_modify     trace_energy
-        compute 	1 all pair/local p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 p15 p16 p17 p18
+<PRE>        pair_modify     trace_energy
+	compute 	1 all pair/local p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 p15 p16 p17 p18
 	dump		2 all local 100000 dump.per_contact_energy_* c_1[5] c_1[6] c_1[15] c_1[16] c_1[17] 
 </PRE>
 <P>A simple input script, in.compute_energy_gran, which demonstrates all of these output 

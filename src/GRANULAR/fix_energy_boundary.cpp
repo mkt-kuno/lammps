@@ -45,8 +45,9 @@ FixEnergyBoundary::FixEnergyBoundary(LAMMPS *lmp, int narg, char **arg) :
   nevery = 1; //~ Set how often to run the end_of_step function
 
   /*~ Initialise the boundary work, which is calculated cumulatively,
-    at zero*/
-  boundary_work = 0.0;
+    at zero. Also initialise the two divisions of boundary work,
+    volumetric work and distortional work, at 0. [KH - 1 April 2015]*/
+  boundary_work = deltawv = deltawd = 0.0;
   sfound = 0; //~ 0 indicates a compute stress/atom hasn't been found
   pb = 0; //~ Whether or not fix deform/multistress is active
   wallactive = -1; //~ Increased later if walls are present
@@ -152,25 +153,44 @@ void FixEnergyBoundary::end_of_step()
   for (int i = 0; i < 6; i++) tmeans[i] = 0.0;
   MPI_Allreduce(&means[0],&tmeans[0],6,MPI_DOUBLE,MPI_SUM,world);
   
-  //~ For now, the boundary work is calculated only for a periodic cell
-  double deltaW = 0.0; //~ The work input per unit volume (later x V)
+  //~ For now, the work terms are calculated only for a periodic cell
+  double onethird = 1.0/3.0;
+  double pdash, q, dep, deq;
+  double deltaW, ideltawv, ideltawd;
+  deltaW = ideltawv = ideltawd = 0.0;
 
   if (pb == 1) {
     /*~ Either fix multistress/deform is active; fetch the true strain 
       rates using the param_export function.*/
     double *ierates = deffix->param_export();
 
+    //~ Calculate the volume of the periodic cell for later use
+    double cellvolume = 1.0;
+    for (int i = 0; i < domain->dimension; i++)
+      cellvolume *= (domain->boxhi[i] - domain->boxlo[i]);
+
     //~ Eq. 1.24, p. 20, "Soil Behavior and Critical State Soil Mechanics"
     for (int i = 0; i < 6; i++) deltaW -= tmeans[i]*ierates[i];
 
-    deltaW *= update->dt; //~ strain rate * timestep = strain increment
+    /*~ Find the increment of boundary work input by multiplying by 
+      the current cell volume and by time step (strain rate * time step
+      = strain increment) [KH - 1 April 2015]*/
+    deltaW *= (update->dt* cellvolume);
 
-    //~ Multiply by current cell volume to find increment of work input
-    for (int i = 0; i < domain->dimension; i++)
-      deltaW *= (domain->boxhi[i] - domain->boxlo[i]);
+    //~ Now find the subdivided increments of boundary work
+    pdash = (tmeans[0] + tmeans[1] + tmeans[2])*onethird;
+    q = sqrt(0.5*((tmeans[0]-tmeans[1])*(tmeans[0]-tmeans[1])+(tmeans[0]-tmeans[2])*(tmeans[0]-tmeans[2])+(tmeans[2]-tmeans[1])*(tmeans[2]-tmeans[1])) + 3.0*(tmeans[3]*tmeans[3] + tmeans[4]*tmeans[4] + tmeans[5]*tmeans[5]));
+
+    dep = (ierates[0] + ierates[1] + ierates[2])*update->dt;
+    deq = 2.0*(ierates[2] - 0.5*(ierates[0]+ierates[1]))*update->dt*onethird;
+
+    ideltawv = -pdash*dep*cellvolume;
+    ideltawd = -q*deq*cellvolume;
   }
 
-  boundary_work += deltaW; //~ Update the boundary work
+  boundary_work += deltaW; //~ Update the boundary work...
+  deltawv += ideltawv; //~ the volumetric work...
+  deltawd += ideltawd; //~ and the distortional work
 }
 
 /* ---------------------------------------------------------------------- */
@@ -181,6 +201,8 @@ void *FixEnergyBoundary::extract(const char *str, int &dim)
     may be extracted by ComputeEnergyGran [KH - 11 March 2014]*/
   dim = 0;
   if (strcmp(str,"boundary_work") == 0) return (void *) &boundary_work;
+  else if (strcmp(str,"deltawv") == 0) return (void *) &deltawv;
+  else if (strcmp(str,"deltawd") == 0) return (void *) &deltawd;
   return NULL;
 }
 
@@ -189,8 +211,10 @@ void *FixEnergyBoundary::extract(const char *str, int &dim)
 void FixEnergyBoundary::write_restart(FILE *fp)
 {
   int n = 0;
-  double list[1];
+  double list[3];
   list[n++] = boundary_work;
+  list[n++] = deltawv;
+  list[n++] = deltawd;
   if (comm->me == 0) {
     int size = n * sizeof(double);
     fwrite(&size,sizeof(int),1,fp);
@@ -205,4 +229,6 @@ void FixEnergyBoundary::restart(char *buf)
   int n = 0;
   double *list = (double *) buf;
   boundary_work = static_cast<double> (list[n++]);
+  deltawv = static_cast<double> (list[n++]);
+  deltawd = static_cast<double> (list[n++]);
 }
