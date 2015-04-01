@@ -1240,7 +1240,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
       double fsunscaled[3], fsunscaledmag, a, b, c;
       double d = 0.0;
       if (ctcorrection) {
-	b = shear[3]/polyhertz;
+	b = fabs(shear[3]/polyhertz);
 	fs > fslim ? a = b*fs/fslim : a = b;
 	c = effectivekt*dt*(b - 1.0);
 	
@@ -1250,7 +1250,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
 	fsunscaledmag = sqrt(fsunscaled[0]*fsunscaled[0] + fsunscaled[1]*fsunscaled[1] + fsunscaled[2]*fsunscaled[2]);
 	
 	if (fs > fslim && fslim > 0.0) {
-	  d += 0.5*rkt*(fsunscaledmag + fslim)*(fsunscaledmag - fslim) - incdissipf;
+	  d += 0.5*rkt*(oldshearforce + fslim)*(fsunscaledmag - fslim) - incdissipf; //~ Updated to increase accuracy [KH - 1 April 2015]
 	  fsunscaledmag *= fslim/fsunscaledmag;
 	}
 	
