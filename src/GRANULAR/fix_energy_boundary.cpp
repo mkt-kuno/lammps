@@ -51,6 +51,10 @@ FixEnergyBoundary::FixEnergyBoundary(LAMMPS *lmp, int narg, char **arg) :
   sfound = 0; //~ 0 indicates a compute stress/atom hasn't been found
   pb = 0; //~ Whether or not fix deform/multistress is active
   wallactive = -1; //~ Increased later if walls are present
+
+  /*~ Initialise the strain rates for the preceding time-step at
+    enormous numbers [KH - 18 August 2015]*/
+  for (int i = 0; i < 6; i++) oldierates[i] = 100000.0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -164,13 +168,17 @@ void FixEnergyBoundary::end_of_step()
       rates using the param_export function.*/
     double *ierates = deffix->param_export();
 
-    //~ Calculate the volume of the periodic cell for later use
+    //~ Use the best available strain rates for last step [KH - 18 August 2015]
+    if (oldierates[2] > 99999.0)
+      for (int i = 0; i < 6; i++) oldierates[i] = ierates[i];
+
+    //~ Calculate the volume of the periodic cell on previous time-step
     double cellvolume = 1.0;
     for (int i = 0; i < domain->dimension; i++)
-      cellvolume *= (domain->boxhi[i] - domain->boxlo[i]);
+      cellvolume *= (domain->boxhi[i] - domain->boxlo[i])*(1.0 - ierates[i]*update->dt);
 
     //~ Eq. 1.24, p. 20, "Soil Behavior and Critical State Soil Mechanics"
-    for (int i = 0; i < 6; i++) deltaW -= tmeans[i]*ierates[i];
+    for (int i = 0; i < 6; i++) deltaW -= tmeans[i]*oldierates[i];
 
     /*~ Find the increment of boundary work input by multiplying by 
       the current cell volume and by time step (strain rate * time step
@@ -181,8 +189,8 @@ void FixEnergyBoundary::end_of_step()
     pdash = (tmeans[0] + tmeans[1] + tmeans[2])*onethird;
     q = sqrt(0.5*((tmeans[0]-tmeans[1])*(tmeans[0]-tmeans[1])+(tmeans[0]-tmeans[2])*(tmeans[0]-tmeans[2])+(tmeans[2]-tmeans[1])*(tmeans[2]-tmeans[1])) + 3.0*(tmeans[3]*tmeans[3] + tmeans[4]*tmeans[4] + tmeans[5]*tmeans[5]));
 
-    dep = (ierates[0] + ierates[1] + ierates[2])*update->dt;
-    deq = 2.0*(ierates[2] - 0.5*(ierates[0]+ierates[1]))*update->dt*onethird;
+    dep = (oldierates[0] + oldierates[1] + oldierates[2])*update->dt;
+    deq = 2.0*(oldierates[2] - 0.5*(oldierates[0]+oldierates[1]))*update->dt*onethird;
 
     ideltawv = -pdash*dep*cellvolume;
     ideltawd = -q*deq*cellvolume;
@@ -191,6 +199,9 @@ void FixEnergyBoundary::end_of_step()
   boundary_work += deltaW; //~ Update the boundary work...
   deltawv += ideltawv; //~ the volumetric work...
   deltawd += ideltawd; //~ and the distortional work
+
+  //~ Store strain rates for the next time-step [KH - 18 August 2015]
+  for (int i = 0; i < 6; i++) oldierates[i] = ierates[i];
 }
 
 /* ---------------------------------------------------------------------- */
@@ -211,10 +222,16 @@ void *FixEnergyBoundary::extract(const char *str, int &dim)
 void FixEnergyBoundary::write_restart(FILE *fp)
 {
   int n = 0;
-  double list[3];
+  double list[9];
   list[n++] = boundary_work;
   list[n++] = deltawv;
   list[n++] = deltawd;
+  list[n++] = oldierates[0];
+  list[n++] = oldierates[1];
+  list[n++] = oldierates[2];
+  list[n++] = oldierates[3];
+  list[n++] = oldierates[4];
+  list[n++] = oldierates[5];
   if (comm->me == 0) {
     int size = n * sizeof(double);
     fwrite(&size,sizeof(int),1,fp);
@@ -231,4 +248,10 @@ void FixEnergyBoundary::restart(char *buf)
   boundary_work = static_cast<double> (list[n++]);
   deltawv = static_cast<double> (list[n++]);
   deltawd = static_cast<double> (list[n++]);
+  oldierates[0] = static_cast<double> (list[n++]);
+  oldierates[1] = static_cast<double> (list[n++]);
+  oldierates[2] = static_cast<double> (list[n++]);
+  oldierates[3] = static_cast<double> (list[n++]);
+  oldierates[4] = static_cast<double> (list[n++]);
+  oldierates[5] = static_cast<double> (list[n++]);
 }
