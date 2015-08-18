@@ -194,8 +194,8 @@ void PairGranShmHistory::compute(int eflag, int vflag)
         rinv = 1.0/r;
         rsqinv = 1.0/rsq;
         deltan = radsum-r;
-        cri = radi-0.5*deltan;
-        crj = radj-0.5*deltan;
+	cri = radi-0.5*deltan*rinv*(2.0*radj-deltan);
+        crj = radj-0.5*deltan*rinv*(2.0*radi-deltan);
 
         // relative translational velocity
 
