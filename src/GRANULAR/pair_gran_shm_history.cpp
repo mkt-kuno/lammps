@@ -285,19 +285,7 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 
         // tangential forces done incrementally
 
-	int ctcorrection = 0;
         if (shearupdate) {
-	  /*~ Apply Colin Thornton's suggested correction (see
-	    Eq. 18 of 2013 P. Tech. paper) [KH - 23 November 2012]*/
-	  if (fabs(shear[3]) > polyhertz) {
-	    /*~ Note that as polyhertz is >= 0, there is no need to
-	      check for shear[3] == 0 in the expressions below*/
-	    shear[0] *= fabs(polyhertz/shear[3]);
-	    shear[1] *= fabs(polyhertz/shear[3]);
-	    shear[2] *= fabs(polyhertz/shear[3]);
-	    ctcorrection = 1;
-	  }
-
 	  shear[0] -= polyhertz*kt*vtr1*dt;//shear displacement =vtr*dt
 	  shear[1] -= polyhertz*kt*vtr2*dt;
 	  shear[2] -= polyhertz*kt*vtr3*dt;
@@ -412,33 +400,6 @@ void PairGranShmHistory::compute(int eflag, int vflag)
 	    sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
 	    if (consideronce) shearstrain += sstr;
 	    if (trace_energy) shear[6] += sstr;
-
-	    /*~ If Colin Thornton's shear force rescaling has been used,
-	      the adjustment made to the energy is added to dissipfriction
-	      so that energy will still be balanced [KH - 12 March 2014]*/
-	    double fsunscaled[3], fsunscaledmag, a, b, c;
-	    double d = 0.0;
-	    if (ctcorrection) {
-	      //~ Guard against division by tiny polyhertz [KH - 23 October 2014]
-	      polyhertz > 1.0e-30 ? b = fabs(shear[3]/polyhertz) : b = 0.0;
-	      fs > fslim ? a = b*fs/fslim : a = b;
-	      c = effectivekt*dt*(b - 1.0);
-
-	      fsunscaled[0] = a*shear[0] + c*vtr1;
-	      fsunscaled[1] = a*shear[1] + c*vtr2;
-	      fsunscaled[2] = a*shear[2] + c*vtr3;
-	      fsunscaledmag = sqrt(fsunscaled[0]*fsunscaled[0] + fsunscaled[1]*fsunscaled[1] + fsunscaled[2]*fsunscaled[2]);
-	
-	      //~ Guard against division by tiny fsunscaledmag [KH - 23 October 2014]
-	      if (fs > fslim && fslim > 0.0 && fsunscaledmag > 1.0e-30) {
-		d += 0.5*rkt*(oldshearforce + fslim)*(fsunscaledmag - fslim) - incdissipf; //~ Updated to increase accuracy [KH - 1 April 2015]
-		fsunscaledmag *= fslim/fsunscaledmag;
-	      }
-
-	      d += 0.5*rkt*(fsunscaledmag - oldshearforce)*(fsunscaledmag + oldshearforce) - sstr;
-	      if (consideronce) dissipfriction += d;
-	      if (trace_energy) shear[4] += d;
-	    }
 	  }
 	}
 
