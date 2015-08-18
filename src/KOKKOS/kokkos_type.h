@@ -22,7 +22,7 @@
 #define MAX_TYPES_STACKPARAMS 12
 #define NeighClusterSize 8
 
-#ifndef __CUDACC__
+#if !defined(__CUDACC__) && !defined(__VECTOR_TYPES_H__)
   struct double2 {
     double x, y;
   };
@@ -213,6 +213,14 @@ typedef tdual_int_1d::t_dev_const t_int_1d_const;
 typedef tdual_int_1d::t_dev_um t_int_1d_um;
 typedef tdual_int_1d::t_dev_const_um t_int_1d_const_um;
 typedef tdual_int_1d::t_dev_const_randomread t_int_1d_randomread;
+
+typedef Kokkos::
+  DualView<int*[3], Kokkos::LayoutRight, LMPDeviceType> tdual_int_1d_3;
+typedef tdual_int_1d_3::t_dev t_int_1d_3;
+typedef tdual_int_1d_3::t_dev_const t_int_1d_3_const;
+typedef tdual_int_1d_3::t_dev_um t_int_1d_3_um;
+typedef tdual_int_1d_3::t_dev_const_um t_int_1d_3_const_um;
+typedef tdual_int_1d_3::t_dev_const_randomread t_int_1d_3_randomread;
 
 typedef Kokkos::
   DualView<int**, Kokkos::LayoutRight, LMPDeviceType> tdual_int_2d;
@@ -439,6 +447,13 @@ typedef tdual_int_1d::t_host_const t_int_1d_const;
 typedef tdual_int_1d::t_host_um t_int_1d_um;
 typedef tdual_int_1d::t_host_const_um t_int_1d_const_um;
 typedef tdual_int_1d::t_host_const_randomread t_int_1d_randomread;
+
+typedef Kokkos::DualView<int*[3], Kokkos::LayoutRight, LMPDeviceType> tdual_int_1d_3;
+typedef tdual_int_1d_3::t_host t_int_1d_3;
+typedef tdual_int_1d_3::t_host_const t_int_1d_3_const;
+typedef tdual_int_1d_3::t_host_um t_int_1d_3_um;
+typedef tdual_int_1d_3::t_host_const_um t_int_1d_3_const_um;
+typedef tdual_int_1d_3::t_host_const_randomread t_int_1d_3_randomread;
 
 typedef Kokkos::DualView<int**, Kokkos::LayoutRight, LMPDeviceType> tdual_int_2d;
 typedef tdual_int_2d::t_host t_int_2d;

@@ -42,9 +42,9 @@ enum{SINGLE,MOLECULE,GROUP};
 enum{NONE,XYZ,XY,YZ,XZ};
 enum{ISO,ANISO,TRICLINIC};
 
-#define MAXLINE 256
+#define MAXLINE 1024
 #define CHUNK 1024
-#define ATTRIBUTE_PERBODY 11
+#define ATTRIBUTE_PERBODY 17
 
 #define TOLERANCE 1.0e-6
 #define EPSILON 1.0e-7
@@ -548,12 +548,9 @@ FixRigid::FixRigid(LAMMPS *lmp, int narg, char **arg) :
   MINUSPI = -MY_PI;
   TWOPI = 2.0*MY_PI;
 
-  // if infile set, only setup rigid bodies once, using info from file
-  // this means users cannot change atom properties like mass between runs
-  // if they do, bodies will not reflect the changes
+  // wait to setup bodies until first init() using current atom properties
 
-  staticflag = 0;
-  if (infile) setup_bodies_static();
+  setupflag = 0;
 
   // print statistics
 
@@ -670,10 +667,18 @@ void FixRigid::init()
     step_respa = ((Respa *) update->integrate)->step;
 
   // setup rigid bodies, using current atom info
-  // allows resetting of atom properties like mass between runs
-  // only do this if not using an infile, else was called in constructor
+  // only do initialization once, b/c properties may not be re-computable
+  //   especially if overlapping particles
+  // do not do dynamic init if read body properties from infile
+  //   this is b/c the infile defines the static and dynamic properties
+  //   and may not be computable if contain overlapping particles
+  //   setup_bodies_static() reads infile itself
 
-  if (!infile) setup_bodies_static();
+  if (!setupflag) {
+    setup_bodies_static();
+    if (!infile) setup_bodies_dynamic();
+    setupflag = 1;
+  }
 
   // temperature scale factor
 
@@ -704,12 +709,6 @@ void FixRigid::setup_pre_neighbor()
 void FixRigid::setup(int vflag)
 {
   int i,n,ibody;
-
-  // setup_bodies_dynamic sets vcm and angmom
-  // so angmom_to_omega() and set_v() below will set per-atom vels correctly
-  // re-calling it every run allows reset of body/atom velocities between runs
-
-  setup_bodies_dynamic();
 
   // fcm = force on center-of-mass of each rigid body
 
@@ -1085,7 +1084,7 @@ int FixRigid::dof(int tgroup)
 {
   // cannot count DOF correctly unless setup_bodies_static() has been called
 
-  if (!staticflag) {
+  if (!setupflag) {
     if (comm->me == 0) 
       error->warning(FLERR,"Cannot count rigid body degrees-of-freedom "
                      "before bodies are initialized");
@@ -1494,12 +1493,11 @@ void FixRigid::set_v()
 }
 
 /* ----------------------------------------------------------------------
-   initialization of static rigid body attributes
-   called from init() so body/atom properties can be changed between runs
-   unless reading from infile, in which case called once from constructor
+   one-time initialization of static rigid body attributes
    sets extended flags, masstotal, center-of-mass
    sets Cartesian and diagonalized inertia tensor
-   sets body image flags, but only on first call
+   sets body image flags
+   may read some properties from infile
 ------------------------------------------------------------------------- */
 
 void FixRigid::setup_bodies_static()
@@ -1585,14 +1583,12 @@ void FixRigid::setup_bodies_static()
     }
   }
 
-  // first-time setting of body xcmimage flags = true image flags
+  // set body xcmimage flags = true image flags
 
-  if (!staticflag) {
-    imageint *image = atom->image;
-    for (i = 0; i < nlocal; i++)
-      if (body[i] >= 0) xcmimage[i] = image[i];
-      else xcmimage[i] = 0;
-  }
+  imageint *image = atom->image;
+  for (i = 0; i < nlocal; i++)
+    if (body[i] >= 0) xcmimage[i] = image[i];
+    else xcmimage[i] = 0;
 
   // compute masstotal & center-of-mass of each rigid body
   // error if image flag is not 0 in a non-periodic dim
@@ -1652,6 +1648,15 @@ void FixRigid::setup_bodies_static()
     xcm[ibody][2] = all[ibody][2]/masstotal[ibody];
   }
 
+  // set vcm, angmom = 0.0 in case infile is used
+  // and doesn't overwrite all body's values
+  // since setup_bodies_dynamic() will not be called
+
+  for (ibody = 0; ibody < nbody; ibody++) {
+    vcm[ibody][0] = vcm[ibody][1] = vcm[ibody][2] = 0.0;
+    angmom[ibody][0] = angmom[ibody][1] = angmom[ibody][2] = 0.0;
+  }
+
   // overwrite masstotal and center-of-mass with file values
   // inbody[i] = 0/1 if Ith rigid body is initialized by file
 
@@ -1659,19 +1664,16 @@ void FixRigid::setup_bodies_static()
   if (infile) {
     memory->create(inbody,nbody,"rigid:inbody");
     for (ibody = 0; ibody < nbody; ibody++) inbody[ibody] = 0;
-    readfile(0,masstotal,xcm,inbody);
+    readfile(0,masstotal,xcm,vcm,angmom,inbody);
   }
 
-  // one-time set of rigid body image flags to default values
-  //   staticflag insures this is only done once, not on successive runs
+  // set rigid body image flags to default values
   // then remap the xcm of each body back into simulation box
-  //   and reset body xcmimage flags via pre_neighbor()
+  //   and reset body and atom xcmimage flags via pre_neighbor()
 
-  if (!staticflag) {
-    for (ibody = 0; ibody < nbody; ibody++)
-      imagebody[ibody] = ((imageint) IMGMAX << IMG2BITS) | 
-        ((imageint) IMGMAX << IMGBITS) | IMGMAX;
-  }
+  for (ibody = 0; ibody < nbody; ibody++)
+    imagebody[ibody] = ((imageint) IMGMAX << IMG2BITS) | 
+      ((imageint) IMGMAX << IMGBITS) | IMGMAX;
 
   pre_neighbor();
 
@@ -1772,7 +1774,7 @@ void FixRigid::setup_bodies_static()
 
   // overwrite Cartesian inertia tensor with file values
 
-  if (infile) readfile(1,NULL,all,inbody);
+  if (infile) readfile(1,NULL,all,NULL,NULL,inbody);
 
   // diagonalize inertia tensor for each body via Jacobi rotations
   // inertia = 3 eigenvalues = principal moments of inertia
@@ -2004,19 +2006,12 @@ void FixRigid::setup_bodies_static()
   }
 
   if (infile) memory->destroy(inbody);
-
-  // static properties have now been initialized once
-  // used to prevent re-initialization which would re-read infile
-
-  staticflag = 1;
 }
 
 /* ----------------------------------------------------------------------
-   initialization of dynamic rigid body attributes
+   one-time initialization of dynamic rigid body attributes
    set vcm and angmom, computed explicitly from constituent particles
-   OK if wrong for overlapping particles,
-     since is just setting vcm/angmom at start of run,
-     which can be estimated value
+   not done if body properites read from file, e.g. for overlapping particles
 ------------------------------------------------------------------------- */
 
 void FixRigid::setup_bodies_dynamic()
@@ -2110,14 +2105,17 @@ void FixRigid::setup_bodies_dynamic()
 
 /* ----------------------------------------------------------------------
    read per rigid body info from user-provided file
-   which = 0 to read total mass and center-of-mass, store in vec and array
-   which = 1 to read 6 moments of inertia, store in array
+   which = 0 to read everthing except 6 moments of inertia
+   which = 1 to read 6 moments of inertia
    flag inbody = 0 for bodies whose info is read from file
    nlines = # of lines of rigid body info
    one line = rigid-ID mass xcm ycm zcm ixx iyy izz ixy ixz iyz
+              vxcm vycm vzcm lx ly lz
 ------------------------------------------------------------------------- */
 
-void FixRigid::readfile(int which, double *vec, double **array, int *inbody)
+void FixRigid::readfile(int which, double *vec, 
+                        double **array1, double **array2, double **array3,
+                        int *inbody)
 {
   int j,nchunk,id,eofflag;
   int nlines;
@@ -2168,7 +2166,7 @@ void FixRigid::readfile(int which, double *vec, double **array, int *inbody)
     // tokenize the line into values
     // id = rigid body ID
     // use ID as-is for SINGLE, as mol-ID for MOLECULE, as-is for GROUP
-    // for which = 0, store mass/com in vec/array
+    // for which = 0, store all but inertia in vec and arrays
     // for which = 1, store inertia tensor array, invert 3,4,5 values to Voigt
 
     for (int i = 0; i < nchunk; i++) {
@@ -2191,16 +2189,22 @@ void FixRigid::readfile(int which, double *vec, double **array, int *inbody)
 
       if (which == 0) {
         vec[id] = atof(values[1]);
-        array[id][0] = atof(values[2]);
-        array[id][1] = atof(values[3]);
-        array[id][2] = atof(values[4]);
+        array1[id][0] = atof(values[2]);
+        array1[id][1] = atof(values[3]);
+        array1[id][2] = atof(values[4]);
+        array2[id][0] = atof(values[11]);
+        array2[id][1] = atof(values[12]);
+        array2[id][2] = atof(values[13]);
+        array3[id][0] = atof(values[14]);
+        array3[id][1] = atof(values[15]);
+        array3[id][2] = atof(values[16]);
       } else {
-        array[id][0] = atof(values[5]);
-        array[id][1] = atof(values[6]);
-        array[id][2] = atof(values[7]);
-        array[id][3] = atof(values[10]);
-        array[id][4] = atof(values[9]);
-        array[id][5] = atof(values[8]);
+        array1[id][0] = atof(values[5]);
+        array1[id][1] = atof(values[6]);
+        array1[id][2] = atof(values[7]);
+        array1[id][3] = atof(values[10]);
+        array1[id][4] = atof(values[9]);
+        array1[id][5] = atof(values[8]);
       }
 
       buf = next + 1;
@@ -2297,6 +2301,16 @@ void FixRigid::grow_arrays(int nmax)
     if (orientflag) memory->grow(orient,nmax,orientflag,"rigid:orient");
     if (dorientflag) memory->grow(dorient,nmax,3,"rigid:dorient");
   }
+
+  // check for regrow of vatom
+  // must be done whether per-atom virial is accumulated on this step or not
+  //   b/c this is only time grow_array() may be called
+  // need to regrow b/c vatom is calculated before and after atom migration
+
+  if (nmax > maxvatom) {
+    maxvatom = atom->nmax;
+    memory->grow(vatom,maxvatom,6,"fix:vatom");
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -2320,6 +2334,13 @@ void FixRigid::copy_arrays(int i, int j, int delflag)
       dorient[j][2] = dorient[i][2];
     }
   }
+
+  // must also copy vatom if per-atom virial calculated on this timestep
+  // since vatom is calculated before and after atom migration
+
+  if (vflag_atom)
+    for (int k = 0; k < 6; k++)
+      vatom[j][k] = vatom[i][k];
 }
 
 /* ----------------------------------------------------------------------
@@ -2333,6 +2354,13 @@ void FixRigid::set_arrays(int i)
   displace[i][0] = 0.0;
   displace[i][1] = 0.0;
   displace[i][2] = 0.0;
+
+  // must also zero vatom if per-atom virial calculated on this timestep
+  // since vatom is calculated before and after atom migration
+
+  if (vflag_atom)
+    for (int k = 0; k < 6; k++)
+      vatom[i][k] = 0.0;
 }
 
 /* ----------------------------------------------------------------------
@@ -2357,6 +2385,14 @@ int FixRigid::pack_exchange(int i, double *buf)
     buf[m++] = dorient[i][1];
     buf[m++] = dorient[i][2];
   }
+
+  // must also pack vatom if per-atom virial calculated on this timestep
+  // since vatom is calculated before and after atom migration
+
+  if (vflag_atom)
+    for (int k = 0; k < 6; k++)
+      buf[m++] = vatom[i][k];
+
   return m;
 }
 
@@ -2382,6 +2418,14 @@ int FixRigid::unpack_exchange(int nlocal, double *buf)
     dorient[nlocal][1] = buf[m++];
     dorient[nlocal][2] = buf[m++];
   }
+
+  // must also unpack vatom if per-atom virial calculated on this timestep
+  // since vatom is calculated before and after atom migration
+
+  if (vflag_atom)
+    for (int k = 0; k < 6; k++)
+      vatom[nlocal][k] = buf[m++];
+
   return m;
 }
 

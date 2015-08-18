@@ -14,7 +14,8 @@ group ID style args :pre
 
 ID = user-defined name of the group :ulb,l
 style = {delete} or {region} or {type} or {id} or {molecule} or {variable} or \
-      {subtract} or {union} or {intersect} or {dynamic} or {static} :l
+        {include} or {subtract} or {union} or {intersect} or \
+        {dynamic} or {static} :l
   {delete} = no args
   {clear} = no args
   {region} args = region-ID
@@ -250,9 +251,9 @@ variable        rad equal 18-(step/v_nsteps)*(18-5)
 region          ss sphere 20 20 0 v_rad
 group           mobile dynamic all region ss
 fix             1 mobile nve
-run             ${nsteps}
+run             $\{nsteps\}
 group           mobile static
-run	        ${nsteps} :pre
+run	        $\{nsteps\} :pre
 
 IMPORTANT NOTE: All fixes and computes take a group ID as an argument,
 but they do not all allow for use of a dynamic group.  If you get an

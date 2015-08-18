@@ -141,6 +141,7 @@ class Compute : protected Pointers {
  protected:
   int instance_me;             // which Compute class instantiation I am
 
+  double natoms_temp;          // # of atoms used for temperature calculation
   int extra_dof;               // extra DOF for temperature computes
   int fix_dof;                 // DOF due to fixes
   int dynamic;                 // recount atoms for temperature computes
@@ -165,6 +166,10 @@ class Compute : protected Pointers {
     ubuf(int64_t arg) : i(arg) {}
     ubuf(int arg) : i(arg) {}
   };
+
+  // private methods
+
+  void adjust_dof_fix();
 };
 
 }

@@ -204,6 +204,8 @@ double ComputeTempChunk::compute_scalar()
   cchunk->compute_ichunk();
   int *ichunk = cchunk->ichunk;
 
+  if (nchunk > maxchunk) allocate();
+
   // remove velocity bias
 
   if (biasflag) {
@@ -290,6 +292,8 @@ double ComputeTempChunk::compute_scalar()
   double dof = nchunk*cdof + adof*allcount;
   double tfactor = 0.0;
   if (dof > 0.0) tfactor = force->mvv2e / (dof * force->boltz);
+  if (dof < 0.0 && allcount > 0.0)
+    error->all(FLERR,"Temperature compute degrees of freedom < 0");
   scalar *= tfactor;
   return scalar;
 }
@@ -311,6 +315,8 @@ void ComputeTempChunk::compute_vector()
   nchunk = cchunk->setup_chunks();
   cchunk->compute_ichunk();
   int *ichunk = cchunk->ichunk;
+
+  if (nchunk > maxchunk) allocate();
 
   // remove velocity bias
 

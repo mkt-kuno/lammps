@@ -39,7 +39,6 @@ class FixGCMC : public Fix {
   void attempt_molecule_rotation();
   void attempt_molecule_deletion();
   void attempt_molecule_insertion();
-  double energy(int, int, tagint, double *);
   void attempt_atomic_translation_full();
   void attempt_atomic_deletion_full();
   void attempt_atomic_insertion_full();
@@ -47,11 +46,12 @@ class FixGCMC : public Fix {
   void attempt_molecule_rotation_full();
   void attempt_molecule_deletion_full();
   void attempt_molecule_insertion_full();
+  double energy(int, int, tagint, double *);
+  double molecule_energy(tagint);
   double energy_full();
   int pick_random_gas_atom();
   tagint pick_random_gas_molecule();
   void toggle_intramolecular(int);
-  double molecule_energy(tagint);
   void update_gas_atoms_list();
   double compute_vector(int);
   double memory_usage();
@@ -74,9 +74,16 @@ class FixGCMC : public Fix {
   bool pressure_flag;       // true if user specified reservoir pressure
   bool charge_flag;         // true if user specified atomic charge
   bool full_flag;           // true if doing full system energy calculations
-
+ 
   int natoms_per_molecule;  // number of atoms in each gas molecule
 
+  int groupbitall;          // group bitmask for inserted atoms
+  int ngroups;              // number of group-ids for inserted atoms
+  char** groupstrings;      // list of group-ids for inserted atoms
+  int ngrouptypes;          // number of type-based group-ids for inserted atoms
+  char** grouptypestrings;  // list of type-based group-ids for inserted atoms
+  int* grouptypebits;       // list of type-based group bitmasks 
+  int* grouptypes;          // list of type-based group types 
   double ntranslation_attempts;
   double ntranslation_successes;
   double nrotation_attempts;
@@ -103,7 +110,9 @@ class FixGCMC : public Fix {
   int *local_gas_list;
   double **cutsq;
   double **atom_coord;
-  imageint imagetmp;
+  imageint imagezero;
+
+  double energy_intra;
 
   class Pair *pair;
 

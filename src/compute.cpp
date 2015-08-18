@@ -89,6 +89,7 @@ Compute::Compute(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
 
   extra_dof = domain->dimension;
   dynamic_user = 0;
+  fix_dof = 0;
 
   // setup list of timesteps
 
@@ -141,6 +142,21 @@ void Compute::modify_params(int narg, char **arg)
       iarg += 2;
     } else error->all(FLERR,"Illegal compute_modify command");
   }
+}
+
+/* ----------------------------------------------------------------------
+   calculate adjustment in DOF due to fixes
+------------------------------------------------------------------------- */
+
+void Compute::adjust_dof_fix()
+{
+  Fix **fix = modify->fix;
+  int nfix = modify->nfix;
+
+  fix_dof = 0;
+  for (int i = 0; i < nfix; i++)
+    if (fix[i]->dof_flag) 
+      fix_dof += fix[i]->dof(igroup);
 }
 
 /* ----------------------------------------------------------------------

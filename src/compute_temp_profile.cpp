@@ -19,7 +19,6 @@
 #include "update.h"
 #include "force.h"
 #include "group.h"
-#include "modify.h"
 #include "fix.h"
 #include "domain.h"
 #include "memory.h"
@@ -195,11 +194,13 @@ void ComputeTempProfile::setup()
 
 void ComputeTempProfile::dof_compute()
 {
-  fix_dof = modify->adjust_dof_fix(igroup);
-  double natoms = group->count(igroup);
-  int nper = domain->dimension;
-  dof = nper * natoms;
-  dof -= extra_dof + fix_dof;
+  adjust_dof_fix();
+  natoms_temp = group->count(igroup);
+  dof = domain->dimension * natoms_temp;
+
+  // subtract additional d*Nbins DOF, as in Evans and Morriss paper
+
+  dof -= extra_dof + fix_dof + domain->dimension*nbins;
   if (dof > 0) tfactor = force->mvv2e / (dof * force->boltz);
   else tfactor = 0.0;
 }
@@ -243,7 +244,7 @@ double ComputeTempProfile::compute_scalar()
 
   MPI_Allreduce(&t,&scalar,1,MPI_DOUBLE,MPI_SUM,world);
   if (dynamic) dof_compute();
-  if (tfactor == 0.0 && scalar != 0.0) 
+  if (dof < 0.0 && natoms_temp > 0.0) 
     error->all(FLERR,"Temperature compute degrees of freedom < 0");
   scalar *= tfactor;
   return scalar;
