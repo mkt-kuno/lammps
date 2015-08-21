@@ -194,14 +194,14 @@ void FixEnergyBoundary::end_of_step()
 
     ideltawv = -pdash*dep*cellvolume;
     ideltawd = -q*deq*cellvolume;
+
+    //~ Store strain rates for the next time-step [KH - 18 August 2015]
+    for (int i = 0; i < 6; i++) oldierates[i] = ierates[i];
   }
 
   boundary_work += deltaW; //~ Update the boundary work...
   deltawv += ideltawv; //~ the volumetric work...
   deltawd += ideltawd; //~ and the distortional work
-
-  //~ Store strain rates for the next time-step [KH - 18 August 2015]
-  for (int i = 0; i < 6; i++) oldierates[i] = ierates[i];
 }
 
 /* ---------------------------------------------------------------------- */
