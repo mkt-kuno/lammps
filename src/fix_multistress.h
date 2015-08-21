@@ -69,7 +69,7 @@ namespace LAMMPS_NS {
     int ncyclicsteps; //~ Number of steps for which cyclic loading is active
     int iterateflag; //~ May be needed for conditional code branches
     double tolerance; //~ The percentage accuracy required for the stresses
-    double maxrate[6]; //~ The optional user-defined maximum strain rate (x 6)
+    double maxrate[6]; //~ Optional user-defined maximum engineering strain rates (x 6)
     double oldmeans[6]; //~ The mean stresses on the preceding timestep
     double *means; //~ The mean stresses on the current timestep
     double tallymeans[6]; //~ The total mean stresses from all processors
@@ -78,7 +78,7 @@ namespace LAMMPS_NS {
     double pboundstart[6]; //~ The initial positions of the cell boundaries
     double meaneffectivestress; //~ The initial value of p'
     double deviatorstress; //~ The initial value of q
-    double temprates[6]; //~ Strain rates prior to the imposition of maxrate restrictions
+    double temprates[6]; //~ Engineering strain rates prior to the imposition of maxrate restrictions
 
     int strflag[6]; //~ Flags to indicate which dimensions are servo-controlled
     int defflag[6]; //~ Flags to indicate which dimensions are strain-controlled

@@ -23,7 +23,7 @@
 
 <LI>M = the number of steps to run within N% of the target stress before displaying that the target stress has been attained. See note 1. 
 
-<LI>R = optional but highly recommended - this is the maximum strain rate permissible for stress-controlled boundaries. 
+<LI>R = optional but highly recommended - this is the maximum engineering strain rate permissible for stress-controlled boundaries. 
 
 <LI>one or more keyword/value pairs must be appended 
 
@@ -101,7 +101,7 @@ fix 		8 all print 1000 "${step} ${xxstress} ${yystress} ${zzstress} ${xystress} 
 <PRE>dump		1 all custom 1000 dump.atom_stresses_$i id c_7_stress[1] c_7_stress[2] c_7_stress[3] c_7_stress[4] c_7_stress[5] c_7_stress[6]
 dump		2 all vtk 100 dump.*.vtp c_7_stress[1] c_7_stress[2] c_7_stress[3] c_7_stress[4] c_7_stress[5] c_7_stress[6] 
 </PRE>
-<P>Currently the maximum strain rate, if defined, is linked to the proportional gain used in the stress control
+<P>Currently the maximum engineering strain rate, if defined, is linked to the proportional gain used in the stress control
 algorithm. The gain is calculated as twice the maximum strain rate divided by the target stress. This has some logical
 justification. Suppose that you are isotropically compressing a sample and the stresses are initially negligible (noting
 that these stresses are all mean stresses, not the per-particle stresses).
