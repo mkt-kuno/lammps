@@ -720,21 +720,6 @@ void FixMultistress::init()
     } else pboundstart[4] = pboundstart[5] = 0.0;
   }
 
-  /*~ Calculate the initial maximum velocities of the boundaries (i = 0:2)
-    and maxrate*tilt_factor (i = 3:5)*/
-  if (maxrateflag == 1 && constructorflag == 1) {
-    for (int i = 0; i < 3; i++) {
-      if (strflag[i] == 1 || linkvolstress[i] == 1)
-	initialmaxvel[i] = maxrate[i]*(domain->boxhi[i]-domain->boxlo[i]);
-    }
-    
-    if (triclinic == 1) {
-      if (strflag[3] == 1) initialmaxvel[3] = maxrate[3]*domain->xy;
-      if (strflag[4] == 1) initialmaxvel[4] = maxrate[4]*domain->xz;
-      if (strflag[5] == 1) initialmaxvel[5] = maxrate[5]*domain->yz;
-    }
-  }
-
   //~ Set up the fix_deform that is required initially
   int n = strlen(id) + strlen("_multistress") + 1;
   id_multistress = new char[n];
@@ -942,21 +927,6 @@ void FixMultistress::end_of_step()
     if (constbctrl) {
       for (int i = 0; i < 6; i++)
 	if (constbflag[i] > 0) starget[i] = tallymeans[i];
-    }
-  }
-
-  /*~ Calculate updated maxrates so that the velocities of the boundaries
-    (or rates of change of the tilt factors) are restricted to constant values*/
-  if (maxrateflag == 1) {
-    for (int i = 0; i < 3; i++) {
-      if (strflag[i] == 1 || linkvolstress[i] == 1)
-	maxrate[i] = fabs(initialmaxvel[i]/(domain->boxhi[i]-domain->boxlo[i]));
-    }
-    
-    if (triclinic == 1) {
-      if (strflag[3] == 1 && domain->xy != 0.0) maxrate[3] = fabs(initialmaxvel[3]/domain->xy);
-      if (strflag[4] == 1 && domain->xz != 0.0) maxrate[4] = fabs(initialmaxvel[4]/domain->xz);
-      if (strflag[5] == 1 && domain->yz != 0.0) maxrate[5] = fabs(initialmaxvel[5]/domain->yz);
     }
   }
 

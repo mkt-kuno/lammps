@@ -69,7 +69,6 @@ namespace LAMMPS_NS {
     int ncyclicsteps; //~ Number of steps for which cyclic loading is active
     int iterateflag; //~ May be needed for conditional code branches
     double tolerance; //~ The percentage accuracy required for the stresses
-    double initialmaxvel[6]; //~ The initial maximum permissible boundary speeds
     double maxrate[6]; //~ The optional user-defined maximum strain rate (x 6)
     double oldmeans[6]; //~ The mean stresses on the preceding timestep
     double *means; //~ The mean stresses on the current timestep
