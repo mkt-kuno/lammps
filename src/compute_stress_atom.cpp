@@ -420,7 +420,7 @@ double *ComputeStressAtom::array_export()
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
       if (domain->dimension == 3) {
-	pvolume = (4*PI/3)*radius[i]*radius[i]*radius[i];
+	pvolume = (4.0*PI/3.0)*radius[i]*radius[i]*radius[i];
       } else pvolume = PI*radius[i]*radius[i];
       
       for (int j = 0; j < 6; j++)
