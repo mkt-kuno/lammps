@@ -994,6 +994,9 @@ void *PairGranHookeHistory::extract(const char *str, int &dim)
   else if (strcmp(str,"xmu") == 0) return (void *) &xmu; 
   else if (strcmp(str,"RMSf") == 0) return (void *) &RMSf;
   else if (strcmp(str,"Hp") == 0) return (void *) &Hp; 
+  else if (strcmp(str,"Model") == 0) return (void *) &Model; 
+  // Added for new HMD [MO - 12 Sep 2015]
+  else if (strcmp(str,"THETA1") == 0) return (void *) &THETA1; 
   return NULL;
 }
 

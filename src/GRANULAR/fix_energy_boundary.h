@@ -37,6 +37,7 @@ class FixEnergyBoundary : public Fix {
 
  protected:
   int sfound, pb, wallactive;
+  int wiggle,wtranslate,wscontrol; //added [MO - 22 Aug 2015] 
   double boundary_work, deltawv, deltawd;
   double oldierates[6];
   class Compute *stressatom;

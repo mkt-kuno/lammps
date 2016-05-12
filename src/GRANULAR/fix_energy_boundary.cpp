@@ -27,6 +27,7 @@
 #include "compute.h"
 #include "comm.h"
 #include "error.h"
+#include "fix_wall_gran.h"  // added to consider wall positions [MO - 20 Aug 2015]
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -121,22 +122,22 @@ void FixEnergyBoundary::setup(int vflag)
       }
   }
 
-  /*~ Check for the presence of walls in the simulation. Issue an
-    error if walls are being moved as the work input due to moving
-    walls is not being calculated at present*/
-  for (int i = 0; i < modify->nfix; i++)
-    if (strcmp(modify->fix[i]->style,"wall/gran") == 0) wallactive = i;
-
+  //*************************************************************************
+  // wiggle and wsconstrol can be used for energy/boundary [MO - 22 Aug 2015]
   int dim = 0;
-  int wallmove = 0;
-  if (wallactive >= 0) {
-    wallmove += *((int *) modify->fix[wallactive]->extract("wiggle",dim));
-    wallmove += *((int *) modify->fix[wallactive]->extract("wtranslate",dim));
-    wallmove += *((int *) modify->fix[wallactive]->extract("wscontrol",dim));
-
-    if (wallmove > 0)
-      error->all(FLERR,"Boundary work calculation not implemented for moving walls");
+  wiggle = 0;
+  wtranslate = 0;
+  wscontrol = 0;
+  for (int i = 0; i < modify->nfix; i++) {
+    if (strcmp(modify->fix[i]->style,"wall/gran") == 0) {
+      wallactive = i;  
+      wiggle     += *((int *) modify->fix[wallactive]->extract("wiggle",dim));
+      wtranslate += *((int *) modify->fix[wallactive]->extract("wtranslate",dim)); 	          
+      wscontrol  += *((int *) modify->fix[wallactive]->extract("wscontrol",dim));
+    }
   }
+  if (wtranslate > 0)
+    error->all(FLERR,"Boundary work calculation not implemented for translate walls");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -162,8 +163,9 @@ void FixEnergyBoundary::end_of_step()
   double pdash, q, dep, deq;
   double deltaW, ideltawv, ideltawd;
   deltaW = ideltawv = ideltawd = 0.0;
-
-  if (pb == 1) {
+  
+  int dim = 0;
+  if (pb == 1 && wiggle == 0) {
     /*~ Either fix multistress/deform is active; fetch the true strain 
       rates using the param_export function.*/
     double *ierates = deffix->param_export();
@@ -172,14 +174,47 @@ void FixEnergyBoundary::end_of_step()
     if (oldierates[2] > 99999.0)
       for (int i = 0; i < 6; i++) oldierates[i] = ierates[i];
 
+    double w_ierates[3];
+    w_ierates[0] = w_ierates[1] = w_ierates[2] = 0.0;
+    double big = 1.0e19;      
+    // fetch the updated true strain rate from fix/wall/gran [MO 20 Aug 2015]
+    double w_ierates_sum = 0.0;        
+    for (int i = 0; i < modify->nfix; i++) {
+      if (strcmp(modify->fix[i]->style,"wall/gran") == 0 &&
+	  (*((int *) modify->fix[i]->extract("wscontrol",dim)))) {
+	double wall_hi_i = *((double *) modify->fix[i]->extract("hi",dim));
+	double wall_lo_i = *((double *) modify->fix[i]->extract("lo",dim));
+	int wallstyle_i = *((int *) modify->fix[i]->extract("wallstyle",dim)); 
+	double w_ierates_i = *((double *) modify->fix[i]->extract("w_ierates",dim));
+	
+	if (wall_hi_i < big)   w_ierates_sum += w_ierates_i;
+	if (wall_lo_i > - big) w_ierates_sum -= w_ierates_i;
+	w_ierates[wallstyle_i] = w_ierates_sum;
+      }
+    }
+
     //~ Calculate the volume of the periodic cell on previous time-step
     double cellvolume = 1.0;
-    for (int i = 0; i < domain->dimension; i++)
-      cellvolume *= (domain->boxhi[i] - domain->boxlo[i])*(1.0 - ierates[i]*update->dt);
+    for (int i = 0; i < domain->dimension; i++) {
+      if (domain->periodicity[i] == 0) {
+	cellvolume *= (domain->w_boxhi[i] - domain->w_boxlo[i])*(1.0 - w_ierates[i]*update->dt);
+      }
+      else cellvolume *= (domain->boxhi[i] - domain->boxlo[i])*(1.0 - ierates[i]*update->dt);
+    }
 
     //~ Eq. 1.24, p. 20, "Soil Behavior and Critical State Soil Mechanics"
-    for (int i = 0; i < 6; i++) deltaW -= tmeans[i]*oldierates[i];
-
+    // for (int i = 0; i < 6; i++) deltaW -= tmeans[i]*oldierates[i];  
+    // modified to consider stresscontrol [MO - 21 Aug 2015]
+    for (int i = 0; i < 3; i++) {
+      if (domain->periodicity[i] == 0) {
+	if (wscontrol > 0) deltaW -= tmeans[i]*w_ierates[i];
+	else           deltaW -= tmeans[i]* 0.0;
+      }
+      else             deltaW -= tmeans[i]*oldierates[i]; 
+    }
+    for (int i = 3; i < 6; i++) deltaW -= tmeans[i]*oldierates[i];   
+    
+    // deltaW *= update->dt; //~ strain rate * timestep = strain increment
     /*~ Find the increment of boundary work input by multiplying by 
       the current cell volume and by time step (strain rate * time step
       = strain increment) [KH - 1 April 2015]*/
@@ -198,8 +233,22 @@ void FixEnergyBoundary::end_of_step()
     //~ Store strain rates for the next time-step [KH - 18 August 2015]
     for (int i = 0; i < 6; i++) oldierates[i] = ierates[i];
   }
-
-  boundary_work += deltaW; //~ Update the boundary work...
+       
+  //***************************************************************
+  // Include the work done by wiggle commnad [MO - 21 Aug 2015]
+  if (wiggle > 0) { 
+    for (int i = 0; i < modify->nfix; i++) {
+      if (strcmp(modify->fix[i]->style,"wall/gran") == 0 &&
+	  (*((int *) modify->fix[i]->extract("wiggle",dim)))) {
+	// this should not be active for stresscontrol command
+	double velwall = *((double *) modify->fix[i]->extract("velwall",dim));
+	double fwall_all = *((double *) modify->fix[i]->extract("fwall_all",dim));      
+	deltaW += velwall * fwall_all * update->dt;
+      }
+    }
+  }
+  
+  boundary_work += deltaW; //~ Update the boundary work
   deltawv += ideltawv; //~ the volumetric work...
   deltawd += ideltawd; //~ and the distortional work
 }

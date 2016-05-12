@@ -59,7 +59,8 @@ class PairGranHookeHistory : public Pair {
   double *onerad_dynamic,*onerad_frozen;
   double *maxrad_dynamic,*maxrad_frozen;
 
-  double Geq,Poiseq,RMSf,Hp; // Added to extract for wall/gran.cpp [MO - 05 December 2014]
+  double Geq,Poiseq,RMSf,Hp; // Added to extract for wall/gran.cpp [MO - 03 April 2015]
+  int Model,THETA1;          // Added to extract for wall/gran.cpp [MO - 12 Sep 2015]
 
   class FixShearHistory *fix_history;
 

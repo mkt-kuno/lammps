@@ -52,6 +52,10 @@ class Domain : protected Pointers {
 
   double boxlo[3],boxhi[3];              // orthogonal box global bounds
 
+					 //[MO - 19 Aug 2015]
+  double w_boxlo[3],w_boxhi[3];          // orthogonal box global bounds for wall boundary
+  double w_boxlo_start[3];               // orthogonal box global bounds for upper wall boundary (initial)
+  double w_boxhi_start[3];		 // orthogonal box global bounds for lower wall boundary (initial)
                                          // triclinic box
                                          // boxlo/hi = same as if untilted
   double boxlo_lamda[3],boxhi_lamda[3];  // lamda box = (0,1)

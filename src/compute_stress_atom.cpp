@@ -428,9 +428,15 @@ double *ComputeStressAtom::array_export()
     }
   
   double totalvolume = 1.0; //~ Total volume enclosed by bounding box
-  for (int i = 0; i < domain->dimension; i++)
-    totalvolume *= (domain->boxhi[i]-domain->boxlo[i]);
-
+  
+  // modified to include presence of wall boundary [MO - 19 Aug 2015]
+  for (int i = 0; i < domain->dimension; i++) {
+    if (domain->periodicity[i] == 0 ) {
+      totalvolume *= (domain->w_boxhi[i] - domain->w_boxlo[i]);
+    }
+    else totalvolume *= (domain->boxhi[i] - domain->boxlo[i]);
+  }
+  
   for (int i = 0; i < 6; i++)
     means[i] /= totalvolume;
 

@@ -279,86 +279,71 @@ void PairGranCMHistory::compute(int eflag, int vflag)
         }
 
 	//******************************************************************************
-	/*~~ CM model for normal component (O'Donovan, 2013) [MO 2/Jun/2014] 
-	  Additional input parameters for this model are RMS roughness and Hardness: Hp.
-	  They are no independent parameters and should be chose carefully
-	  See Cavarretta et al. (2012) Particuology paper. ~~*/
+	/*~~ The present CM model is different from Cavarretta et al. (2010; 2012)
+	  and O'Donovan (2013). The plastic version of this model has not been implemented [MO - 12 Jun 2015]~~*/
 	//******************************************************************************
 	double RMSf_eq = sqrt(2.0)*RMSf;    // The equivalent roughness for the rough-rough contact
         double overlap = radsum-r;
         double R_star = 1.0 / (1.0/radi + 1.0/radj);
         double E_star = Geq/(1.0-Poiseq);
 	double pi = 4.0*atan(1.0);
-        double overlap_p = R_star*pow(3.0/4.0*pi*Hp/E_star,2.0);     // R_star*(3/4*pi*Hp/E_star)^2
-	double N_GT = 100.0*RMSf_eq*E_star*sqrt(2.0*R_star*RMSf_eq);
-	double overlap_GT = pow(3.0*N_GT/(4.0*sqrt(R_star)*E_star),2.0/3.0)+overlap_p; 
-	double b = 2.0*E_star*sqrt(R_star*(overlap_GT-overlap_p))*overlap_GT/N_GT; 
-	double overlap_max = fabs(shear[3]);
-	double energy_asperity_max = fabs(shear[4]);
-	double denergy_asperity;
-	//double overlap_old = fabs(shear[4]);
-	/* To trace energy for asperity crushing, shear[4] is now used to store
-	 nstr_plastic at the previous step. Accordingly N_step is now simplified:
-	 14: loading curve on fresh asperity
-	 15: loading curve on fully offset hertz
-	 35: loading curve on partially offset hertz
-	 36: loading curve on crushed asperity            [MO 19 January 2015]*/
-	double effectivekt;
-	double N_max;
-	double overlap_hertz_max;
-	double overlap_offset;
-	double overlap_hertz;
+	//*****************************************************************************
+        double overlap_p1 = 0.82 * RMSf_eq;     
+	double overlap_p2 = 1.24 * RMSf_eq;
+	double overlap_p_sum = overlap_p1 + overlap_p2;
+	double N_T200 = 100.0*RMSf_eq*E_star*sqrt(2.0*R_star*RMSf_eq);
+	double N_T2   = 1.0  *RMSf_eq*E_star*sqrt(2.0*R_star*RMSf_eq);
+	double overlap_T200 = pow(3.0*N_T200/(4.0*sqrt(R_star)*E_star),2.0/3.0)+overlap_p_sum; 
+	double b_coeff = 2.0*E_star*sqrt(R_star*(overlap_T200-overlap_p_sum))*(overlap_T200 - overlap_p1)/N_T200;
+	double overlap_T2 = (overlap_T200 - overlap_p1)*pow(N_T2/N_T200,1.0/b_coeff) + overlap_p1; 
+	double c_coeff = b_coeff * (N_T200/N_T2) * overlap_T2 * pow(overlap_T200-overlap_p1,-b_coeff) * pow(overlap_T2-overlap_p1,b_coeff-1.0);
+ 	double N = 0.0;
+	double effectivekn = 0.0;
+	double effectivekt = 0.0;
+	double N_max = 0.0;
+	double overlap_asperity = 0.0;
+	double overlap_combined = 0.0;
+	double overlap_hertz = 0.0;
+	double polyhertz_effective = 0.0;
 	double tolerance = 1.0e-20; 
+	double alpha; // non-dimentional roughness parameter (see Johnson 1985)
 	int N_step;
 
-	//Update the overlap which is the maximum in the history.
-	if (overlap >= overlap_max) overlap_max = overlap;
-       
-	/* N_step 1*, 2* and 3* stand for loading, unloading and reloasing, respectively. 
-	   N_step *4, *5 and *6 stand for asperity contact, Hertzian contact and zero force, respectively.
-	   Possible conbinations are 14,15,25,26,35 and 36.*/
-	//**************************************************************
-	N_max = N_GT * pow(overlap_GT, -b) * pow(overlap_max, b);   
-	overlap_hertz_max = pow(N_max/(kn*sqrt(R_star)),2.0/3.0);              
-	overlap_offset = overlap_max - overlap_hertz_max;   
-	//**************************************************************
-	if (overlap >= overlap_GT) {
-	  if (overlap >= (overlap_max - tolerance)) N_step = 15;
-	  else N_step = 35;
-	  //if (overlap >= overlap_old) N_step = 35;
-	  //else if (overlap < overlap_old) N_step = 25;
-	  overlap_hertz = overlap - overlap_p;
-	  polyhertz = sqrt(overlap_hertz*R_star);
-	  ccel = kn*overlap_hertz*polyhertz*rinv;
-	  effectivekt = polyhertz*kt;
-	}
-	else { //if (overlap < overlap_GT) {
-	  if (overlap >= (overlap_max - tolerance)) { 
-	    N_step = 14;
-	    overlap_hertz = overlap - overlap_offset;
-	    polyhertz = sqrt(overlap_hertz*R_star);
-	    ccel = N_GT * pow(overlap_GT, -b) * pow(overlap, b)*rinv;
-	    effectivekt = 2.0*b*(1.0-Poiseq)/(2.0-Poiseq)*ccel*r*(1.0/overlap); 
-	  }
-	  else { //if (overlap < (overlap_max - tolerance)) { 
-	    if (overlap < overlap_offset){
-	      N_step = 36;
-	      overlap_hertz = polyhertz = ccel = effectivekt = 0.0;
-	      //if (overlap >= overlap_old) N_step = 36;
-	      //else if (overlap < overlap_old) N_step = 26;      
-	    }
-	    else { //if (overlap >= overlap_offset){
-	      //if (overlap >= overlap_old) N_step = 35;
-	      //else if (overlap < overlap_old) N_step = 25;
-	      N_step = 35;
-	      overlap_hertz = overlap - overlap_offset;
-	      polyhertz = sqrt(overlap_hertz*R_star);
-	      ccel = kn*overlap_hertz*polyhertz*rinv;
-	      effectivekt = polyhertz*kt;
-	    }
-	  }
+	//****************************************************************
+	if (RMSf < tolerance) {
+	  RMSf_eq = overlap_p1 = overlap_p2 = overlap_p_sum = N_T200 = N_T2 = overlap_T200 = overlap_T2 = b_coeff = c_coeff = 0.0;
 	}
 
+	// Historical parameters for plastic version of CM model 
+	//double overlap_max = fabs(shear[3]);
+	//double energy_asperity_max = fabs(shear[4]);
+	
+	if (overlap <= overlap_T2) {
+	  N_step = 11;
+	  overlap_asperity = overlap;
+	  N = N_T2 * pow(overlap_asperity / overlap_T2, c_coeff);
+	  effectivekn = c_coeff * (N_T2/overlap_T2) * pow(overlap_asperity / overlap_T2, c_coeff-1.0);  
+	}
+	else if ((overlap > overlap_T2) && (overlap <= overlap_T200)) {
+	  N_step = 12;
+	  overlap_combined = overlap - overlap_p1;  
+	  N = N_T200 * pow(overlap_combined / (overlap_T200 - overlap_p1), b_coeff);
+	  effectivekn = b_coeff * N_T200/(overlap_T200 - overlap_p1) * pow(overlap_combined / (overlap_T200-overlap_p1), b_coeff-1.0);  
+	}
+	else {
+	  N_step = 13;
+	  overlap_hertz = overlap - overlap_p_sum;
+	  N = 4.0/3.0*E_star*sqrt(R_star)*pow(overlap_hertz,1.5);
+	  effectivekn = 2.0 * E_star * sqrt(R_star*overlap_hertz);
+	}
+	  
+	ccel = N*rinv;
+	polyhertz = sqrt(overlap*R_star); // equivalent radius of contact
+	// radius of contact assuming Hertzian contact
+	if (polyhertz != 0.0) alpha = R_star * RMSf_eq / (polyhertz*polyhertz);
+	polyhertz_effective = pow(3.0/4.0 * N * R_star / E_star, 1.0/3.0);
+       	effectivekt = 2.0*(1.0-Poiseq)/(2.0-Poiseq)*effectivekn;
+	
 	if (shearupdate) {
 	  shear[0] -= effectivekt*vtr1*dt;//shear displacement =vtr*dt
 	  shear[1] -= effectivekt*vtr2*dt;
@@ -370,8 +355,7 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 	fs = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
 	fslim = xmu * fabs(ccel*r); //replaced fn with fslim
 	
-	if (fs > fslim && N_step != 36) {
-	  // N_step == 26 and N_step == 36 -> fs = fslim = 0 [MO - 10 January 2015] 
+	if (fs > fslim) {
 	  if (fs != 0.0) {
 	    if (shearupdate) {
 	      shear[0] *= fslim/fs;
@@ -408,12 +392,12 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 		
 	double aveshearforce, slipdisp, oldshearforce, newshearforce;
 	double incdissipf, nstr, sstr, incrementaldisp, rkt;
-	double b1inv = 1.0/(b+1.0);
-	double nstr_elast, nstr_plast, nstr_total;
+	double b1inv = 1.0/(b_coeff+1.0);
+	double c1inv = 1.0/(c_coeff+1.0);
+	double nstr_asperity, nstr_combined, nstr_hertz;
 	
-	double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy,a,N;
-	a = polyhertz;
-	N = ccel*r;
+	double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy,a;
+	a = polyhertz_effective;
 	
 	int consideronce = 0; //~ Consider contacts only once
 	if (j < nlocal || tag[j] < tag[i]) consideronce = 1;
@@ -425,59 +409,32 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 			       M_limit,Geq,Poiseq,Dspin_energy,a,N);
 	}
 	   
-	nstr_elast = nstr_plast = nstr_total = 0.0;
 	//~ Add contributions to traced energy [KH - 20 February 2014]
-	if (pairenergy) {	   	    	    
-	  /* CM model includes plastic energy due to asperity crushing. Only elastic component is 
-	     stored in nstr, while the other is added in incrementaldisp [MO 19 January 2015]*/
-	  if (N_step == 14) {        // 14 stands for loading on asperity contact   [MO - 18 Jun 2014]
-	    nstr_total = b1inv*ccel*r*overlap;
-	    nstr_elast = 0.4*ccel*r*overlap_hertz;
-	    nstr_plast = nstr_total - nstr_elast;
+	if (pairenergy) {	 
+	  if (N_step == 11) {
+	    nstr_asperity = c1inv * N * overlap_asperity;
+	    nstr = nstr_asperity;
 	  }
-	  else if (N_step == 15) {        // *5 stands for hertzian contact   [MO - 18 Jun 2014]
-	    // overlap-overlap_p for Hertzian curve [MO - 18 Jun 2014]     
-	    nstr_elast = 0.4*ccel*r*overlap_hertz;
-	    nstr_plast = b1inv*N_GT*overlap_GT-0.4*N_GT*(overlap_GT-overlap_p);
-	    nstr_total = nstr_elast + nstr_plast;
+	  else if (N_step == 12) {  
+	    nstr_asperity = c1inv * N_T2 * overlap_T2;
+	    //nstr_combined = b1inv*N_T200*(pow(overlap_combined,b_coeff+1.0)*pow(overlap_T200 - overlap_p1,-b_coeff) 
+	    //				  - pow(overlap_T2-overlap_p1,b_coeff+1.0)*pow(overlap_T200-overlap_p1,b_coeff));
+	    nstr_combined = b1inv * (overlap_combined * N - (overlap_T2-overlap_p1) * N_T2);
+	    nstr = nstr_asperity + nstr_combined;
 	  }	    
-	  else if (N_step == 36) {   
-	    // 2* and 3* stand for unloading and reloading. *6 means ccel = 0.0 [MO - 18 Jun 2014] 
-	    if (overlap_max < overlap_GT){
-	      nstr_elast = 0.0;
-	      nstr_plast = b1inv*N_max*overlap_max-0.4*N_max*overlap_hertz_max;
-	      nstr_total = nstr_plast;
-	    }
-	    if (overlap_max >= overlap_GT){
-	      nstr_elast = 0.0;
-	      nstr_plast = N_GT*overlap_GT*b1inv-0.4*N_GT*(overlap_GT-overlap_p);
-	      nstr_total = nstr_plast;
-	    }
+	  else {   
+	    nstr_asperity = c1inv * N_T2 * overlap_T2;
+	    //nstr_combined = b1inv * N_T200 * ((overlap_T200 - overlap_p1) 
+	    //				      - pow(overlap_T2-overlap_p1,b_coeff+1.0)*pow(overlap_T200-overlap_p1,b_coeff));
+	    nstr_combined = b1inv * ((overlap_T200 - overlap_p1) * N_T200 - (overlap_T2-overlap_p1) * N_T2);
+	    nstr_hertz = 0.4 * 4.0/3.0 * E_star * sqrt(R_star) * (pow(overlap_hertz,2.5) - pow(overlap_T200-overlap_p_sum,2.5));
+	    nstr = nstr_asperity + nstr_combined + nstr_hertz;
 	  }
-	  else {//(N_step == 35){        // *5 stands for hertzian contact [MO - 18 Jun 2014]
-	    // overlap-overlap_offset for Hertzian contact [MO - 18 Jun 2014]
-	    if (overlap_max < overlap_GT){
-	      nstr_elast = 0.4*ccel*r*overlap_hertz;
-	      nstr_plast = b1inv*N_max*overlap_max-0.4*N_max*overlap_hertz_max;
-	      nstr_total = nstr_elast + nstr_plast; 
-	    }	    
-	    if (overlap_max >= overlap_GT){
-	      nstr_elast = 0.4*ccel*r*overlap_hertz;
-	      nstr_plast = N_GT*overlap_GT*b1inv-0.4*N_GT*(overlap_GT-overlap_p);
-	      nstr_total = nstr_elast + nstr_plast;
-	    }
-	  }
-	  if (consideronce) normalstrain += nstr_elast;
-	  if (trace_energy) shear[6] = nstr_elast;
+	  
+	  if (consideronce) normalstrain += nstr;
+	  if (trace_energy) shear[6] = nstr;
 
-	  // Add plastic energy into dissipfriction [MO - 19 January 2015]
-	  if (shearupdate && nstr_plast > energy_asperity_max) {
-	    denergy_asperity = nstr_plast - energy_asperity_max;
-	    if (consideronce) dissipfriction += denergy_asperity;
-	    if (trace_energy) shear[5] += denergy_asperity;
-	  }
-
-	  /*~ Increment the friction energy only if the slip condition
+	  /*~ Increase the friction energy only if the slip condition
 	    is invoked*/
 	  oldshearforce = sqrt(shsqmag);
 	  if (fs > fslim && fslim > 0.0) {
@@ -488,7 +445,6 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 	    aveshearforce = 0.5*(oldshearforce + fslim);
 	    //~ slipdisp and aveshearforce are both positive
 	    incdissipf = aveshearforce*slipdisp;
-	    if (N_step == 36) incdissipf = 0.0;
 	    if (consideronce) dissipfriction += incdissipf;
 	    if (trace_energy) shear[5] += incdissipf;
 	  }
@@ -506,18 +462,26 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 	    if (effectivekt > tolerance) incrementaldisp = (newshearforce - oldshearforce)/effectivekt;   
 	    else incrementaldisp = 0.0; // because no incremental shear force [MO - 21 July 2014]
 	    sstr = 0.5*incrementaldisp*(newshearforce + oldshearforce);
-	    if (N_step == 36) sstr = 0.0;
 	    if (consideronce) shearstrain += sstr;
 	    if (trace_energy) shear[7] += sstr;
 	  }
 	}
 	
-	//*************************************************************************
+	//*************************************
+	/*if (shearupdate && tag[i] == 7 && tag[j] == 23 && update->ntimestep == 1) {
+	  fprintf(screen,"timestep %i tag %i & %i overlap_p_sum %1.6e N_T200 %1.6e N_T2 %1.6e overlap_T200 %1.6e overlap_T2 %1.6e b_coeff %1.6e c_coeff %1.6e\n",update->ntimestep,tag[i],tag[j],overlap_p_sum,N_T200,N_T2,overlap_T200,overlap_T2,b_coeff,c_coeff); 
+
+	}
+	if (shearupdate && tag[i] == 7 && tag[j] == 23 && update->ntimestep % 100 == 0) {
+	  fprintf(screen,"timestep %i tag %i & %i N_step %i overlap %1.6e N %1.6e kn %1.6e kt %1.6e poly_eff %1.6e poly %1.6e alpha %1.6e\n",update->ntimestep,tag[i],tag[j],N_step,overlap,N,effectivekn,effectivekt,polyhertz_effective,polyhertz,alpha);
+	  }*/
+
+	/*************************************************************************
 	if (shearupdate) {
        	shear[3] = overlap_max;
 	if (nstr_plast > energy_asperity_max) shear[4] = nstr_plast;
 	}
-	//*************************************************************************
+	//*************************************************************************/
 
 	if (evflag) ev_tally_gran(i,j,nlocal,fx,fy,fz,x[i][0],x[i][1],x[i][2],radius[i],x[j][0],x[j][1],x[j][2],radius[j]);
       }
@@ -542,7 +506,7 @@ void PairGranCMHistory::compute(int eflag, int vflag)
 void PairGranCMHistory::settings(int narg, char **arg)
 {
 
-  if (narg != 5) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 6) error->all(FLERR,"Illegal pair_style command");
   if (domain->dimension == 2) error->all(FLERR,"PairGranCMHistory formulae only valid for 3D simulations");
 
   Geq = force->numeric(FLERR,arg[0]);//0.5 * (Gi+Gj)
@@ -550,9 +514,9 @@ void PairGranCMHistory::settings(int narg, char **arg)
   xmu = force->numeric(FLERR,arg[2]);
   RMSf = force->numeric(FLERR,arg[3]);//RMSf value for a particle where all the particles are assumed to have the same value
   Hp = force->numeric(FLERR,arg[4]);
+  Model = force->inumeric(FLERR,arg[5]);// 0:elastic version, 1: plasto-elastic version [MO - 12 June 2015]
 
-
-  if (Geq < 0.0 || Poiseq < 0.0 || xmu < 0.0 || Poiseq > 0.5 || RMSf < 0.0 || Hp < 0.0) error->all(FLERR,"Illegal CM pair parameter values");
+  if (Geq < 0.0 || Poiseq < 0.0 || xmu < 0.0 || Poiseq > 0.5 || RMSf < 0.0 || Hp < 0.0 || (Model != 0 && Model != 1)) error->all(FLERR,"Illegal CM pair parameter values");
 
   kn = 4.0*Geq / (3.0*(1.0-Poiseq)); // calculate these here to save effort in the compute
   kt = 4.0*Geq / (2.0-Poiseq);
@@ -640,48 +604,74 @@ double PairGranCMHistory::single(int i, int j, int itype, int jtype,
   int numshearquants = 5 + 20*D_spin + 4*trace_energy;
   double *shear = &allshear[numshearquants*neighprev];
 
-  // CM model for normal component (O'Donovan, 2013) [MO 2/Jun/2014]    
-  double RMSf_eq = sqrt(2.0)*RMSf;
+  double RMSf_eq = sqrt(2.0)*RMSf;    // The equivalent roughness for the rough-rough contact
   double overlap = radsum-r;
   double R_star = 1.0 / (1.0/radi + 1.0/radj);
   double E_star = Geq/(1.0-Poiseq);
   double pi = 4.0*atan(1.0);
-  double overlap_p = R_star*pow(3.0/4.0*pi*Hp/E_star,2.0);  
-  double N_GT = 100.0*RMSf_eq*E_star*sqrt(2.0*R_star*RMSf_eq);
-  double overlap_GT = pow(3.0*N_GT/(4.0*sqrt(R_star)*E_star),2.0/3.0)+overlap_p; 
-  double b = 2.0*E_star*sqrt(R_star*(overlap_GT-overlap_p))*overlap_GT/N_GT;
-  double tolerance = 1.0e-20;
-  double overlap_max = fabs(shear[3]);
+  double overlap_p1 = 0.82 * RMSf_eq;     
+  double overlap_p2 = 1.24 * RMSf_eq;
+  double overlap_p_sum = overlap_p1 + overlap_p2;
+  double N_T200 = 100.0*RMSf_eq*E_star*sqrt(2.0*R_star*RMSf_eq);
+  double N_T2   = 1.0  *RMSf_eq*E_star*sqrt(2.0*R_star*RMSf_eq);
+  double overlap_T200 = pow(3.0*N_T200/(4.0*sqrt(R_star)*E_star),2.0/3.0)+overlap_p_sum; 
+  double b_coeff = 2.0*E_star*sqrt(R_star*(overlap_T200-overlap_p_sum))*(overlap_T200 - overlap_p1)/N_T200;
+  double overlap_T2 = (overlap_T200 - overlap_p1)*pow(N_T2/N_T200,1.0/b_coeff) + overlap_p1; 
+  double c_coeff = b_coeff * (N_T200/N_T2) * overlap_T2 * pow(overlap_T200-overlap_p1,-b_coeff) * pow(overlap_T2-overlap_p1,b_coeff-1.0);
+  double N = 0.0;
+  double effectivekn = 0.0;
+  double effectivekt = 0.0;
+  double N_max = 0.0;
+  double overlap_asperity = 0.0;
+  double overlap_combined = 0.0;
+  double overlap_hertz = 0.0;
+  double polyhertz_effective = 0.0;
+  double tolerance = 1.0e-20; 
+  double alpha; // non-dimentional roughness parameter (see Johnson 1985)
+  int N_step;
 
-  /*~~Update the overlap which is the maximum in the history. [MO - 5 June 2014]*/
-  double N_max = N_GT * pow(overlap_GT, -b) * pow(overlap_max, b);   
-  double overlap_hertz_max = pow(N_max/(kn*sqrt(R_star)),2.0/3.0);
-  double overlap_offset = overlap_max - overlap_hertz_max;
-  double overlap_hertz;
-  int    contact_separation = 0;  
-
-  if (overlap >= overlap_GT) overlap_hertz = overlap - overlap_p;
-  else { 
-    if (overlap >= (overlap_max - tolerance)) overlap_hertz = overlap - overlap_offset;
-    else { 
-      if (overlap < overlap_offset) contact_separation = 1;
-      else overlap_hertz = overlap - overlap_offset;
-    }
+  if (RMSf < tolerance) {
+    RMSf_eq = overlap_p1 = overlap_p2 = overlap_p_sum = N_T200 = N_T2 = overlap_T200 = overlap_T2 = b_coeff = c_coeff = 0.0;
   }
-  // Calculate ccel = N/r ***********************
-  polyhertz = sqrt(overlap_hertz*R_star);
-  ccel = kn*overlap_hertz*polyhertz*rinv;
-  if (contact_separation) polyhertz = ccel = 0.0;
-  //*********************************************
+  // Historical parameters for plastic version of CM model 
+  //double overlap_max = fabs(shear[3]);
+  //double energy_asperity_max = fabs(shear[4]);
+	
+  if (overlap < overlap_T2) {
+    N_step = 11;
+    overlap_asperity = overlap;
+    N = N_T2 * pow(overlap_asperity / overlap_T2,c_coeff);
+    effectivekn = c_coeff * (N_T2/overlap_T2) * pow(overlap_asperity / overlap_T2, c_coeff-1.0);  
+    ccel = N*rinv;
+  }
+  else if ((overlap >= overlap_T2) && (overlap < overlap_T200)) {
+    N_step = 12;
+    overlap_combined = overlap - overlap_p1;  
+    N = N_T200 * pow(overlap_combined / (overlap_T200 - overlap_p1), b_coeff);
+    effectivekn = b_coeff * N_T200/(overlap_T200 - overlap_p1) * pow(overlap_combined / (overlap_T200-overlap_p1), b_coeff-1.0); 
+  }
+  else {
+    N_step = 13;
+    overlap_hertz = overlap - overlap_p_sum;
+    N = 4.0/3.0*E_star*sqrt(R_star)*pow(overlap_hertz,1.5);
+    effectivekn = 2.0 * E_star * sqrt(R_star*overlap_hertz);
+  }
+  
+  ccel = N*rinv;
+  polyhertz = sqrt(overlap*R_star); // equivalent radius of contact
+  // radius of contact assuming Hertzian contact
+  if (polyhertz != 0.0) alpha = R_star * RMSf_eq / (polyhertz*polyhertz);
+  polyhertz_effective = pow(3.0/4.0 * N * R_star / E_star, 1.0/3.0);
+  effectivekt = 2.0*(1.0-Poiseq)/(2.0-Poiseq)*effectivekn;
+
 
   // Call function for spin resistance model [MO - 19 November 2014]
-  double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy,a,N;
+  double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy,a;
   double **torque = atom->torque;
  
   //~~ Added for Deresiewicz1954_spin function [MO - 4 November 2014]
   if (D_spin) {
-    a = polyhertz;
-    N = ccel*r;
+    a = polyhertz_effective;
     Deresiewicz1954_spin(1,i,j,numshearquants,r,torque,shear,dspin_i,
 			 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,M_limit,Geq,Poiseq,Dspin_energy,a,N);
   }
@@ -901,6 +891,7 @@ void PairGranCMHistory::write_restart_settings(FILE *fp)
   fwrite(&xmu,sizeof(double),1,fp);
   fwrite(&RMSf,sizeof(double),1,fp);
   fwrite(&Hp,sizeof(double),1,fp);
+  fwrite(&Model,sizeof(int),1,fp);
 
   //~ Added energy terms [KH - 28 February 2014]
   //~~ Added for D_spin model [MO - 13 November 2014]
@@ -923,6 +914,7 @@ void PairGranCMHistory::read_restart_settings(FILE *fp)
     fread(&xmu,sizeof(double),1,fp);
     fread(&RMSf,sizeof(double),1,fp);
     fread(&Hp,sizeof(double),1,fp);
+    fread(&Model,sizeof(int),1,fp);
 
     /*~ Added energy terms. The total energy is read to the root
     proc and is NOT broadcast to all procs as only the total summed
@@ -939,4 +931,5 @@ void PairGranCMHistory::read_restart_settings(FILE *fp)
   MPI_Bcast(&xmu,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&RMSf,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&Hp,1,MPI_DOUBLE,0,world);
+  MPI_Bcast(&Model,1,MPI_INT,0,world);
 }

@@ -40,7 +40,7 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
-
+#include "fix_wall_gran.h"  // added to consider wall positions [MO - 19 Aug 2015]
 using namespace LAMMPS_NS;
 using namespace MathConst;
 
@@ -156,6 +156,29 @@ void Domain::init()
   // region inits
 
   for (int i = 0; i < nregion; i++) regions[i]->init();
+
+  //////////////////////////////////////////////////////////////////////
+  // added for fix/wall/gran and fix/energy/boundary [MO - 19 Aug 2015]
+  w_boxhi_start[0] = w_boxhi_start[1] = w_boxhi_start[2] = 1.0e20;
+  w_boxlo_start[0] = w_boxlo_start[1] = w_boxlo_start[2] = -1.0e20;
+  double big = 1.0e19;
+  int dim = 0;
+  for (int i = 0; i < modify->nfix; i++) {
+    if (strcmp(modify->fix[i]->style,"wall/gran") == 0) {
+      double wall_hi_i = *((double *) modify->fix[i]->extract("hi",dim));
+      double wall_lo_i = *((double *) modify->fix[i]->extract("lo",dim));
+      int wallstyle_i = *((int *) modify->fix[i]->extract("wallstyle",dim));   
+
+      if (wall_hi_i < big) w_boxhi_start[wallstyle_i] = wall_hi_i;
+      if (wall_lo_i > - big) w_boxlo_start[wallstyle_i] = wall_lo_i;
+    }
+  }
+  for (int i = 0; i < 3; i++) {
+    w_boxhi[i] = w_boxhi_start[i];
+    w_boxlo[i] = w_boxlo_start[i];
+  }
+  //////////////////////////////////////////////////////////////////////
+
 }
 
 /* ----------------------------------------------------------------------

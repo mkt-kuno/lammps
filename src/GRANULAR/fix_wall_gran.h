@@ -52,15 +52,20 @@ class FixWallGran : public Fix {
   void restart(char *); //~ [KH - 20 February 2014]
 
  protected:
+
+  int sfound; // added to fetch meanstress in stresscontrol [MO - 13 August 2015]
+  class Compute *stressatom; // added to fetch meanstress in stresscontrol [MO - 13 August 2015]
   int wallstyle,pairstyle,wiggle,wshear,axis,dampflag;
-  int wcoordnos; // coordination number of wall [MO - 12 March 2014]
+  double wcoordnos[1],wcoordnos_all[1]; // coordination number of wall [MO - 12 March 2014]
   int wtranslate,wscontrol; //flags for wall movement and wall stress control respectively
-  double kn,kt,gamman,gammat,xmu,Geq,Poiseq,RMSf,Hp;  // increased for CM & CMD models [MO - 18 July 2014]
+  double kn,kt,gamman,gammat,xmu,Geq,Poiseq,RMSf,Hp; // increased for CM & CMD models [MO - 18 July 2014]
+  int Model,THETA1; // for CM & CMD models [MO - 12 June 2015] and also for HMD & CMD [MO - 12 Sep 2015]
+  int wiggletype; // added to select sin or cos type of wiggle[MO - 09 May 2016]
   double *xmu_p,*Geq_p,*Poiseq_p,*RMSf_p,*Hp_p;    // parameters of the contacting particle [MO - 05 December 2014]
   double lo,hi,cylradius;
   double loINI,hiINI; // for wiggle only
-  double velwall[3],fwall[3],fwall_all[3];
-  double amplitude,period,omega,vshear;
+  double velwall[3],fwall[3],fwall_all[3],w_ierates[3];
+  double amplitude,period,omega,vshear;  
   double dt;
   double targetf,gain;
   char *fstr;

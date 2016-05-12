@@ -147,6 +147,10 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
   //~ Initialise the non-accumulated strain energy terms to zero
   normalstrain = 0.0;
 
+  //***********
+  dissipfriction = 0.0; // TEMPORARY [MO - 25 Sep 2015]
+  //***********
+
   // Modified for HMD and CMD model that use 26 shear quantities [MO - 17 November 2014].
   int numshearquants = 26 + 20*D_spin + 4*trace_energy;
 
@@ -278,46 +282,75 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	/* The main part of the HMD model is wrriten down below as of 13th August 2014 [MO]*/ 
 	//*************************************************************************************
 
-	// rotate shear displacement onto new contact plane conserving length
-	double shdsq_mag,shdsq_new,rshd,shdratio,shint5,shint6,shint7;
-	shdsq_mag = shear[5]*shear[5] + shear[6]*shear[6] + shear[7]*shear[7];
-        rshd = shear[5]*delx + shear[6]*dely + shear[7]*delz;
-        rshd *= rsqinv;
-	if (shearupdate) {
-          shear[5] -= rshd*delx;
-          shear[6] -= rshd*dely;
-          shear[7] -= rshd*delz;
-          shdsq_new = shear[5]*shear[5] + shear[6]*shear[6] + shear[7]*shear[7];
-          if (shdsq_new!=0.0) {
-	    shdratio=sqrt(shdsq_mag/shdsq_new);
-	    shear[5] *= shdratio; // conserve shear force length
-	    shear[6] *= shdratio;
-	    shear[7] *= shdratio;
-          }
-        }
+	double tolerance = 1.0e-20;
+	if (THETA1 == 0 && xmu > tolerance) {
+	  
+	  // rotate shear displacement onto new contact plane conserving length
+	  double shdsq_mag,shdsq_new,rshd,shdratio,shint5,shint6,shint7;
+	  shdsq_mag = shear[5]*shear[5] + shear[6]*shear[6] + shear[7]*shear[7];
+	  rshd = shear[5]*delx + shear[6]*dely + shear[7]*delz;
+	  rshd *= rsqinv;
+	  if (shearupdate) {
+	    shear[5] -= rshd*delx;
+	    shear[6] -= rshd*dely;
+	    shear[7] -= rshd*delz;
+	    shdsq_new = shear[5]*shear[5] + shear[6]*shear[6] + shear[7]*shear[7];
+	    if (shdsq_new!=0.0) {
+	      shdratio=sqrt(shdsq_mag/shdsq_new);
+	      shear[5] *= shdratio; // conserve shear force length
+	      shear[6] *= shdratio;
+	      shear[7] *= shdratio;
+	    }
+	  }
 
-        // then perform rotation for rigid-body SPIN
-        shint5 = shear[5];
-        shint6 = shear[6];
-        shint7 = shear[7];
-        if (shearupdate) {
-	  shear[5]=shint5+shint6*(-wspinz*dt)+shint7*wspiny*dt;
-	  shear[6]=shint5*wspinz*dt+shint6+shint7*(-wspinx*dt);
-	  shear[7]=shint5*(-wspiny*dt)+shint6*wspinx*dt+shint7;
-        }
+	  // then perform rotation for rigid-body SPIN
+	  shint5 = shear[5];
+	  shint6 = shear[6];
+	  shint7 = shear[7];
+	  if (shearupdate) {
+	    shear[5]=shint5+shint6*(-wspinz*dt)+shint7*wspiny*dt;
+	    shear[6]=shint5*wspinz*dt+shint6+shint7*(-wspinx*dt);
+	    shear[7]=shint5*(-wspiny*dt)+shint6*wspinx*dt+shint7;
+	  }
 
+	  ////////////////// 
+	  // rotate shear displacement onto new contact plane conserving length
+	  // Added for Tdisp_star1 [MO - 02 April 2015]
+	  double shdsq_mag_star1,shdsq_new_star1,rshd_star1,shdratio_star1,shint22,shint23,shint24;
+	  // make sure shear[22:24] = Tdisp1_star1,Tdisp2_star1 & Tdisp3_star1;
+	  shdsq_mag_star1 = shear[22]*shear[22] + shear[23]*shear[23] + shear[24]*shear[24];
+	  rshd_star1 = shear[22]*delx + shear[23]*dely + shear[24]*delz;
+	  rshd_star1 *= rsqinv;
+	  if (shearupdate) {
+	    shear[22] -= rshd_star1*delx;
+	    shear[23] -= rshd_star1*dely;
+	    shear[24] -= rshd_star1*delz;
+	    shdsq_new_star1 = shear[22]*shear[22] + shear[23]*shear[23] + shear[24]*shear[24];
+	    if (shdsq_new_star1!=0.0) {
+	      shdratio_star1=sqrt(shdsq_mag_star1/shdsq_new_star1);
+	      shear[22] *= shdratio_star1; // conserve shear force length
+	      shear[23] *= shdratio_star1;
+	      shear[24] *= shdratio_star1;
+	    }
+	  }
+	  // then perform rotation for rigid-body SPIN
+	  shint22 = shear[22];
+	  shint23 = shear[23];
+	  shint24 = shear[24];
+	  if (shearupdate) {
+	    shear[22]=shint22+shint23*(-wspinz*dt)+shint24*wspiny*dt;
+	    shear[23]=shint22*wspinz*dt+shint23+shint24*(-wspinx*dt);
+	    shear[24]=shint22*(-wspiny*dt)+shint23*wspinx*dt+shint24;
+	  }
+	}
+	
 	//*****************************************************************************************
 	/*To avoid the reverse of sign of shearquantities, 'fabs' is used for absolute quantities.
 	  Attention should be paied for some flags which have 1 or -1 values. For these cases, the 
 	  quantities were stored as 10000 instead of -1 and called with 'fabs', and changed to -1 
 	  again at the next step.[MO - 15 December 2014] */
 	//*****************************************************************************************
-	// To avoid numerical drift, int "skip" is used in this model. 
-	// skip = 0; usual case
-	// skip = 1; skip the entire calculation about tangential component
 	// if xmu < tolerance or dTdisp < tolerance && T_step == 0, i.e. begining of simulation.
-	// skip = 2; skip partially but update, for example, T* due to change of normal force
-	// if dTdisp < thereshold. Please find an appropriate threshold. [MO - 20 January 2015]
 	//*****************************************************************************************
 
         // normal force = Hertzian contact 
@@ -342,24 +375,20 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	double T_star1 = shear[8];                    // T*:  tangential force at the revasal step from loading to unloading 
 	double T_star2 = shear[9];                    // T**: tangential force at the revasal step from unloading to re-loading 
 	double Tdisp  = 0.0;                          // bulk tangential displacement	
-	double Tdisp_mag =0.0;                        // magnitude of bulk tangential displacement
+	double Tdisp_mag = 0.0;                        // magnitude of bulk tangential displacement
 	double Tdisp_old  = shear[4];                 // bulk tangential displacement at the previous step
 	double dTdisp = 0.0;                          // increment of bulk displacement
-	double dTdisp_mag = 0.0;                      // nagnitude of uncremental bulk displacement
-	double Tdisp1 = 0.0;                          // tangential displacement of x direction
+       	double Tdisp1 = 0.0;                          // tangential displacement of x direction
 	double Tdisp2 = 0.0;                          // tangential displacement of y direction
 	double Tdisp3 = 0.0;                          // tangential displacement of z direction
 	double Tdisp1_old = shear[5];                 // tangential displacement of x direction at the previous step
 	double Tdisp2_old = shear[6];                 // tangential displacement of y direction at the previous step
 	double Tdisp3_old = shear[7];                 // tangential displacement of z direction at the previous step     
-	double inter_product = 0.0;                   // inter product between current and previous vectors of tangential displacement
-	double tolerance = 1.0e-20;
+	double inner_product = 0.0;                   // inter product between current and previous vectors of tangential displacement
 	int T_step = 0;                               // the current loading case, e.g. 11 = N increasing T increasing
 	int T_step_old = static_cast<int>(fabs(shear[15])); // the loading case at the previous step
 	int slip_T = 0;
-	int slip_T_old = static_cast<int>(fabs(shear[10]));     // slip_T means fully slipped due to tangential contact force
 	int UFL = 0;                                  // UFL is the direction of tangential load
-	int skip = 0;                                  	
 	int CTD = static_cast<int>(fabs(shear[14]));         // CTD is the direction of tangential displacement 
 	if (CTD == 10000) CTD = -1;
 	int CDF = static_cast<int>(fabs(shear[11]));         // CDF is the direction of tangential load-displacement system
@@ -367,125 +396,137 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	double theta1 = 1.0;
 	double theta2 = 1.0;
 	double theta3 = 1.0;                  
-	double theta_t  = 1.0;                           // reduction ratio of tangential cotnact stiffness due to tangential load  
-		
-	//******************************************************************
-	// First, calculate the shear displacement
-	// Skip the follwing calculation if xmu or dTdisp is small
-	//******************************************************************
-	// double dTdisp1 = vtr1*dt;
-	// double dTdisp2 = vtr2*dt;
-	// double dTdisp3 = vtr3*dt;
-	// if (fabs(dTdisp1) < 1.0e-15) dTdisp1 = 0.0
-	// if (fabs(dTdisp2) < 1.0e-15) dTdisp2 = 0.0
-	// if (fabs(dTdisp3) < 1.0e-15) dTdisp3 = 0.0
-	// dTdisp_mag = sqrt(dTdisp1*dTdisp2+dTdisp2*dTdisp1+dTdisp3*dTdisp3);
-	dTdisp_mag = sqrt(vtr1*vtr1+vtr2*vtr2+vtr3*vtr3)*dt;
+	double theta_t = 1.0;
+	double Tdisp1_star1 = shear[22];     // tangential displacement of x direction at T_star1
+	double Tdisp2_star1 = shear[23];     // tangential displacement of y direction at T_star1
+	double Tdisp3_star1 = shear[24];     // tangential displacement of z direction at T_star1
+	double Tdisp_star1_mag;
 
-	if (xmu < tolerance) { // Tdisp is not accumulated if xmu = 0
-	  dTdisp = Tdisp = Tdisp1 = Tdisp2 = Tdisp3 = Tdisp_mag = 0.0;
-	  skip = 1;
+
+	fslim = xmu * N;   // N = ccel*r 
+	int    T_step_group = 0;
+	int    T_step_group_old = 0;
+	double Tdisp_DD = 0.0;
+	double K_T = 0.0;       // tangential contact stiffness
+	double dT = 0.0;        // increment of tangential contact force
+	double fs_old = sqrt(shsqmag);	
+	double dTdisp_mag = sqrt(vtr1*vtr1+vtr2*vtr2+vtr3*vtr3)*dt; 
+
+	if (xmu < tolerance) {
+	  K_T = 0.0;
+	  T_step = 0;
+	  CTD = 1;
+	  CDF = 1;
+	  T_step = 0; 
+	  Tdisp1 = Tdisp2 = Tdisp3 = Tdisp = dTdisp = dTdisp_mag = 0.0;
+	  T = shear[0] = shear[1] = shear[2] = 0.0;
+	} 
+	else if (THETA1 == 1) {
+	  K_T = 8.0*G_star*a;
+	  T_step = 1;
+	  CTD = 1;
+	  CDF = 1;
+	  dTdisp = dTdisp_mag = 0.0;
+	  // update T & Tdisps later
+	} 
+	else if (dTdisp_mag < 1.0e-15) {
+	  // need to update historical parameters
+	  K_T = 0.0;
+	  T_step = T_step_old;
+	  T = T_old;
+	  Tdisp1 = Tdisp1_old;          
+	  Tdisp2 = Tdisp2_old;
+	  Tdisp3 = Tdisp3_old;
+	  Tdisp = Tdisp_old;
+	  dTdisp = dTdisp_mag = 0.0;
 	}
-	else if (dTdisp_mag < 1.0e-15) {    // This threshold should be determined carefully.
-	 Tdisp1 = Tdisp1_old;               // shear displacement =vtr*dt
-	 Tdisp2 = Tdisp2_old;
-	 Tdisp3 = Tdisp3_old;
-	 Tdisp_mag = sqrt(Tdisp1*Tdisp1 + Tdisp2*Tdisp2 + Tdisp3*Tdisp3);
-	 Tdisp =  CTD * Tdisp_mag;     
-	 dTdisp = Tdisp - Tdisp_old;
-	 skip = 2;
-	}
-	else {                      
-	  // Added [MO - 23 March 2015]
+	else {
+
+	  //******************************************************************
+	  // First, calculate the shear displacement
+	  // Skip the follwing calculation if xmu or dTdisp is small
+	  //******************************************************************
+	  
 	  Tdisp1 = Tdisp1_old + vtr1*dt;          
 	  Tdisp2 = Tdisp2_old + vtr2*dt;
 	  Tdisp3 = Tdisp3_old + vtr3*dt;
-	  //if (fabs(vtr1*dt) < 1.0e-15) Tdisp1 = Tdisp1_old;
-	  //if (fabs(vtr2*dt) < 1.0e-15) Tdisp2 = Tdisp2_old;
-	  //if (fabs(vtr3*dt) < 1.0e-15) Tdisp3 = Tdisp3_old;
-
 	  Tdisp_mag = sqrt(Tdisp1*Tdisp1 + Tdisp2*Tdisp2 + Tdisp3*Tdisp3);
 	  
-	  // inter_product becomes negative if the direction of tangential loading changes
-	  inter_product = Tdisp1*Tdisp1_old + Tdisp2*Tdisp2_old + Tdisp3*Tdisp3_old;
+	  // inner_product becomes negative if tangential disp. becomes negative.
+	  inner_product = Tdisp1*Tdisp1_star1 + Tdisp2*Tdisp2_star1 + Tdisp3*Tdisp3_star1;
+	  Tdisp_star1_mag = sqrt(Tdisp1_star1*Tdisp1_star1 + Tdisp2_star1*Tdisp2_star1 + Tdisp3_star1*Tdisp3_star1);
 	  
-	  if (Tdisp_mag < tolerance && fabs(Tdisp_old) < tolerance && fabs(T_old) < tolerance) {
+	  // modified [MO - 02 April 2015]
+	  if (Tdisp_mag < tolerance && fabs(Tdisp_old) < tolerance && T_step_old == 0) {
 	    CTD = 1;                                     // when there is no shear disp at all.
 	    CDF = 1;
 	  }
-	  else if (Tdisp_mag > tolerance && fabs(Tdisp_old) < tolerance && fabs(T_old) < tolerance) {
+	  else if (Tdisp_mag > tolerance && fabs(Tdisp_old) < tolerance && T_step_old == 0) {
 	    // this is for the first increment of tangential displacement
 	    CTD = 1;                                   
 	    CDF = 1;
 	  }
-	  else if (inter_product >= 0.0)          CTD *= 1;
-	  else                                    CTD *= -1;
+	  else if (CDF == 1 && (Tdisp_star1_mag < tolerance))  CTD = 1;
+	  else if (inner_product >= 0.0)                       CTD = 1;
+	  else                                                 CTD = -1; 
 	  
-	  Tdisp =  CTD * Tdisp_mag;     // give the sign for tangential displacement based on the value of the inter product 
+	  Tdisp = CDF * CTD * Tdisp_mag; // CDF is added here [MO - 02 April 2015]    
+	  
+	  // give the sign for tangential displacement based on the value of the inner product 
 	  dTdisp = Tdisp - Tdisp_old;   // dTdisp includes direction of tangential displacement (not magnitude)
-	}
-
-	//**************************************************************************************
-	// Update the Tdisp_DD
-
-	/* Fig.7 of Mindlin & Deresiewicz (1953) explain why this special case is needed.
-	   Tdisp_DSC is the minimum tangential displacement to move onto a new loading curve of N+dN.
-	   If the increment of the tangential displacement is less than Tdisp_DSC, the resultant tangential force
-	   is less than theoretical value.
-	   The maximum tangential contact stiffness (8.0*G_star*a) is used until the current tangential force 
-	   catches up the the new loading curve. */
-	//*************************************************************************************
-	double Tdisp_DSC = xmu*dN/(8.0*G_star*a);      // Tdisp_DSC is either positive or negative depending upon the sign of dN
-	if (a < tolerance || skip == 1 || (skip == 2 && T_step_old == 0)) Tdisp_DSC = 0.0;
-
-	double Tdisp_DD = fabs(shear[13]) - fabs(dTdisp) + Tdisp_DSC;
-	int    special_DD = 0; 
-	if (Tdisp_DD < 0.0) Tdisp_DD = 0.0;            // Tdisp_DD <= 0.0 should be satisfied to move onto a new loading curve for N+dN.
-	else                special_DD = 1;            // Special case for DD value is now active
-	//*************************************************************************************
-	
-	if (skip == 1) theta_t = 1.0;
-	else if (skip == 2) {
-	  theta_t = 1.0;
-	  T_step = T_step_old;
-	}
-	else {
+	  
+	  //**************************************************************************************
+	  // Update the Tdisp_DD
+	  /* Fig.7 of Mindlin & Deresiewicz (1953) explain why this special case is needed.
+	     Tdisp_DSC is the minimum tangential displacement to move onto a new loading curve of N+dN.
+	     If the increment of the tangential displacement is less than Tdisp_DSC, the resultant tangential force
+	     is less than theoretical value.
+	     The maximum tangential contact stiffness (8.0*G_star*a) is used until the current tangential force 
+	     catches up the the new loading curve. */
+	  //*************************************************************************************
+	  double Tdisp_DSC = 0.0;
+	  if (a > tolerance) Tdisp_DSC = xmu*dN/(8.0*G_star*a);  // sign of Tdisp_DSC depends upon sign of dN;
+	  	  
+	  Tdisp_DD = fabs(shear[13]) - fabs(dTdisp) + Tdisp_DSC;
+	  if (dN < 0) Tdisp_DD = fabs(shear[13]) + Tdisp_DSC;
+	  int    special_DD = 0; 
+	  if (Tdisp_DD < 0.0) Tdisp_DD = 0.0;  // Tdisp_DD <= 0.0 should be satisfied to move onto a new loading curve for N+dN.
+	  else                special_DD = 1;  // Special case for DD value is now active
+	  //*************************************************************************************
+	  
 	  // Identify the loading steps for tangential component
 	  // for the first step of the special case	  
 	  if (special_DD == 1){
+	    theta_t = 1.0;
 	    if (dN > 0.0 && T_step_old != 115 && T_step_old != 125 && T_step_old != 135 && T_step_old != 145){
 	      if (CDF*dTdisp >= 0.0 && fabs(T_star1) < tolerance && fabs(T_star2) < tolerance)          T_step = 115;
 	      else if (CDF*dTdisp <  0.0 && fabs(T_star2) < tolerance)                                  T_step = 125; 
-	      else if (CDF*dTdisp >= 0.0 && CDF*T_old <= CDF*T_star1)                                   T_step = 135;
-	      else if (CDF*dTdisp <  0.0 && CDF*T_old <= CDF*T_star1 && fabs(T_star2)>= tolerance)      T_step = 145;
-	      else fprintf(screen,"timestep %i Unexpected case occurred in zone B (HMD-balls). ERROR!!\n",update->ntimestep);
-	      theta_t = 1.0;
+	      else if (CDF*dTdisp >= 0.0 && fabs(T_old) <= fabs(T_star1))                                   T_step = 135;
+	      else if (CDF*dTdisp <  0.0 && fabs(T_old) <= fabs(T_star1) && fabs(T_star2) >= tolerance)      T_step = 145;
+	      else T_step = T_step_old;
+	      //fprintf(screen,"timestep %i Unexpected case occurred in zone B (HMD-balls). ERROR!!\n",update->ntimestep);
 	      // if the special case was invoked in the previous step and is still active
-	    }else if ((T_step_old == 115 || T_step_old == 135) && CDF*dTdisp >= 0){  
+	    }else if ((T_step_old == 115 || T_step_old == 135) && CDF*dTdisp >= 0.0){  
 	      // still in step_115 or 135; if moved to unloading of T, go to the usual case
 	      T_step = T_step_old;
-	      theta_t = 1.0;
-	    }else if ((T_step_old == 125 || T_step_old == 145) && CDF*dTdisp < 0){   
+	    }else if ((T_step_old == 125 || T_step_old == 145) && CDF*dTdisp < 0.0) {   
 	      // still in step_125 or 145; if moved to re-loading of T, go to the usual case
 	      T_step = T_step_old;                                           
-	      theta_t = 1.0;
-	    }else if (T_step_old == 115 && CDF*dTdisp < 0){
+	    }else if (T_step_old == 115 && CDF*dTdisp < 0.0){
 	      // the first step from loading of special case to unloading of special case.
 	      T_step = 125;
-	      theta_t = 1.0;
-	    }else if (T_step_old == 125 && CDF*dTdisp >= 0){
+	    }else if (T_step_old == 125 && CDF*dTdisp >= 0.0){
 	      // the first step from unloading of special case to reloading of special case.
 	      T_step = 135;
-	      theta_t = 1.0;
-	    }else if (T_step_old == 135 && CDF*dTdisp < 0){
+	    }else if (T_step_old == 135 && CDF*dTdisp < 0.0){
 	      // the first step from reloading  of special case to re-unloading of special case.
 	      T_step = 145;
-	      theta_t = 1.0;
-	    }else if (T_step_old == 145 && CDF*dTdisp > 0){
+	    }else if (T_step_old == 145 && CDF*dTdisp > 0.0){
 	      // the first step from re-unloading  of special case to re-reloading of special case.
 	      T_step = 135;
-	      theta_t = 1.0;
 	    }
+	    else T_step = T_step_old;                                           
+	  
 	    //*************************************************************************************
 	  }else {  // Usual cases 
 	    // T loading: T_step = *1 
@@ -509,7 +550,7 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	      else                      T_step =  2;
 	    }
 	    // T re-loading: T_step = *3
-	    else if (CDF*dTdisp >= 0.0 && CDF*T_old <= CDF*T_star1) {
+	    else if (CDF*dTdisp >= 0.0 && fabs(T_old) <= fabs(T_star1)) {
 	      // For the first step from unloading to re-loading, T** is still null, which should be T** = T_old.
 	      if  (fabs(T_star2) > tolerance) theta3 = 1.0-(CDF*(T_old-T_star2)+2.0*xmu*dN)/(2.0*xmu*N);
 	      else                            theta3 = 1.0-(2.0*xmu*dN)/(2.0*xmu*N);
@@ -520,7 +561,7 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	      else                      T_step = 3;
 	    }
 	    // T re-unloading: T_step = *4
-	    else if (CDF*dTdisp < 0.0 && CDF*T_old <= CDF*T_star1 && fabs(T_star2) >= tolerance) {
+	    else if (CDF*dTdisp < 0.0 && fabs(T_old) <= fabs(T_star1) && fabs(T_star2) >= tolerance) {
 	      // This part is same with the above (T_step = *3) due to simplification.
 	      theta3 = 1.0-(CDF*(T_old-T_star2)+2.0*xmu*dN)/(2.0*xmu*N);
 	      if (theta3 <= 0.0) theta3 = theta_t = tolerance;
@@ -530,93 +571,94 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	      else                      T_step =  4;      
 	    }
 	    else {
+	      T_step = T_step_old;
+	      theta_t = 1.0;
 	      //fprintf(screen,"timestep %i Unexpected case occurred in zone C (HMD-balls). ERROR!!\n",update->ntimestep);
-	      //if (shearupdate) fprintf(screen,"timestep %i tag %i & %i T_step %i T_step_old %i skip %i Tdisp_DD %1.6e T_star1 %1.6e T_star2 %1.6e CDF %i dTdisp %1.6e dTdisp_mag %1.6e Tdisp_DSC %1.6e dN %1.6e N %1.6e Tdisp %1.6e T_old %1.6e\n",update->ntimestep,tag[i],tag[j],T_step,T_step_old,skip,Tdisp_DD,T_star1,T_star2,CDF,dTdisp,dTdisp_mag,Tdisp_DSC,dN,N,Tdisp,T_old);
 	    }
 	  }
-	} // end of if function for xmu < tolerance or dTdisp < 0
+      	
+	  //*********************************************************************************************
+	  // Classify the groups [MO - 19 March 2015]
+	  if      (T_step == 0)                                                  T_step_group = 0;
+	  else if (T_step == 1 || T_step == 11 || T_step == 21 || T_step == 115) T_step_group = 1;
+	  else if (T_step == 2 || T_step == 12 || T_step == 22 || T_step == 125) T_step_group = 2;
+	  else if (T_step == 3 || T_step == 13 || T_step == 23 || T_step == 135) T_step_group = 3;
+	  else if (T_step == 4 || T_step == 14 || T_step == 24 || T_step == 145) T_step_group = 4;
+	  else                                                                   T_step_group = 5; // error
+	  // Classify the previos groups
+	  if      (T_step_old == 0)                                                              T_step_group_old = 0;
+	  else if (T_step_old == 1 || T_step_old == 11 || T_step_old == 21 || T_step_old == 115) T_step_group_old = 1;
+	  else if (T_step_old == 2 || T_step_old == 12 || T_step_old == 22 || T_step_old == 125) T_step_group_old = 2;
+	  else if (T_step_old == 3 || T_step_old == 13 || T_step_old == 23 || T_step_old == 135) T_step_group_old = 3;
+	  else if (T_step_old == 4 || T_step_old == 14 || T_step_old == 24 || T_step_old == 145) T_step_group_old = 4;
+	  else                                                                                   T_step_group_old = 5; // error
 	
-	//*********************************************************************************************
-	// Clasify the groups [MO - 19 March 2015]
-	int T_step_group;
-	if      (T_step == 0)                                                  T_step_group = 0;
-	else if (T_step == 1 || T_step == 11 || T_step == 21 || T_step == 115) T_step_group = 1;
-	else if (T_step == 2 || T_step == 12 || T_step == 22 || T_step == 125) T_step_group = 2;
-	else if (T_step == 3 || T_step == 13 || T_step == 23 || T_step == 135) T_step_group = 3;
-	else if (T_step == 4 || T_step == 14 || T_step == 24 || T_step == 134) T_step_group = 4;
-	else                                                                   T_step_group = 5; // error
-	int T_step_group_old;
-	if      (T_step_old == 0)                                                              T_step_group_old = 0;
-	else if (T_step_old == 1 || T_step_old == 11 || T_step_old == 21 || T_step_old == 115) T_step_group_old = 1;
-	else if (T_step_old == 2 || T_step_old == 12 || T_step_old == 22 || T_step_old == 125) T_step_group_old = 2;
-	else if (T_step_old == 3 || T_step_old == 13 || T_step_old == 23 || T_step_old == 135) T_step_group_old = 3;
-	else if (T_step_old == 4 || T_step_old == 14 || T_step_old == 24 || T_step_old == 145) T_step_group_old = 4;
-	else                                                                                   T_step_group_old = 5; // error
-	
-	//*********************************************************************************************
-	//UFL is neccesary for the calculation of tangential contact stiffness
-	if (T_step_group == 2 || T_step_group == 4) UFL = -1; // Added [MO - 21 Dec 2014]
-	else                                        UFL =  1;
-	//*****************************************************************************************
-	// Calculate the tangential contact stiffness and the resultant tangential contact force
-  
-	double K_T = 0.0;                             // tangential contact stiffness
-	double dT = 0.0;                              // increment of tangential contact force
-	double fs_ratio1;                             // ratio to re-scale the tangential force to avoid inconsistenty
-	double fs_ratio2;                             // ratio to re-scale the tangential force if full sliding take places
-	double K_R;                                   // ratio of tangential contact stiffness over one for shm model	
-	double T_temp;                                // tangential force which exceeded fslim
-	//****************************************************************************************
-	// update T_old considring the rotation of contact plane which was done prior to the calculation of contact force
-	if (T_old >= 0) T_old =   sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-	else            T_old = - sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-	//*****************************************************************************************
-
-	if (theta_t > 1.0) theta_t = 1.0;
-
-	if (skip == 0) K_T = 8.0*G_star*theta_t*a + CDF*UFL*xmu*(1.0-theta_t)*dN/dTdisp;           
-	else           K_T = 0.0; 
-	
-	//if (K_T > 8.0*G_star*a) K_T = 8.0*G_star*a;
-	//if (K_T < 0.0) K_T = 0.0;
-	K_R = K_T / (8.0*G_star*a);
-
-	if (skip == 1) dT = T = 0.0;
-	else {
+	  //***********************************************************************************
+	  //UFL is neccesary for the calculation of tangential contact stiffness
+	  if (T_step_group == 2 || T_step_group == 4) UFL = -1; // Added [MO - 21 Dec 2014]
+	  else                                        UFL =  1;	
+	  //***********************************************************************************
+	  
+	  // Calculate the tangential contact stiffness and the resultant tangential contact force 
+	  if (theta_t > 1.0) theta_t = 1.0;
+	  if (fabs(dTdisp) > 1.0e-15) K_T = 8.0*G_star*theta_t*a + CDF*UFL*xmu*(1.0-theta_t)*dN/dTdisp;
+	  else K_T = 0.0;
 	  dT = K_T * dTdisp; 
 	  T = dT + T_old;
-	  // update the tangential contact force by distributing dT into 3 components based on imcrese of relative rotational velosity
-	  if (shearupdate) {
-	    shear[0] -= K_T * vtr1 * dt;  // -= K_T * dTdisp1;
-	    shear[1] -= K_T * vtr2 * dt;  // -= K_T * dTdisp2;
-	    shear[2] -= K_T * vtr3 * dt;  // -= K_T * dTdisp3;
+	  // rescale tangential force if full sliding takes place 	
+	  if (fabs(T) > fslim) {
+	    if (fabs(T) != 0.0) {
+	      slip_T = 1;
+	      T *= fslim/fabs(T);
+	    } 
 	  }
-	  // rescale the component
-	  fs = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
-	  if (fs > tolerance) {
-	    fs_ratio1 = fabs(T)/fs;
+	} // End of If THETA == 0
+	
+
+	// update the tangential contact force by distributing dT into 3 components based on imcrese of relative rotational velosity
+	if (shearupdate) {
+	  shear[0] -= K_T * vtr1 * dt;  
+	  shear[1] -= K_T * vtr2 * dt; 
+	  shear[2] -= K_T * vtr3 * dt; 
+	}
+	
+	// fabs(T) and fs_new are not always same for 3D simulation [MO - 03 April 2015] 
+	fs = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+	
+	if (fs > fslim) {
+	  if (fs != 0.0 && xmu > tolerance) {
+	    slip_T = 1;
 	    if (shearupdate) {
-	      shear[0] *= fs_ratio1; 
-	      shear[1] *= fs_ratio1;
-	      shear[2] *= fs_ratio1;
-	    }
+	      shear[0] *= fslim/fs; 
+	      shear[1] *= fslim/fs;
+	      shear[2] *= fslim/fs;   
+	    } 
+	  } else shear[0] = shear[1] = shear[2] = 0.0;
+	} 
+	
+	double fs_new = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+	if (fs_new > fslim) fs_new = fslim;
+
+	double slip_degree = fs/fslim;
+	// Added to convert HM to HMD model
+	if (THETA1 == 1 && xmu > tolerance) {
+	  if (K_T > tolerance && fs_new > tolerance) {
+	    // consider as a virgin tangential loading
+	    T = fs_new;
+	    if (slip_degree >= 1.0)      theta_t = 0.0; //Tdisp = 1.5 * fslim / K_T; 
+	    else if (slip_degree < 0.0)  theta_t = 1.0; //Tdisp = 0.0; 
+	    else                         theta_t = pow((1.0-slip_degree),1.0/3.0); 
+	    Tdisp = 1.5 * fslim / K_T * (1.0 - theta_t*theta_t);
+	    Tdisp1 = Tdisp * shear[0]/fs_new;
+	    Tdisp2 = Tdisp * shear[1]/fs_new;
+	    Tdisp3 = Tdisp * shear[2]/fs_new;    
+
+	    /*fprintf(screen,"timestep %i tagi %i tagj %i Kt %1.6e T %1.6e shear[0] %1.6e shear[1] %1.6e shear[2] %1.6e Tdisp %1.6e Tdisp1 %1.6e Tdisp2 %1.6e Tdisp3 %1.6e overlap %1.6e a %1.6e N %1.6e fslim %1.6e slip_degree %1.6e theta_t %1.6e \n",update->ntimestep,tag[i],tag[j],K_T,T,shear[0],shear[1],shear[2],Tdisp,Tdisp1,Tdisp2,Tdisp3,overlap,a,N,fslim,slip_degree,theta_t);*/
+
 	  }
-	} 
-	//*************************************************************************************
-        // rescale tangential force if full sliding takes place 
-	fslim = xmu * N;                               // ccel*r = N
-	fs = fabs(T);                                  // re-use fs for re-scale the tangential force
-	T_temp = T;
-	if (fs > fslim && fs > tolerance && skip != 1) {
-	  fs_ratio2 = fslim/fs;
-	  T *= fs_ratio2;
-	  slip_T = 1;
-	  if (shearupdate) {
-	    shear[0] *= fs_ratio2; 
-	    shear[1] *= fs_ratio2;
-	    shear[2] *= fs_ratio2;   
-	  } 
-	} 
+	  else T = Tdisp = Tdisp1 = Tdisp2 = Tdisp3 = 0.0;
+	}
+
 	
 	// forces & torques
 	
@@ -643,8 +685,7 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	  torque[j][2] -= crj*tor3;
         }
 
-	double effectivekt = K_T;
-	double nstr, sstr;
+	double nstr, sstr, incdissipf;
 	double dspin_i[3],dspin_stm,spin_stm,dM_i[3],dM,K_spin,theta_r,M_limit,Dspin_energy;
 	
 	int consideronce = 0; //~ Consider contacts only once
@@ -663,6 +704,18 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	  nstr = 0.4*kn*a*overlap*overlap;                             // peviously, nstr = 0.4*kn*polyhertz*deltan*deltan;
 	  if (consideronce) normalstrain += nstr;
 	  if (trace_energy) shear[27] = nstr;
+	  
+
+	  //************
+	  double effectivekt = 8.0*G_star*a;
+	  if (xmu > tolerance) {
+	    if (effectivekt > tolerance) incdissipf = 0.5*fs_new*fs_new/effectivekt; // this is "SHEAR STRAIN" not frictional dissipation
+	    else incdissipf = 0.0;
+	    if (consideronce) dissipfriction += incdissipf;
+	    if (trace_energy) shear[26] = incdissipf; // not accumulated
+	  }
+	  //************
+
 
 	  if (shearupdate) {
 	    //~~ Update the spin contribution [MO - 13 November 2014]
@@ -673,93 +726,143 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 	    /* Full sliding can be considered as accumulation of partial slip for HMD model.
 	       Theoretically speaking, full sliding does not take place for HMD modle.
 	       Thus, shear strain energy here is summation of shear strain energy + friction energy for shm model.*/ 
-	    if (skip == 0) {
-	      sstr = 0.5*dTdisp*(T + T_temp);
+	    if (xmu > tolerance) {
+	      if (THETA1 == 1) {
+		if (fabs(K_T) > tolerance) sstr = 0.5*(fs_new + fs_old)*(fs - fs_old)/K_T;
+		else sstr = 0.0;
+	      }
+	      else if (THETA1 == 0) {
+		if (T < 0) fs_new *= -1.0; 
+		if (T_old < 0) fs_old *= -1.0; 
+		if (dTdisp < 0) dTdisp_mag *= -1.0; // not fabs(dTdisp)!!
+		sstr = 0.5*dTdisp_mag*(fs_new + fs_old);
+	      }
+	      else sstr = 0.0;
 	      if (consideronce) shearstrain += sstr;
 	      if (trace_energy) shear[28] += sstr;
 	    }
 	  }
 	}
-	//********************************************************************************************
+	//*************************************************************************************
 	// Update the T_star1 and T_star2 considering the change of the normal contact load
-	if (skip == 0 || skip == 2) {
+	int sp_Tstar1 = 0;
+	if (THETA1 == 0 && xmu > tolerance) {
+	  // xmu should be less than 1.0 to use the expression below [MO - 04 Jun 2015]
 	  if (T_step_group != 1 && fabs(T_star1) > tolerance) T_star1 += CDF*xmu*dN;
-	  if (T_step_group == 3 || T_step_group == 4)         T_star2 -= CDF*xmu*dN;
-	  
-	  //*********************************************************************************************
+	  if (T_step_group == 3 || T_step_group == 4)         T_star2 -= CDF*xmu*dN; 	
+	  //***********************************************************************************
 	  // Update T_star1 and T_star2
-	  int sp_Tstar1 = 0;         // CDF *= -1 should not be active if sp_Tstar1 = 1 is set.  
-	  if (T_step_group == 1) {   // do not forget to include T_step == 115
-	    T_star1 = 0.0;
-	    T_star2 = 0.0;
-	  }
+	  // CDF *= -1 should not be active if sp_Tstar1 = 1 is set. 
+	  if (T_step_group == 1) T_star1 = T_star2 = 0.0;
 	  else if (T_step_group == 2 && T_step_group_old == 1) {
 	    // the first step from T_step = 1: loading to unloading
-	    T_star1 = T_old;
+	    T_star1 = T; 
 	    Tdisp_DD = 0.0;
 	    sp_Tstar1 = 1;
-	  } 
-	  else if (T_step_group == 3 && T_step_group_old == 2) {
-	    // improved [MO - 18 March 2015]
-	    // the first step from T_step = 2: unloading to re-loading
-	    T_star2 = T_old;
-	    Tdisp_DD = 0.0;
-	  } 
-	  //*******************************************************************************************
-	  // Avoid CDF*T > CDF*T* [MO - 21 March]
-	  if (CDF*T > CDF*T_star1 && (T_step_group == 2 || T_step_group == 3 || T_step_group == 4)) {
-	    // the system is moved onto virgin loading curve
-	    T_star1 = 0.0;
-	    T_star2 = 0.0;
-	    if (T_step_group == 2 || T_step_group == 4) CDF *= -1;  
+	    // added to consider the sign of Tdisp correctly [MO - 01 Jun 2015]
+	    Tdisp1_star1 = Tdisp1; //[MO - 01 Jun 2015] 
+	    Tdisp2_star1 = Tdisp2; //[MO - 01 Jun 2015] 
+	    Tdisp3_star1 = Tdisp3; //[MO - 01 Jun 2015] 
+	    if (T*Tdisp < 0.0) {
+	      Tdisp1_star1 *= - 1; //[MO - 01 Jun 2015] 
+	      Tdisp2_star1 *= - 1; //[MO - 01 Jun 2015] 
+	      Tdisp3_star1 *= - 1; //[MO - 01 Jun 2015] 
+	    } 
 	  }
-	  // Avoid CDF*T** > CDF*T when re-loading or re-unloading cases [MO - 20 March 2015]
-	  else if ((T_step_group == 3 || T_step_group == 4) && CDF*T < CDF*T_star2) T_star2 = T;
+	  else if (T_step_group == 3 && T_step_group_old == 2) {
+	    // the first step from T_step = 2: unloading to re-loading
+	    T_star2 = T;
+	    Tdisp_DD = 0.0;
+	    sp_Tstar1 = 1;
+	    if (fabs(T_star2) > fabs(T_star1)) { // avoid initial flactuations [MO - 01 Jun 2015]
+	      T_star1 = T_star2 = 0.0;
+	      Tdisp1_star1 = Tdisp2_star1 = Tdisp3_star1 = 0.0; //[MO - 01 Jun 2015] 
+	    }
+	  } 
+	  //**********************************************************************************
+	  if ((T_step_group == 2 || T_step_group == 3 || T_step_group == 4) && sp_Tstar1 == 0) {
+	    // Introduce the following rules to avoid numerical errors [MO - 30 March 2015]
+	    // [1] CDF*(T*) > CDF*T > CDF*(T**), [2] |T*| > |T**| 
+	    if (fabs(T) > fabs(T_star1) && (T_step_group == 2 || T_step_group == 3 || T_step_group == 4)) {
+	      if (UFL == 1 && T*T_star1 >= 0.0) T_star1 = T_star2 = 0.0;
+	      else if (UFL ==  1 && T*T_star1 <  0.0) T_star1 = - T;
+	      else if (UFL == -1 && T*T_star1 >= 0.0) T_star1 =   T;
+	      else if (UFL == -1 && T*T_star1 <  0.0) { 
+		T_star1 = T_star2 = 0.0;	      
+		CDF *= -1;
+		// added to consider the sign of Tdisp correctly [MO - 01 Jun 2015]
+		Tdisp1_star1 = Tdisp1; //[MO - 01 Jun 2015] 
+		Tdisp2_star1 = Tdisp2; //[MO - 01 Jun 2015] 
+		Tdisp3_star1 = Tdisp3; //[MO - 01 Jun 2015] 
+		if (T*Tdisp < 0.0) {
+		  Tdisp1_star1 *= - 1; //[MO - 01 Jun 2015] 
+		  Tdisp2_star1 *= - 1; //[MO - 01 Jun 2015] 
+		  Tdisp3_star1 *= - 1; //[MO - 01 Jun 2015] 
+		} 
+	      }
+	    }
+	    // CDF*T_star2 must be smaller than CDF*T
+	    else if (CDF*T_star2 > CDF*T && (T_step_group == 3 || T_step_group == 4)) {
+	      if      (UFL ==  1) T_star2 = T;
+	      else if (UFL == -1) T_star2 = 0.0;
+	    }
+	    // |T_star2| must be smaller than |T_star1|
+	    else if (fabs(T_star2) >= fabs(T_star1) && (T_step_group == 3 || T_step_group == 4)) {
+	      if      (UFL ==  1 && T_star1*T_star2 >= 0.0) T_star1 = T_star2 = 0.0;
+	      else if (UFL ==  1 && T_star1*T_star2 <  0.0) T_star2 = - T_star1;
+	      else if (UFL == -1 && T_star1*T_star2 >= 0.0) T_star2 = 0.0;
+	      else if (UFL == -1 && T_star1*T_star2 <  0.0) { //changed temporary [MO 01June2015]
+		T_star1 = T_star2 = 0.0;
+		CDF *= -1;
+		// added to consider the sign of Tdisp correctly [MO - 01 Jun 2015]
+		Tdisp1_star1 = Tdisp1; //[MO - 01 Jun 2015] 
+		Tdisp2_star1 = Tdisp2; //[MO - 01 Jun 2015] 
+		Tdisp3_star1 = Tdisp3; //[MO - 01 Jun 2015] 
+		if (T*Tdisp < 0.0) {
+		  Tdisp1_star1 *= - 1; //[MO - 01 Jun 2015] 
+		  Tdisp2_star1 *= - 1; //[MO - 01 Jun 2015] 
+		  Tdisp3_star1 *= - 1; //[MO - 01 Jun 2015] 
+		}
+	      } 
+	    }
+	  }
 	}
-	
-	//if (shearupdate && tag[i] == 171 && tag[j] == 172 && update->ntimestep % 10 == 0) fprintf(screen,"timestep %i tag %i & %i T_step %i T_step_old %i skip %i slip_T %i UFL %i T_star1 %1.6e T_star2 %1.6e CDF %i dTdisp %1.6e K_R %1.6e dN %1.6e N %1.6e Tdisp %1.6e T_old %1.6e T %1.6e\n",update->ntimestep,tag[i],tag[j],T_step,T_step_old,skip,slip_T,UFL,T_star1,T_star2,CDF,dTdisp,K_R,dN,N,Tdisp,T_old,T);
+	//***********************************************************************************
 
-	//if (shearupdate && update->ntimestep % 100 == 0 && tag[i] == 1 && tag[j] == 17) fprintf(screen,"timestep %i tag %i & %i T_step %i T_step_old %i skip %i slip_T %i UFL %i Tdisp1 %1.6e Tdisp2 %1.6e Tdisp3 %1.6e Tdisp1_old %1.6e Tdisp2_old %1.6e Tdisp3_old %1.6e int_pro %1.6e CTD %i dTdisp %1.6e CDF %i K_R %1.6e dN %1.6e N %1.6e Tdisp %1.6e T_old %1.6e T %1.6e T_star1 %1.6e T_star2 %1.6e\n",update->ntimestep,tag[i],tag[j],T_step,T_step_old,skip,slip_T,UFL,Tdisp1,Tdisp2,Tdisp3,Tdisp1_old,Tdisp2_old,Tdisp3_old,inter_product,CTD,dTdisp,CDF,K_R,dN,N,Tdisp,T_old,T,T_star1,T_star2);
-
-	//if (shearupdate && update->ntimestep % 1 == 0) fprintf(screen,"timestep %i tag %i & %i T_step %i T_step_old %i skip %i slip_T %i UFL %i Tdisp1 %1.6e Tdisp2 %1.6e Tdisp3 %1.6e Tdisp1_old %1.6e Tdisp2_old %1.6e Tdisp3_old %1.6e int_pro %1.6e CTD %i dTdisp %1.6e CDF %i K_R %1.6e dN %1.6e N %1.6e Tdisp %1.6e T_old %1.6e T %1.6e T_star1 %1.6e T_star2 %1.6e\n",update->ntimestep,tag[i],tag[j],T_step,T_step_old,skip,slip_T,UFL,Tdisp1,Tdisp2,Tdisp3,Tdisp1_old,Tdisp2_old,Tdisp3_old,inter_product,CTD,dTdisp,CDF,K_R,dN,N,Tdisp,T_old,T,T_star1,T_star2);
-
-
-       	//*******************************************************************************************	    
+	//*************************************************************************************	    
 	// Store the CTD and CDF as absolute values for the next step to avoid the sign changing [MO - 15 December 2014] 
 	if (CTD == -1) CTD = 10000;
 	if (CDF == -1) CDF = 10000;
 
-	if (shearupdate) {
+	if (shearupdate) {      
 	  // shear[0], shear[1] and shear[2] are tangential force of x, y and z directions, respectively.
 	  shear[3] = overlap;           // previous overlap
+	  shear[4] = Tdisp;             // previous tangential displacement
+	  shear[5] = Tdisp1;            // tangential displacement of x direction in the previous step
+	  shear[6] = Tdisp2;            // tangential displacement of y direction in the previous step
+	  shear[7] = Tdisp3;            // tangential displacement of z direction in the previous step
+	  shear[8] = T_star1;           // first reverse point of tangential load (T) from loading to unloading
+	  shear[9] = T_star2;           // second reverse point of tangential load from unloading to re-loading
+	  shear[10] = 0.0;           
+	  shear[11] = CDF;              // CDF indicates wheather system is loading or unloading (int 1 or -1)       
+	  shear[12] = T;                // tangential contact force 
+	  shear[13] = Tdisp_DD;         // Tdisp_DD <= 0.0 should be satisfied to move on a new loading curve for N+dN    	   
+	  shear[14] = CTD;              // +1 and -1 mean positive and negative shear disp, respectively (int 1 or -1)   
+	  shear[15] = T_step;           // loading step
+	  shear[16] = 0.0;      
 	  shear[17] = a;
 	  shear[18] = N;
-	  shear[21] = ccel;
-	  if (skip == 0 || skip == 2) {
-	    shear[4] = Tdisp;             // previous tangential displacement
-	    shear[5] = Tdisp1;            // tangential displacement of x direction in the previous step
-	    shear[6] = Tdisp2;            // tangential displacement of y direction in the previous step
-	    shear[7] = Tdisp3;            // tangential displacement of z direction in the previous step
-	    shear[8] = T_star1;           // first reverse point of tangential load (T) from loading to unloading
-	    shear[9] = T_star2;           // second reverse point of tangential load from unloading to re-loading
-	    shear[10] = slip_T;           // if full slip is mobilized, slip_T = 1 (int 0 or 1);
-	    shear[11] = CDF;              // CDF indicates wheather system is loading or unloading (int 1 or -1)       
-	    shear[12] = T;                // tangential contact force 
-	    shear[13] = Tdisp_DD;         // Tdisp_DD <= 0.0 should be satisfied to move on a new loading curve for N+dN    	   
-	    shear[14] = CTD;              // +1 and -1 mean positive and negative shear disp, respectively (int 1 or -1)   
-	    shear[15] = T_step;           // loading step (absolute values)
-	    shear[16] = 0;       
-	    shear[19] = 0;
-	    shear[20] = 0;
-	    // shear[22] ~ shea[25] are empty.
-	  }
+	  shear[19] = 0.0; 
+	  shear[20] = 0.0; 
+	  shear[21] = ccel;  
+	  shear[22] = Tdisp1_star1;
+	  shear[23] = Tdisp2_star1;
+	  shear[24] = Tdisp3_star1;
+	  // shear[25] is empty.
 	}
-
-	/*if (update->ntimestep % 10 == 0 && shearupdate && tag[i] == 1 && tag[j] == 5)
-	  fprintf(screen,"timestep %i tag %i & %i T_step %i skip %i Tdisp_DD %1.6e T_star1 %1.6e T_star2 %1.6e CDF %i dTdisp %1.6e Tdisp_DSC %1.6e dN %1.6e N %1.6e K_R %1.6e Tdisp %1.6e T_old %1.6e\n",
-	  update->ntimestep,tag[i],tag[j],T_step,skip,Tdisp_DD,T_star1,T_star2,CDF,dTdisp,Tdisp_DSC,dN,N,K_R,Tdisp,T_old);*/
 	//*******************************************************************************************
-
+	
+	
 	if (evflag) ev_tally_gran(i,j,nlocal,fx,fy,fz,x[i][0],x[i][1],x[i][2],
 				  radius[i],x[j][0],x[j][1],x[j][2],radius[j]);
       }
@@ -784,14 +887,15 @@ void PairGranHMDHistory::compute(int eflag, int vflag)
 void PairGranHMDHistory::settings(int narg, char **arg)
 {
 
-  if (narg != 3) error->all(FLERR,"Illegal pair_style command");
+  if (narg != 4) error->all(FLERR,"Illegal pair_style command"); // increased from 3 to 4 [MO - 12 Sep 2015]
   if (domain->dimension == 2) error->all(FLERR,"PairGranHMDHistory formulae only valid for 3D simulations");
 
   Geq = force->numeric(FLERR,arg[0]);//0.5 * (Gi+Gj)
   Poiseq = force->numeric(FLERR,arg[1]);//0.5 * (Poisi+Poisj)
   xmu = force->numeric(FLERR,arg[2]);
+  THETA1 = force->inumeric(FLERR,arg[3]);  // HMD with THETA1 = shm 
 
-  if (Geq < 0.0 || Poiseq < 0.0 || xmu < 0.0 || Poiseq > 0.5) error->all(FLERR,"Illegal HMD pair parameter values");
+  if (Geq < 0.0 || Poiseq < 0.0 || xmu < 0.0 || Poiseq > 0.5 || (THETA1 != 1 && THETA1 != 0)) error->all(FLERR,"Illegal HMD pair parameter values");
 
   kn = 4.0*Geq / (3.0*(1.0-Poiseq)); // calculate these here to save effort in the compute
   kt = 4.0*Geq / (2.0-Poiseq);
@@ -1111,6 +1215,7 @@ void PairGranHMDHistory::write_restart_settings(FILE *fp)
   fwrite(&Geq,sizeof(double),1,fp);
   fwrite(&Poiseq,sizeof(double),1,fp);
   fwrite(&xmu,sizeof(double),1,fp);
+  fwrite(&THETA1,sizeof(int),1,fp);
 
   //~ Added energy terms [KH - 28 February 2014]
   //~~ Added for D_spin model [MO - 13 November 2014]
@@ -1131,6 +1236,7 @@ void PairGranHMDHistory::read_restart_settings(FILE *fp)
     fread(&Geq,sizeof(double),1,fp);
     fread(&Poiseq,sizeof(double),1,fp);
     fread(&xmu,sizeof(double),1,fp);
+    fread(&THETA1,sizeof(int),1,fp);    
 
     /*~ Added energy terms. The total energy is read to the root
       proc and is NOT broadcast to all procs as only the total summed
@@ -1145,4 +1251,5 @@ void PairGranHMDHistory::read_restart_settings(FILE *fp)
   MPI_Bcast(&Geq,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&Poiseq,1,MPI_DOUBLE,0,world);
   MPI_Bcast(&xmu,1,MPI_DOUBLE,0,world);
+  MPI_Bcast(&THETA1,1,MPI_INT,0,world);
 }

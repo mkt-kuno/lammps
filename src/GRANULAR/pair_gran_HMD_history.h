@@ -38,6 +38,7 @@ class PairGranHMDHistory : public PairGranHookeHistory {
 
  protected:
   double Geq,Poiseq;
+  int THETA1; // HMD with theta1 = shm [MO - 12 Sep 2015]
 
 };
 
