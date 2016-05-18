@@ -1,142 +1,293 @@
-<HTML>
-<CENTER><A HREF = "http://lammps.sandia.gov">LAMMPS WWW Site</A> - <A HREF = "Manual.html">LAMMPS Documentation</A> - <A HREF = "Section_commands.html#comm">LAMMPS Commands</A> 
-</CENTER>
 
 
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>fix crushing command &mdash; LAMMPS 15 May 2015 version documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+    <link rel="stylesheet" href="_static/sphinxcontrib-images/LightBox2/lightbox2/css/lightbox.css" type="text/css" />
+  
+
+  
+    <link rel="top" title="LAMMPS 15 May 2015 version documentation" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+
+        
+          <a href="Manual.html" class="icon icon-home"> LAMMPS
+        
+
+        
+        </a>
+
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+        
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="Section_intro.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_start.html">2. Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_commands.html">3. Commands</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_packages.html">4. Packages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_accelerate.html">5. Accelerating LAMMPS performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_howto.html">6. How-to discussions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_example.html">7. Example problems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_perf.html">8. Performance &amp; scalability</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_tools.html">9. Additional tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_modify.html">10. Modifying &amp; extending LAMMPS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_python.html">11. Python interface to LAMMPS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_errors.html">12. Errors</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Section_history.html">13. Future and history</a></li>
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="Manual.html">LAMMPS</a>
+      </nav>
 
 
-
-
-<HR>
-
-<H3>fix crushing command 
-</H3>
-<P><B>Syntax:</B>
-</P>
-<PRE>fix ID group-ID crushing outputflag seed m sigma0 d0 a b chi alpha redtype <I>reduction</I> constante <I>commlimit</I> <I>m2</I> <I>sigma02</I> <I>d02</I> <I>a2</I> <I>b2</I> <I>reallocate</I> 
-</PRE>
-<UL><LI>ID, group-ID are documented in <A HREF = "fix.html">fix</A> command 
-
-<LI>crushing = style name of this fix command 
-
-<LI>outputflag = a flag to indicate whether or not detailed crushing output is displayed: set this at 1 to display the output; 0 to suppress it 
-
-<LI>seed = a positive integer which is used as the seed of the random number generator 
-
-<LI>m = Weibull modulus for allocating strengths 
-
-<LI>sigma0 = characteristic strength at which 37% of particles of diameter d0 survive 
-
-<LI>d0 = nominal particle diameter in m 
-
-<LI>a = slope of linear trendline of survival probability vs. normalised characteristic stress 
-
-<LI>b = y-intercept of linear trendline of survival probability vs. normalised characteristic stress 
-
-<LI>chi = parameter in brittle failure criterion of Christensen 
-
-<LI>alpha = multiplicative factor by which to reduce compressive stress to give correspondence with experimental data 
-
-<LI>redtype = an integer flag equal to 1 if particle diameters are reduced to just lose contact with neighbours; else 0 
-
-<LI>	<I>reduction</I> = if redtype = 0, the fractional reduction in radius upon failure between 0 and 1 
-
-<LI>constante = an integer flag equal to 1 if void ratio is held constant; else 0 
-
-<LI><I>commlimit</I> = (optional): a comminution limit on radii in m 
-
-<LI><I>m2</I> = (optional): Weibull modulus for > 1 breakage 
-
-<LI><I>sigma02</I> = (optional): sigma0 for particles of diameter d02 after > 1 breakage 
-
-<LI><I>d02</I> = (optional): Nominal particle diameter in m for > 1 breakage 
-
-<LI><I>a2</I> = (optional): a for > 1 breakage 
-
-<LI><I>b2</I> = (optional): b for > 1 breakage 
-
-<LI><I>reallocate</I> = (optional): keyword meaning that strengths should be reallocated to particles 
-
-
-</UL>
-<P><B>Examples:</B>
-</P>
-<PRE>fix 1 all crushing 1 73547 1.0 2.5e7 1.29e-3 -0.5882 1.0 100 0.001 1 0 6e-5 
-</PRE>
-<P><B>Description:</B>
-</P>
-<P>This fix allows particle crushing during a simulation. The two-parameter failure 
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="Manual.html">Docs</a> &raquo;</li>
+      
+    <li>fix crushing command</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="http://lammps.sandia.gov">Website</a>
+            <a href="Section_commands.html#comm">Commands</a>
+        
+      </li>
+  </ul>
+  <hr/>
+  
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="fix-crushing-command">
+<span id="index-0"></span><h1>fix crushing command<a class="headerlink" href="#fix-crushing-command" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="syntax">
+<h2>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h2>
+<pre class="literal-block">
+fix ID group-ID crushing outputflag seed m sigma0 d0 a b chi alpha redtype <em>reduction</em> constante <em>commlimit</em> <em>m2</em> <em>sigma02</em> <em>d02</em> <em>a2</em> <em>b2</em> <em>reallocate</em>
+</pre>
+<ul class="simple">
+<li>ID, group-ID are documented in <a class="reference internal" href="fix.html"><span class="doc">fix</span></a> command</li>
+<li>crushing = style name of this fix command</li>
+<li>outputflag = a flag to indicate whether or not detailed crushing output is displayed: set this at 1 to display the output; 0 to suppress it</li>
+<li>seed = a positive integer which is used as the seed of the random number generator</li>
+<li>m = Weibull modulus for allocating strengths</li>
+<li>sigma0 = characteristic strength at which 37% of particles of diameter d0 survive</li>
+<li>d0 = nominal particle diameter in m</li>
+<li>a = slope of linear trendline of survival probability vs. normalised characteristic stress</li>
+<li>b = y-intercept of linear trendline of survival probability vs. normalised characteristic stress</li>
+<li>chi = parameter in brittle failure criterion of Christensen</li>
+<li>alpha = multiplicative factor by which to reduce compressive stress to give correspondence with experimental data</li>
+<li>redtype = an integer flag equal to 1 if particle diameters are reduced to just lose contact with neighbours; else 0</li>
+<li><em>reduction</em> = if redtype = 0, the fractional reduction in radius upon failure between 0 and 1</li>
+<li>constante = an integer flag equal to 1 if void ratio is held constant; else 0</li>
+<li><em>commlimit</em> = (optional): a comminution limit on radii in m</li>
+<li><em>m2</em> = (optional): Weibull modulus for &gt; 1 breakage</li>
+<li><em>sigma02</em> = (optional): sigma0 for particles of diameter d02 after &gt; 1 breakage</li>
+<li><em>d02</em> = (optional): Nominal particle diameter in m for &gt; 1 breakage</li>
+<li><em>a2</em> = (optional): a for &gt; 1 breakage</li>
+<li><em>b2</em> = (optional): b for &gt; 1 breakage</li>
+<li><em>reallocate</em> = (optional): keyword meaning that strengths should be reallocated to particles</li>
+</ul>
+</div>
+<div class="section" id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fix</span> <span class="mi">1</span> <span class="nb">all</span> <span class="n">crushing</span> <span class="mi">1</span> <span class="mi">73547</span> <span class="mf">1.0</span> <span class="mf">2.5e7</span> <span class="mf">1.29e-3</span> <span class="o">-</span><span class="mf">0.5882</span> <span class="mf">1.0</span> <span class="mi">100</span> <span class="mf">0.001</span> <span class="mi">1</span> <span class="mi">0</span> <span class="mi">6</span><span class="n">e</span><span class="o">-</span><span class="mi">5</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="description">
+<h2>Description<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h2>
+<p>This fix allows particle crushing during a simulation. The two-parameter failure
 criterion for brittle materials proposed by Christensen (2000) was chosen, which
 is well described by Russell and Muir Wood (2009). In order to use this failure
-criterion, two parameters are needed: chi and kappa. The <I>chi</I> parameter (to which
+criterion, two parameters are needed: chi and kappa. The <em>chi</em> parameter (to which
 the model is fairly insensitive) is one of the input parameters to this fix. The
-kappa parameter may be found using <I>m</I>, <I>sigma0</I>, <I>d0</I>, <I>a</I> and <I>b</I>. Experimental 
-values of these parameters for a real sand are given by Nakata et al. (1999).
-</P>
-<P><I>alpha</I> is a fudge which allows the strengths to be reduced by a specified amount.
+kappa parameter may be found using <em>m</em>, <em>sigma0</em>, <em>d0</em>, <em>a</em> and <em>b</em>. Experimental
+values of these parameters for a real sand are given by Nakata et al. (1999).</p>
+<p><em>alpha</em> is a fudge which allows the strengths to be reduced by a specified amount.
 This was added because the particles tend to be far too strong (negligible failure
 occurring at very high stresses) without this arbitrary reduction of strength. The
 reasons for the excessively high strengths are discussed by Hanley et al. (2014). If
-you do not wish to use this <I>alpha</I> reduction, set it to 1.0 to disable it.
-</P>
-<P>There are two available options for the amount to reduce particle diameter
-upon failure which can be selected using <I>redtype</I>. If <I>redtype</I> = 1, this means
-that particle diameters are reduced upon failure so that they just lose contact 
-with all surrounding particles. If <I>redtype</I> = 0, the following argument in
-FixCrushing specifies the fraction by which particle diameters are reduced.
-</P>
-<P>The specification of a comminution limit, <I>commlimit</I>, is optional but highly
-recommended. Note that the timestep calculated using <I>'timestep auto'</I> is not
+you do not wish to use this <em>alpha</em> reduction, set it to 1.0 to disable it.</p>
+<p>There are two available options for the amount to reduce particle diameter
+upon failure which can be selected using <em>redtype</em>. If <em>redtype</em> = 1, this means
+that particle diameters are reduced upon failure so that they just lose contact
+with all surrounding particles. If <em>redtype</em> = 0, the following argument in
+FixCrushing specifies the fraction by which particle diameters are reduced.</p>
+<p>The specification of a comminution limit, <em>commlimit</em>, is optional but highly
+recommended. Note that the timestep calculated using <em>&#8216;timestep auto&#8217;</em> is not
 recalculated during a simulation. Therefore, if very small particles are added
-to a simulation, stability is no longer assured.
-</P>
-<P>It is mandatory to specify one set of <I>m</I>, <I>sigma0</I>, <I>d0</I>, <I>a</I> and <I>b</I>. Optionally,
+to a simulation, stability is no longer assured.</p>
+<p>It is mandatory to specify one set of <em>m</em>, <em>sigma0</em>, <em>d0</em>, <em>a</em> and <em>b</em>. Optionally,
 a second set can be specified. If this is done, the first set of parameters is used
 to allocate particle strengths before initial failure, while the second set of
 parameters is used to allocated particle strengths after the first
 failure. The logic is that the first failure might be attributed to asperity
 breakage while the second and subsequent failures might be due to gross splitting.
 If the second set of parameters is not specified, the first set of parameters is
-used in all cases.
-</P>
-<P>By default, the allocated particle strengths are stored in the restart file and
+used in all cases.</p>
+<p>By default, the allocated particle strengths are stored in the restart file and
 reallocated to the particles when the simulation is resumed from a restart file.
-It may be desired to change the strengths part-way through a simulation, e.g., 
-if the Weibull modulus is changed. The <I>reallocate</I> specifier is used to ignore
+It may be desired to change the strengths part-way through a simulation, e.g.,
+if the Weibull modulus is changed. The <em>reallocate</em> specifier is used to ignore
 the strengths in the restart file and reallocate strengths based on the current
-FixCrushing arguments.
-</P>
-<P><B>Output info:</B>
-</P>
-<P>This fix writes detailed information about each particle failure to the screen 
-if <I>outputflag</I> is set at 1; this detailed output is suppressed if 
-<I>outputflag</I> is 0.
-</P>
-<P>In addition, three per-particle quantities are available to write to dump
-files using <A HREF = "dump_custom.html">dump_custom</A>: (1) the uniaxial compressive
+FixCrushing arguments.</p>
+<p><strong>Output info:</strong></p>
+<p>This fix writes detailed information about each particle failure to the screen
+if <em>outputflag</em> is set at 1; this detailed output is suppressed if
+<em>outputflag</em> is 0.</p>
+<p>In addition, three per-particle quantities are available to write to dump
+files using <span class="xref doc">dump_custom</span>: (1) the uniaxial compressive
 strength, (2) the uniaxial tensile strength and (3) the number of failures
-experienced by the particle. These can be written to dump files using the 
-following syntax:
-</P>
-<PRE>	fix 	5 all crushing 1 73547 1.0 2.5e7 1.29e-3 -0.5882 1.0 100 0.001 1 0 6e-5
-	dump	1 all custom 100000 dump.crushing_* f_5[1] f_5[2] f_5[3] 
-</PRE>
-<P><B>Restrictions:</B>
-</P>
-<P>* Fix crushing requires the use of the sphere atom_style.
-</P>
-<P>* It is defined only for 3D simulations.
-</P>
-<P><B>References:</B>
-</P>
-<UL><LI>Christensen, R. M. (2000). Yield functions, damage states, and intrinsic strength. Mathematics and Mechanics of Solids, 5, 285-300. 
+experienced by the particle. These can be written to dump files using the
+following syntax:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fix</span>     <span class="mi">5</span> <span class="nb">all</span> <span class="n">crushing</span> <span class="mi">1</span> <span class="mi">73547</span> <span class="mf">1.0</span> <span class="mf">2.5e7</span> <span class="mf">1.29e-3</span> <span class="o">-</span><span class="mf">0.5882</span> <span class="mf">1.0</span> <span class="mi">100</span> <span class="mf">0.001</span> <span class="mi">1</span> <span class="mi">0</span> <span class="mi">6</span><span class="n">e</span><span class="o">-</span><span class="mi">5</span>
+<span class="n">dump</span>    <span class="mi">1</span> <span class="nb">all</span> <span class="n">custom</span> <span class="mi">100000</span> <span class="n">dump</span><span class="o">.</span><span class="n">crushing_</span><span class="o">*</span> <span class="n">f_5</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="n">f_5</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="n">f_5</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="restrictions">
+<h2>Restrictions<a class="headerlink" href="#restrictions" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Fix crushing requires the use of the sphere atom_style.</li>
+<li>It is defined only for 3D simulations.</li>
+</ul>
+<p><strong>References:</strong></p>
+<ul class="simple">
+<li>Christensen, R. M. (2000). Yield functions, damage states, and intrinsic strength. Mathematics and Mechanics of Solids, 5, 285-300.</li>
+<li>Hanley, K.J., O&#8217;Sullivan, C. &amp; Huang, X. (2014). Investigation of Christensen&#8217;s two-parameter failure criterion for brittle materials. International Symposium on Geomechanics from Micro to Macro (TC105: IS-Cambridge 2014), Cambridge, UK.</li>
+<li>Nakata, Y., Hyde, A. F. L., Hyodo, M. &amp; Murata, H. (1999). A probabilistic approach to sand particle crushing in the triaxial test. Geotechnique, 49(5), 567-583.</li>
+<li>Russell, A. R. &amp; Muir Wood, D. (2009). Point load tests and strength measurements for brittle spheres. International Journal of Rock Mechanics &amp; Mining Sciences, 46, 272-280.</li>
+</ul>
+</div>
+</div>
 
-<LI>Hanley, K.J., O'Sullivan, C. & Huang, X. (2014). Investigation of Christensen's two-parameter failure criterion for brittle materials. International Symposium on Geomechanics from Micro to Macro (TC105: IS-Cambridge 2014), Cambridge, UK. 
 
-<LI>Nakata, Y., Hyde, A. F. L., Hyodo, M. & Murata, H. (1999). A probabilistic approach to sand particle crushing in the triaxial test. Geotechnique, 49(5), 567-583. 
+           </div>
+          </div>
+          <footer>
+  
 
-<LI>Russell, A. R. & Muir Wood, D. (2009). Point load tests and strength measurements for brittle spheres. International Journal of Rock Mechanics & Mining Sciences, 46, 272-280. 
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright .
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
 
 
-</UL>
-</HTML>
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'15 May 2015 version',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+      <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+      <script type="text/javascript" src="_static/sphinxcontrib-images/LightBox2/lightbox2/js/jquery-1.11.0.min.js"></script>
+      <script type="text/javascript" src="_static/sphinxcontrib-images/LightBox2/lightbox2/js/lightbox.min.js"></script>
+      <script type="text/javascript" src="_static/sphinxcontrib-images/LightBox2/lightbox2-customize/jquery-noconflict.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
