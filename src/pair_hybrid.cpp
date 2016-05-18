@@ -460,6 +460,7 @@ void PairHybrid::init_style()
   }
 
   // check if special_lj/special_coul overrides are compatible
+
   for (istyle = 0; istyle < nstyles; istyle++) {
     if (special_lj[istyle]) {
       for (i = 1; i < 4; ++i) {
@@ -563,6 +564,8 @@ double PairHybrid::init_one(int i, int j)
   // if I,J is not set explicitly:
   // perform mixing only if I,I sub-style = J,J sub-style
   // also require I,I and J,J are both assigned to single sub-style
+
+  printf("IJ %d %d\n",i,j);
 
   if (setflag[i][j] == 0) {
     if (nmap[i][i] != 1 || nmap[j][j] != 1 || map[i][i][0] != map[j][j][0])
@@ -795,10 +798,7 @@ void PairHybrid::modify_params(int narg, char **arg)
 {
   if (narg == 0) error->all(FLERR,"Illegal pair_modify command");
 
-  // if 1st keyword is pair, then apply args to one sub-style
-  // else pass args to every sub-style
-  // also apply all args (except pair) to pair hybrid itself
-  //   important for some keywords like tail or compute
+  // if 1st keyword is pair, apply other keywords to one sub-style
 
   if (strcmp(arg[0],"pair") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal pair_modify command");
@@ -806,41 +806,42 @@ void PairHybrid::modify_params(int narg, char **arg)
     for (m = 0; m < nstyles; m++)
       if (strcmp(arg[1],keywords[m]) == 0) break;
     if (m == nstyles) error->all(FLERR,"Unknown pair_modify hybrid sub-style");
-    if (multiple[m] == 0) {
-      // augment special settings for this one pair style
-      if (strcmp(arg[2],"special") == 0) {
-        if (narg < 7) error->all(FLERR,"Illegal pair_modify special command");
-        modify_special(m,narg-3,&arg[3]);
-      } else {
-        Pair::modify_params(narg-2,&arg[2]);
-        styles[m]->modify_params(narg-2,&arg[2]);
-      }
-    } else {
+    int iarg = 2;
+
+    if (multiple[m]) {
       if (narg < 3) error->all(FLERR,"Illegal pair_modify command");
       int multiflag = force->inumeric(FLERR,arg[2]);
       for (m = 0; m < nstyles; m++)
         if (strcmp(arg[1],keywords[m]) == 0 && multiflag == multiple[m]) break;
       if (m == nstyles) 
         error->all(FLERR,"Unknown pair_modify hybrid sub-style");
-      // augment special settings for this one pair style
-      if (strcmp(arg[3],"special") == 0) {
-        if (narg < 8) error->all(FLERR,"Illegal pair_modify special command");
-        modify_special(m,narg-4,&arg[4]);
-      } else {
-        Pair::modify_params(narg-3,&arg[3]);
-        styles[m]->modify_params(narg-3,&arg[3]);
-      }
+      iarg = 3;
     }
-    
+
+    // if 2nd keyword (after pair) is special:
+    // invoke modify_special() for the sub-style
+
+    if (iarg < narg && strcmp(arg[iarg],"special") == 0) {
+      if (narg < iarg+5)
+        error->all(FLERR,"Illegal pair_modify special command");
+      modify_special(m,narg-iarg,&arg[iarg+1]);
+      iarg += 5;
+    }
+
+    // apply the remaining keywords to the base pair style itself and the
+    // sub-style except for "pair" and "special".
+    // the former is important for some keywords like "tail" or "compute"
+
+    if (narg-iarg > 0) {
+      Pair::modify_params(narg-iarg,&arg[iarg]);
+      styles[m]->modify_params(narg-iarg,&arg[iarg]);
+    }
+
+  // apply all keywords to pair hybrid itself and every sub-style
+
   } else {
-    // augment special settings for all pair styles
-    if (strcmp(arg[0],"special") == 0) {
-      if (narg < 5) error->all(FLERR,"Illegal pair_modify special command");
-      for (int m = 0; m < nstyles; m++) modify_special(m,narg-1,&arg[1]);
-    } else {
-      Pair::modify_params(narg,arg);
-      for (int m = 0; m < nstyles; m++) styles[m]->modify_params(narg,arg);
-    }
+    Pair::modify_params(narg,arg);
+    for (int m = 0; m < nstyles; m++) styles[m]->modify_params(narg,arg);
   }
 }
 

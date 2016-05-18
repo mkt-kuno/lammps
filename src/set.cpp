@@ -43,7 +43,7 @@ enum{ATOM_SELECT,MOL_SELECT,TYPE_SELECT,GROUP_SELECT,REGION_SELECT};
 enum{TYPE,TYPE_FRACTION,MOLECULE,X,Y,Z,VX,VY,VZ,OMEGAX,OMEGAY,OMEGAZ,CHARGE,MASS,SHAPE,LENGTH,TRI,
      DIPOLE,DIPOLE_RANDOM,QUAT,QUAT_RANDOM,THETA,ANGMOM,
      DIAMETER,DENSITY,VOLUME,IMAGE,BOND,ANGLE,DIHEDRAL,IMPROPER,
-     MESO_E,MESO_CV,MESO_RHO,INAME,DNAME};
+     MESO_E,MESO_CV,MESO_RHO,SMD_MASS_DENSITY,SMD_CONTACT_RADIUS,INAME,DNAME};
 
 #define BIG INT_MAX
 
@@ -426,6 +426,24 @@ void Set::command(int narg, char **arg)
       set(MESO_RHO);
       iarg += 2;
 
+    } else if (strcmp(arg[iarg],"smd_mass_density") == 0) {
+          if (iarg+2 > narg) error->all(FLERR,"Illegal set command");
+          if (strstr(arg[iarg+1],"v_") == arg[iarg+1]) varparse(arg[iarg+1],1);
+          else dvalue = force->numeric(FLERR,arg[iarg+1]);
+          if (!atom->smd_flag)
+            error->all(FLERR,"Cannot set smd_mass_density for this atom style");
+          set(SMD_MASS_DENSITY);
+          iarg += 2;
+
+    } else if (strcmp(arg[iarg],"smd_contact_radius") == 0) {
+          if (iarg+2 > narg) error->all(FLERR,"Illegal set command");
+          if (strstr(arg[iarg+1],"v_") == arg[iarg+1]) varparse(arg[iarg+1],1);
+          else dvalue = force->numeric(FLERR,arg[iarg+1]);
+          if (!atom->smd_flag)
+        	  error->all(FLERR,"Cannot set smd_contact_radius for this atom style");
+          set(SMD_CONTACT_RADIUS);
+          iarg += 2;
+
     } else if (strstr(arg[iarg],"i_") == arg[iarg]) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal set command");
       if (strstr(arg[iarg+1],"v_") == arg[iarg+1]) varparse(arg[iarg+1],1);
@@ -619,6 +637,10 @@ void Set::set(int keyword)
     else if (keyword == MESO_E) atom->e[i] = dvalue;
     else if (keyword == MESO_CV) atom->cv[i] = dvalue;
     else if (keyword == MESO_RHO) atom->rho[i] = dvalue;
+    else if (keyword == SMD_MASS_DENSITY) { // set mass from volume and supplied mass density
+    	atom->rmass[i] = atom->vfrac[i] * dvalue;
+    }
+    else if (keyword == SMD_CONTACT_RADIUS) atom->contact_radius[i] = dvalue;
 
     // set shape of ellipsoidal particle
 
@@ -668,7 +690,7 @@ void Set::set(int keyword)
         double *c1 = avec_tri->bonus[atom->tri[i]].c1;
         double *c2 = avec_tri->bonus[atom->tri[i]].c2;
         double *c3 = avec_tri->bonus[atom->tri[i]].c3;
-        double c2mc1[2],c3mc1[3];
+        double c2mc1[3],c3mc1[3];
         MathExtra::sub3(c2,c1,c2mc1);
         MathExtra::sub3(c3,c1,c3mc1);
         double norm[3];

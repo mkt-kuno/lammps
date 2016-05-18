@@ -135,6 +135,10 @@ class Compute : protected Pointers {
     ComputeStressAtom to any calling function [KH - 1 November 2011]*/
   virtual double *array_export() {return 0;}
 
+  virtual void pair_tally_callback(int, int, int, int,
+                                   double, double, double,
+                                   double, double, double) {}
+
   virtual int unsigned data_mask() {return datamask;}
   virtual int unsigned data_mask_ext() {return datamask_ext;}
 
