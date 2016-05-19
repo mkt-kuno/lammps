@@ -464,7 +464,7 @@ void Dump::write()
 	
 	write_data(nlines,buf);
       }
-      if (flush_flag) fflush(fp);
+      if (flush_flag && fp) fflush(fp);
     
     } else {
       MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,MPI_STATUS_IGNORE);
@@ -485,7 +485,7 @@ void Dump::write()
         
         write_data(nchars,(double *) sbuf);
       }
-      if (flush_flag) fflush(fp);
+      if (flush_flag && fp) fflush(fp);
       
     } else {
       MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,MPI_STATUS_IGNORE);
@@ -496,9 +496,9 @@ void Dump::write()
   // if file per timestep, close file if I am filewriter
   if (multifile) {
     if (compressed) {
-      if (filewriter) pclose(fp);
+      if (filewriter && fp) pclose(fp);
     } else {
-      if (filewriter) fclose(fp);
+      if (filewriter && fp) fclose(fp);
     }
   }
 }
