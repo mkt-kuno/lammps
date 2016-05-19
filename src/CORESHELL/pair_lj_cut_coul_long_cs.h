@@ -11,42 +11,27 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#ifdef COMPUTE_CLASS
+#ifdef PAIR_CLASS
 
-ComputeStyle(rdf,ComputeRDF)
+PairStyle(lj/cut/coul/long/cs,PairLJCutCoulLongCS)
 
 #else
 
-#ifndef LMP_COMPUTE_RDF_H
-#define LMP_COMPUTE_RDF_H
+#ifndef LMP_PAIR_LJ_CUT_COUL_LONG_CS_H
+#define LMP_PAIR_LJ_CUT_COUL_LONG_CS_H
 
-#include "stdio.h"
-#include "compute.h"
+#include "pair_lj_cut_coul_long.h"
 
 namespace LAMMPS_NS {
 
-class ComputeRDF : public Compute {
+class PairLJCutCoulLongCS : public PairLJCutCoulLong {
+
  public:
-  ComputeRDF(class LAMMPS *, int, char **);
-  ~ComputeRDF();
-  void init();
-  void init_list(int, class NeighList *);
-  void compute_array();
-
- private:
-  int nbin;              // # of rdf bins
-  int npairs;            // # of rdf pairs
-  double delr,delrinv;   // bin width and its inverse
-  int ***rdfpair;        // map 2 type pair to rdf pair for each histo
-  int **nrdfpair;        // # of histograms for each type pair
-  int *ilo,*ihi,*jlo,*jhi;
-  double **hist;         // histogram bins
-  double **histall;      // summed histogram bins across all procs
-
-  int *typecount;
-  int *icount,*jcount,*duplicates;
-
-  class NeighList *list; // half neighbor list
+  PairLJCutCoulLongCS(class LAMMPS *);
+  virtual void compute(int, int);
+  void compute_inner();
+  void compute_middle();
+  virtual void compute_outer(int, int);
 };
 
 }
@@ -62,8 +47,21 @@ Self-explanatory.  Check the input script syntax and compare to the
 documentation for the command.  You can use -echo screen as a
 command-line option when running LAMMPS to see the offending line.
 
-E: Compute rdf requires a pair style be defined
+E: Incorrect args for pair coefficients
 
-Self-explanatory.
+Self-explanatory.  Check the input script or data file.
+
+E: Pair style lj/cut/coul/long requires atom attribute q
+
+The atom style defined does not have this attribute.
+
+E: Pair style requires a KSpace style
+
+No kspace style is defined.
+
+E: Pair cutoff < Respa interior cutoff
+
+One or more pairwise cutoffs are too short to use with the specified
+rRESPA cutoffs.
 
 */

@@ -161,6 +161,7 @@ Dump::~Dump()
     } else {
       if (filewriter) fclose(fp);
     }
+    fp = NULL;
   }
 }
 
@@ -496,10 +497,11 @@ void Dump::write()
   // if file per timestep, close file if I am filewriter
   if (multifile) {
     if (compressed) {
-      if (filewriter && fp) pclose(fp);
+      if (filewriter && fp != NULL) pclose(fp);
     } else {
-      if (filewriter && fp) fclose(fp);
+      if (filewriter && fp != NULL) fclose(fp);
     }
+    fp = NULL;
   }
 }
 

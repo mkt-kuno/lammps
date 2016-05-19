@@ -2,7 +2,7 @@
 
 SHELL = /bin/sh
 
-export OMPI_CXX = ../../lib/config/nvcc_wrapper
+export OMPI_CXX = ../../lib/kokkos/config/nvcc_wrapper
 
 # ---------------------------------------------------------------------
 # compiler/linker settings

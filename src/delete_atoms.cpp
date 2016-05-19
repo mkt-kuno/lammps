@@ -415,6 +415,8 @@ void DeleteAtoms::delete_porosity(int narg, char **arg)
   for (int i = 0; i < nlocal; i++)
     if (domain->regions[iregion]->match(x[i][0],x[i][1],x[i][2]))
       if (random->uniform() <= porosity_fraction) dlist[i] = 1;
+
+  delete random;
 }
 
 /* ----------------------------------------------------------------------
