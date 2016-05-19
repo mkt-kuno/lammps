@@ -11,9 +11,9 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include "mpi.h"
-#include "stdlib.h"
-#include "string.h"
+#include <mpi.h>
+#include <stdlib.h>
+#include <string.h>
 #include "compute_temp_drude.h"
 #include "atom.h"
 #include "update.h"
@@ -37,6 +37,7 @@ ComputeTempDrude::ComputeTempDrude(LAMMPS *lmp, int narg, char **arg) :
   if (narg != 3) error->all(FLERR,"Illegal compute temp command");
 
   vector_flag = 1;
+  scalar_flag = 1;
   size_vector = 6;
   extscalar = 0;
   extvector = -1;
@@ -67,9 +68,9 @@ void ComputeTempDrude::init()
   int ifix;
   for (ifix = 0; ifix < modify->nfix; ifix++)
     if (strcmp(modify->fix[ifix]->style,"drude") == 0) break;
-  if (ifix == modify->nfix) error->all(FLERR, "compute temp/drude requires fix drude");  
+  if (ifix == modify->nfix) error->all(FLERR, "compute temp/drude requires fix drude");
   fix_drude = (FixDrude *) modify->fix[ifix];
-  
+
   if (!comm->ghost_velocity)
     error->all(FLERR,"compute temp/drude requires ghost velocities. Use comm_modify vel yes");
 }
@@ -143,7 +144,7 @@ int ComputeTempDrude::modify_param(int narg, char **arg)
 void ComputeTempDrude::compute_vector()
 {
     invoked_vector = update->ntimestep;
-  
+
     int nlocal = atom->nlocal;
     int *mask = atom->mask;
     int *type = atom->type;
@@ -159,12 +160,12 @@ void ComputeTempDrude::compute_vector()
     double *vcore, *vdrude;
     double kineng_core_loc = 0., kineng_drude_loc = 0.;
     for (int i=0; i<nlocal; i++){
-        if (groupbit & mask[i] && drudetype[type[i]] != DRUDE_TYPE){            
+        if (groupbit & mask[i] && drudetype[type[i]] != DRUDE_TYPE){
             if (drudetype[type[i]] == NOPOL_TYPE) {
                 ecore = 0.;
                 vcore = v[i];
                 if (temperature) temperature->remove_bias(i, vcore);
-                for (int k=0; k<dim; k++) ecore += vcore[k]*vcore[k]; 
+                for (int k=0; k<dim; k++) ecore += vcore[k]*vcore[k];
                 if (temperature) temperature->restore_bias(i, vcore);
                 if (rmass) mcore = rmass[i];
                 else mcore = mass[type[i]];
@@ -202,7 +203,7 @@ void ComputeTempDrude::compute_vector()
             }
         }
     }
-    
+
     if (dynamic) dof_compute();
     kineng_core_loc *= 0.5 * mvv2e;
     kineng_drude_loc *= 0.5 * mvv2e;
@@ -214,5 +215,11 @@ void ComputeTempDrude::compute_vector()
     vector[1] = temp_drude;
     vector[4] = kineng_core;
     vector[5] = kineng_drude;
+}
+
+double ComputeTempDrude::compute_scalar(){
+    compute_vector();
+    scalar = vector[0];
+    return scalar;
 }
 

@@ -11,9 +11,9 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include "stdlib.h"
-#include "string.h"
-#include "unistd.h"
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include "fix_ave_chunk.h"
 #include "atom.h"
 #include "update.h"
@@ -32,8 +32,8 @@ using namespace FixConst;
 
 enum{V,F,DENSITY_NUMBER,DENSITY_MASS,MASS,TEMPERATURE,COMPUTE,FIX,VARIABLE};
 enum{SAMPLE,ALL};
-enum{ONE,RUNNING,WINDOW};
 enum{NOSCALE,ATOM};
+enum{ONE,RUNNING,WINDOW};
 
 #define INVOKED_PERATOM 8
 
@@ -137,8 +137,8 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   // optional args
 
   normflag = ALL;
-  ave = ONE;
   scaleflag = ATOM;
+  ave = ONE;
   fp = NULL;
   nwindow = 0;
   biasflag = 0;
@@ -155,9 +155,16 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   while (iarg < narg) {
     if (strcmp(arg[iarg],"norm") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix ave/chunk command");
-      if (strcmp(arg[iarg+1],"all") == 0) normflag = ALL;
-      else if (strcmp(arg[iarg+1],"sample") == 0) normflag = SAMPLE;
-      else error->all(FLERR,"Illegal fix ave/chunk command");
+      if (strcmp(arg[iarg+1],"all") == 0) {
+	normflag = ALL;
+	scaleflag = ATOM;
+      } else if (strcmp(arg[iarg+1],"sample") == 0) {
+	normflag = SAMPLE;
+	scaleflag = ATOM;
+      } else if (strcmp(arg[iarg+1],"none") == 0) {
+	normflag = SAMPLE;
+	scaleflag = NOSCALE;
+      } else error->all(FLERR,"Illegal fix ave/chunk command");
       iarg += 2;
     } else if (strcmp(arg[iarg],"ave") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix ave/chunk command");
@@ -172,12 +179,6 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
       }
       iarg += 2;
       if (ave == WINDOW) iarg++;
-    } else if (strcmp(arg[iarg],"scale") == 0) {
-      if (iarg+2 > narg) error->all(FLERR,"Illegal fix ave/chunk command");
-      if (strcmp(arg[iarg+1],"none") == 0) scaleflag = NOSCALE;
-      else if (strcmp(arg[iarg+1],"atom") == 0) scaleflag = ATOM;
-      else error->all(FLERR,"Illegal fix ave/chunk command");
-      iarg += 2;
 
     } else if (strcmp(arg[iarg],"bias") == 0) {
       if (iarg+2 > narg)
@@ -248,7 +249,7 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
 
   if (nevery <= 0 || nrepeat <= 0 || nfreq <= 0)
     error->all(FLERR,"Illegal fix ave/chunk command");
-  if (nfreq % nevery || (nrepeat-1)*nevery >= nfreq)
+  if (nfreq % nevery || nrepeat*nevery > nfreq)
     error->all(FLERR,"Illegal fix ave/chunk command");
   if (ave != RUNNING && overwrite)
     error->all(FLERR,"Illegal fix ave/chunk command");
@@ -310,7 +311,7 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
 
   // increment lock counter in compute chunk/atom
   // only if nrepeat > 1 or ave = RUNNING/WINDOW,
-  //   so that locking spans multiple timesteps 
+  //   so that locking spans multiple timesteps
 
   int icompute = modify->find_compute(idchunk);
   if (icompute < 0)
@@ -339,13 +340,13 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
         if (ncoord == 0) fprintf(fp,"# Chunk Ncount");
         else if (ncoord == 1) fprintf(fp,"# Chunk Coord1 Ncount");
         else if (ncoord == 2) fprintf(fp,"# Chunk Coord1 Coord2 Ncount");
-        else if (ncoord == 3) 
+        else if (ncoord == 3)
           fprintf(fp,"# Chunk Coord1 Coord2 Coord3 Ncount");
       } else {
         if (ncoord == 0) fprintf(fp,"# Chunk OrigID Ncount");
         else if (ncoord == 1) fprintf(fp,"# Chunk OrigID Coord1 Ncount");
         else if (ncoord == 2) fprintf(fp,"# Chunk OrigID Coord1 Coord2 Ncount");
-        else if (ncoord == 3) 
+        else if (ncoord == 3)
           fprintf(fp,"# Chunk OrigID Coord1 Coord2 Coord3 Ncount");
       }
       for (int i = 0; i < nvalues; i++) fprintf(fp," %s",arg[7+i]);
@@ -526,7 +527,7 @@ void FixAveChunk::end_of_step()
   // error check if timestep was reset in an invalid manner
 
   bigint ntimestep = update->ntimestep;
-  if (ntimestep < nvalid_last || ntimestep > nvalid) 
+  if (ntimestep < nvalid_last || ntimestep > nvalid)
     error->all(FLERR,"Invalid timestep reset for fix ave/chunk");
   if (ntimestep != nvalid) return;
   nvalid_last = nvalid;
@@ -541,8 +542,8 @@ void FixAveChunk::end_of_step()
   //   if ave = RUNNING/WINDOW and not yet locked:
   //     set forever, will be unlocked in fix destructor
   // wrap setup_chunks in clearstep/addstep b/c it may invoke computes
-  //   both nevery and nfreq are future steps, 
-  //   since call below to cchunk->ichunk() 
+  //   both nevery and nfreq are future steps,
+  //   since call below to cchunk->ichunk()
   //     does not re-invoke internal cchunk compute on this same step
 
   if (irepeat == 0) {
@@ -666,15 +667,15 @@ void FixAveChunk::end_of_step()
         for (i = 0; i < nlocal; i++)
           if (mask[i] & groupbit && ichunk[i] > 0) {
             index = ichunk[i]-1;
-            values_one[index][m] += 
+            values_one[index][m] +=
               (v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]) * rmass[i];
           }
       } else {
         for (i = 0; i < nlocal; i++)
           if (mask[i] & groupbit && ichunk[i] > 0) {
             index = ichunk[i]-1;
-            values_one[index][m] += 
-              (v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]) * 
+            values_one[index][m] +=
+              (v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]) *
               mass[type[i]];
           }
       }
@@ -760,7 +761,7 @@ void FixAveChunk::end_of_step()
       if (count_many[m] > 0.0)
         for (j = 0; j < nvalues; j++) {
           if (which[j] == TEMPERATURE)
-            values_many[m][j] += mvv2e*values_one[m][j] / 
+            values_many[m][j] += mvv2e*values_one[m][j] /
               ((cdof + adof*count_many[m]) * boltz);
           else if (which[j] == DENSITY_NUMBER || which[j] == DENSITY_MASS ||
                    scaleflag == NOSCALE)
@@ -829,13 +830,20 @@ void FixAveChunk::end_of_step()
   }
 
   // DENSITYs are additionally normalized by chunk volume
-  // only relevant if chunks are spatial bins
+  // use scalar or vector values for volume(s)
+  // if chunks are not spatial bins, chunk_volume_scalar = 1.0
 
   for (j = 0; j < nvalues; j++)
     if (which[j] == DENSITY_NUMBER || which[j] == DENSITY_MASS) {
-      double chunk_volume = cchunk->chunk_volume_scalar;
-      for (m = 0; m < nchunk; m++)
-        values_sum[m][j] /= chunk_volume;
+      if (cchunk->chunk_volume_vec) {
+        double *chunk_volume_vec = cchunk->chunk_volume_vec;
+        for (m = 0; m < nchunk; m++)
+          values_sum[m][j] /= chunk_volume_vec[m];
+      } else {
+        double chunk_volume_scalar = cchunk->chunk_volume_scalar;
+        for (m = 0; m < nchunk; m++)
+          values_sum[m][j] /= chunk_volume_scalar;
+      }
     }
 
   // if ave = ONE, only single Nfreq timestep value is needed

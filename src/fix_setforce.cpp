@@ -11,8 +11,8 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include "string.h"
-#include "stdlib.h"
+#include <string.h>
+#include <stdlib.h>
 #include "fix_setforce.h"
 #include "atom.h"
 #include "update.h"
@@ -107,6 +107,8 @@ FixSetForce::FixSetForce(LAMMPS *lmp, int narg, char **arg) :
 
 FixSetForce::~FixSetForce()
 {
+  if (copymode) return;
+
   delete [] xstr;
   delete [] ystr;
   delete [] zstr;
