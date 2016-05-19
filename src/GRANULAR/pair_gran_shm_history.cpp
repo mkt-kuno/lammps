@@ -94,7 +94,6 @@ void PairGranShmHistory::compute(int eflag, int vflag)
   double **torque = atom->torque;
   double *radius = atom->radius;
   double *rmass = atom->rmass;
-  double *mass = atom->mass;
   int *type = atom->type;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
