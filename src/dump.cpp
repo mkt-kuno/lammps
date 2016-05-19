@@ -398,7 +398,7 @@ void Dump::write()
 	//~ Write the particle positions
 	write_data(nlines,secondbuf);
       }
-      if (flush_flag) fflush(fp);
+      if (flush_flag && fp) fflush(fp);
       
     } else {
       MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
@@ -421,7 +421,7 @@ void Dump::write()
 	//~ Write the particle diameters
 	write_diameter(nlines,secondbuf);
       }
-      if (flush_flag) fflush(fp);
+      if (flush_flag && fp) fflush(fp);
     } else {
       MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
       MPI_Rsend(secondbuf,nme*size_one,MPI_DOUBLE,fileproc,0,world);
@@ -444,7 +444,7 @@ void Dump::write()
 	  //~ Write any additional data required
 	  write_extra(nlines,secondbuf,counter);
 	}
-	if (flush_flag) fflush(fp);
+	if (flush_flag && fp) fflush(fp);
 	
       } else {
 	MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
