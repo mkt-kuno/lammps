@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>displace_atoms command &mdash; LAMMPS 9 Dec 2015 documentation</title>
+  <title>displace_atoms command &mdash; LAMMPS documentation</title>
   
 
   
@@ -32,7 +32,7 @@
   
 
   
-    <link rel="top" title="LAMMPS 9 Dec 2015 documentation" href="index.html"/> 
+    <link rel="top" title="LAMMPS documentation" href="index.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -208,8 +208,12 @@ same, regardless of how many processors are being used.</p>
 around a rotation axis <em>R</em> = (Rx,Ry,Rz) that goes thru a point <em>P</em> =
 (Px,Py,Pz).  The direction of rotation for the atoms around the
 rotation axis is consistent with the right-hand rule: if your
-right-hand&#8217;s thumb points along <em>R</em>, then your fingers wrap around the
+right-hand thumb points along <em>R</em>, then your fingers wrap around the
 axis in the direction of positive theta.</p>
+<p>If the defined <a class="reference internal" href="atom_style.html"><em>atom_style</em></a> assigns an orientation to
+each atom (<a class="reference internal" href="atom_style.html"><em>atom styles</em></a> ellipsoid, line, tri, body),
+then that property is also updated appropriately to correspond to the
+atom&#8217;s rotation.</p>
 <p>Distance units for displacements and the origin point of the <em>rotate</em>
 style are determined by the setting of <em>box</em> or <em>lattice</em> for the
 <em>units</em> keyword.  <em>Box</em> means distance units as defined by the
@@ -289,7 +293,7 @@ attempted to be.</p>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'9 Dec 2015',
+            VERSION:'',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

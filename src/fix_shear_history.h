@@ -32,7 +32,9 @@ class FixShearHistory : public Fix {
   friend class PairGranCMHistory; //~ Added this [MO - 05 June 2014]
   friend class PairGranHMDHistory; //~ Added this [MO - 21 July 2014]
   friend class PairGranCMDHistory; //~ Added this [MO - 18 November 2014]
-  	
+  friend class PairGranLine;
+  friend class PairGranTri;
+
  public:
   FixShearHistory(class LAMMPS *, int, char **);
   ~FixShearHistory();

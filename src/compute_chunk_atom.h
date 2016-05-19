@@ -51,7 +51,7 @@ class ComputeChunkAtom : public Compute {
   int which,binflag;
   int regionflag,nchunksetflag,nchunkflag,discard;
   int limit,limitstyle,limitfirst;
-  int scaleflag;
+  int scaleflag,pbcflag;
   double xscale,yscale,zscale;
   int argindex;
   char *cfvid;
@@ -75,8 +75,8 @@ class ComputeChunkAtom : public Compute {
 
   // cylindrical spatial bins
 
-  double corigin_user[2];
-  double corigin[2];
+  double corigin_user[3];
+  double corigin[3];
   double cradmin_user,cradmax_user;
   double cradmin,cradmax,cinvrad;
   int cdim1,cdim2;

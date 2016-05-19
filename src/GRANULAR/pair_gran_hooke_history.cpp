@@ -159,7 +159,6 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   double **torque = atom->torque;
   double *radius = atom->radius;
   double *rmass = atom->rmass;
-  double *mass = atom->mass;
   int *type = atom->type;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
@@ -300,13 +299,8 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
         // if I or J part of rigid body, use body mass
         // if I or J is frozen, meff is other particle
 
-        if (rmass) {
-          mi = rmass[i];
-          mj = rmass[j];
-        } else {
-          mi = mass[type[i]];
-          mj = mass[type[j]];
-        }
+        mi = rmass[i];
+        mj = rmass[j];
         if (fix_rigid) {
           if (mass_rigid[i] > 0.0) mi = mass_rigid[i];
           if (mass_rigid[j] > 0.0) mj = mass_rigid[j];
@@ -558,8 +552,8 @@ void PairGranHookeHistory::init_style()
 
   // error and warning checks
 
-  if (!atom->sphere_flag)
-    error->all(FLERR,"Pair granular requires atom style sphere");
+  if (!atom->radius_flag || !atom->rmass_flag)
+    error->all(FLERR,"Pair granular requires atom atrributes radius, rmass");
   if (comm->ghost_velocity == 0)
     error->all(FLERR,"Pair granular requires ghost atoms store velocity");
 
@@ -677,6 +671,14 @@ void PairGranHookeHistory::init_style()
                 MPI_DOUBLE,MPI_MAX,world);
   MPI_Allreduce(&onerad_frozen[1],&maxrad_frozen[1],atom->ntypes,
                 MPI_DOUBLE,MPI_MAX,world);
+
+  // set fix which stores history info
+
+  if (history) {
+    int ifix = modify->find_fix("SHEAR_HISTORY");
+    if (ifix < 0) error->all(FLERR,"Could not find pair fix ID");
+    fix_history = (FixShearHistory *) modify->fix[ifix];
+  }
 }
 
 /* ----------------------------------------------------------------------

@@ -21,6 +21,7 @@
 #include "atom_vec_ellipsoid.h"
 #include "atom_vec_line.h"
 #include "atom_vec_tri.h"
+#include "atom_vec_body.h"
 #include "domain.h"
 #include "region.h"
 #include "group.h"
@@ -41,7 +42,7 @@ using namespace MathConst;
 
 enum{ATOM_SELECT,MOL_SELECT,TYPE_SELECT,GROUP_SELECT,REGION_SELECT};
 enum{TYPE,TYPE_FRACTION,MOLECULE,X,Y,Z,VX,VY,VZ,OMEGAX,OMEGAY,OMEGAZ,CHARGE,MASS,SHAPE,LENGTH,TRI,
-     DIPOLE,DIPOLE_RANDOM,QUAT,QUAT_RANDOM,THETA,ANGMOM,OMEGA,
+     DIPOLE,DIPOLE_RANDOM,QUAT,QUAT_RANDOM,THETA,THETA_RANDOM,ANGMOM,OMEGA,
      DIAMETER,DENSITY,VOLUME,IMAGE,BOND,ANGLE,DIHEDRAL,IMPROPER,
      MESO_E,MESO_CV,MESO_RHO,SMD_MASS_DENSITY,SMD_CONTACT_RADIUS,INAME,DNAME};
 
@@ -263,7 +264,7 @@ void Set::command(int narg, char **arg)
       else zvalue = force->numeric(FLERR,arg[iarg+3]);
       if (strstr(arg[iarg+4],"v_") == arg[iarg+4]) varparse(arg[iarg+4],4);
       else wvalue = force->numeric(FLERR,arg[iarg+4]);
-      if (!atom->ellipsoid_flag && !atom->tri_flag)
+      if (!atom->ellipsoid_flag && !atom->tri_flag && !atom->body_flag)
         error->all(FLERR,"Cannot set this attribute for this atom style");
       set(QUAT);
       iarg += 5;
@@ -271,7 +272,7 @@ void Set::command(int narg, char **arg)
     } else if (strcmp(arg[iarg],"quat/random") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal set command");
       ivalue = force->inumeric(FLERR,arg[iarg+1]);
-      if (!atom->ellipsoid_flag && !atom->tri_flag)
+      if (!atom->ellipsoid_flag && !atom->tri_flag && !atom->body_flag)
         error->all(FLERR,"Cannot set this attribute for this atom style");
       if (ivalue <= 0)
         error->all(FLERR,"Invalid random number seed in set command");
@@ -290,6 +291,16 @@ void Set::command(int narg, char **arg)
       set(THETA);
       iarg += 2;
 
+    } else if (strcmp(arg[iarg],"theta/random") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal set command");
+      ivalue = force->inumeric(FLERR,arg[iarg+1]);
+      if (!atom->line_flag)
+        error->all(FLERR,"Cannot set this attribute for this atom style");
+      if (ivalue <= 0)
+        error->all(FLERR,"Invalid random number seed in set command");
+      set(THETA_RANDOM);
+      iarg += 2;
+
     } else if (strcmp(arg[iarg],"angmom") == 0) {
       if (iarg+4 > narg) error->all(FLERR,"Illegal set command");
       if (strstr(arg[iarg+1],"v_") == arg[iarg+1]) varparse(arg[iarg+1],1);
@@ -298,7 +309,7 @@ void Set::command(int narg, char **arg)
       else yvalue = force->numeric(FLERR,arg[iarg+2]);
       if (strstr(arg[iarg+3],"v_") == arg[iarg+3]) varparse(arg[iarg+3],3);
       else zvalue = force->numeric(FLERR,arg[iarg+3]);
-      if (!atom->ellipsoid_flag && !atom->tri_flag)
+      if (!atom->angmom_flag)
         error->all(FLERR,"Cannot set this attribute for this atom style");
       set(ANGMOM);
       iarg += 4;
@@ -311,7 +322,7 @@ void Set::command(int narg, char **arg)
       else yvalue = force->numeric(FLERR,arg[iarg+2]);
       if (strstr(arg[iarg+3],"v_") == arg[iarg+3]) varparse(arg[iarg+3],3);
       else zvalue = force->numeric(FLERR,arg[iarg+3]);
-      if (!atom->sphere_flag)
+      if (!atom->omega_flag)
         error->all(FLERR,"Cannot set this attribute for this atom style");
       set(OMEGA);
       iarg += 4;
@@ -600,6 +611,7 @@ void Set::set(int keyword)
     (AtomVecEllipsoid *) atom->style_match("ellipsoid");
   AtomVecLine *avec_line = (AtomVecLine *) atom->style_match("line");
   AtomVecTri *avec_tri = (AtomVecTri *) atom->style_match("tri");
+  AtomVecBody *avec_body = (AtomVecBody *) atom->style_match("body");
 
   int nlocal = atom->nlocal;
   for (int i = 0; i < nlocal; i++) {
@@ -652,8 +664,9 @@ void Set::set(int keyword)
     else if (keyword == MESO_E) atom->e[i] = dvalue;
     else if (keyword == MESO_CV) atom->cv[i] = dvalue;
     else if (keyword == MESO_RHO) atom->rho[i] = dvalue;
-    else if (keyword == SMD_MASS_DENSITY) { // set mass from volume and supplied mass density
-    	atom->rmass[i] = atom->vfrac[i] * dvalue;
+    else if (keyword == SMD_MASS_DENSITY) { 
+      // set mass from volume and supplied mass density
+      atom->rmass[i] = atom->vfrac[i] * dvalue;
     }
     else if (keyword == SMD_CONTACT_RADIUS) atom->contact_radius[i] = dvalue;
 
@@ -726,17 +739,23 @@ void Set::set(int keyword)
                       mu[i][2]*mu[i][2]);
     }
 
-    // set quaternion orientation of ellipsoid or tri particle
-
+    // set quaternion orientation of ellipsoid or tri or body particle
+    // enforce quat rotation vector in z dir for 2d systems
+    
     else if (keyword == QUAT) {
       double *quat;
       if (avec_ellipsoid && atom->ellipsoid[i] >= 0)
         quat = avec_ellipsoid->bonus[atom->ellipsoid[i]].quat;
       else if (avec_tri && atom->tri[i] >= 0)
         quat = avec_tri->bonus[atom->tri[i]].quat;
+      else if (avec_body && atom->body[i] >= 0)
+        quat = avec_body->bonus[atom->body[i]].quat;
       else
         error->one(FLERR,"Cannot set quaternion for atom that has none");
-
+      if (domain->dimension == 2 && (xvalue != 0.0 || yvalue != 0.0))
+        error->one(FLERR,"Cannot set quaternion with xy components "
+                   "for 2d system");
+	
       double theta2 = MY_PI2 * wvalue/180.0;
       double sintheta2 = sin(theta2);
       quat[0] = cos(theta2);
@@ -754,7 +773,7 @@ void Set::set(int keyword)
       avec_line->bonus[atom->line[i]].theta = dvalue;
     }
 
-    // set angmom of ellipsoidal or tri particle
+    // set angmom or omega of particle
 
     else if (keyword == ANGMOM) {
       atom->angmom[i][0] = xvalue;
@@ -767,7 +786,6 @@ void Set::set(int keyword)
       atom->omega[i][1] = yvalue;
       atom->omega[i][2] = zvalue;
     }
-
 
     // reset any or all of 3 image flags
 
@@ -816,7 +834,9 @@ void Set::setrandom(int keyword)
 
   AtomVecEllipsoid *avec_ellipsoid =
     (AtomVecEllipsoid *) atom->style_match("ellipsoid");
+  AtomVecLine *avec_line = (AtomVecLine *) atom->style_match("line");
   AtomVecTri *avec_tri = (AtomVecTri *) atom->style_match("tri");
+  AtomVecBody *avec_body = (AtomVecBody *) atom->style_match("body");
 
   RanPark *random = new RanPark(lmp,1);
   double **x = atom->x;
@@ -876,7 +896,7 @@ void Set::setrandom(int keyword)
         }
     }
 
-  // set quaternions to random orientations in 3d or 2d
+  // set quaternions to random orientations in 3d and 2d
 
   } else if (keyword == QUAT_RANDOM) {
     int nlocal = atom->nlocal;
@@ -890,6 +910,8 @@ void Set::setrandom(int keyword)
             quat = avec_ellipsoid->bonus[atom->ellipsoid[i]].quat;
           else if (avec_tri && atom->tri[i] >= 0)
             quat = avec_tri->bonus[atom->tri[i]].quat;
+	  else if (avec_body && atom->body[i] >= 0)
+	    quat = avec_body->bonus[atom->body[i]].quat;
           else
             error->one(FLERR,"Cannot set quaternion for atom that has none");
 
@@ -912,6 +934,8 @@ void Set::setrandom(int keyword)
         if (select[i]) {
           if (avec_ellipsoid && atom->ellipsoid[i] >= 0)
             quat = avec_ellipsoid->bonus[atom->ellipsoid[i]].quat;
+	  else if (avec_body && atom->body[i] >= 0)
+	    quat = avec_body->bonus[atom->body[i]].quat;
           else
             error->one(FLERR,"Cannot set quaternion for atom that has none");
 
@@ -923,6 +947,21 @@ void Set::setrandom(int keyword)
           quat[3] = sin(theta2);
           count++;
         }
+    }
+
+  // set theta to random orientation in 2d
+
+  } else if (keyword == THETA_RANDOM) {
+    int nlocal = atom->nlocal;
+    double theta;
+    for (i = 0; i < nlocal; i++) {
+      if (select[i]) {
+	if (atom->line[i] < 0)
+	  error->one(FLERR,"Cannot set theta for atom that is not a line");
+	random->reset(seed,x[i]);
+	avec_line->bonus[atom->line[i]].theta = MY_2PI*random->uniform();
+	count++;
+      }
     }
   }
 
