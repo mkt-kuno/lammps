@@ -198,10 +198,11 @@ Pair *Force::pair_creator(LAMMPS *lmp)
    return ptr to Pair class if matches word or matches hybrid sub-style
    if exact, then style name must be exact match to word
    if not exact, style name must contain word
-   return NULL if no match or multiple sub-styles match
+   if nsub > 0, match Nth hybrid sub-style
+   return NULL if no match or if nsub=0 and multiple sub-styles match
 ------------------------------------------------------------------------- */
 
-Pair *Force::pair_match(const char *word, int exact)
+Pair *Force::pair_match(const char *word, int exact, int nsub)
 {
   int iwhich,count;
 
@@ -216,6 +217,7 @@ Pair *Force::pair_match(const char *word, int exact)
           (!exact && strstr(hybrid->keywords[i],word))) {
         iwhich = i;
         count++;
+        if (nsub == count) return hybrid->styles[iwhich];
       }
     if (count == 1) return hybrid->styles[iwhich];
 
@@ -227,6 +229,7 @@ Pair *Force::pair_match(const char *word, int exact)
           (!exact && strstr(hybrid->keywords[i],word))) {
         iwhich = i;
         count++;
+        if (nsub == count) return hybrid->styles[iwhich];
       }
     if (count == 1) return hybrid->styles[iwhich];
   }
@@ -756,7 +759,7 @@ void Force::bounds(char *str, int nmax, int &nlo, int &nhi, int nmin)
     nhi = atoi(ptr+1);
   }
 
-  if (nlo < nmin || nhi > nmax) 
+  if (nlo < nmin || nhi > nmax || nlo > nhi) 
     error->all(FLERR,"Numeric index is out of bounds");
 }
 
@@ -790,7 +793,7 @@ void Force::boundsbig(char *str, bigint nmax, bigint &nlo, bigint &nhi,
     nhi = ATOBIGINT(ptr+1);
   }
 
-  if (nlo < nmin || nhi > nmax) 
+  if (nlo < nmin || nhi > nmax || nlo > nhi) 
     error->all(FLERR,"Numeric index is out of bounds");
 }
 

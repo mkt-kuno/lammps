@@ -29,6 +29,7 @@ class Pair : protected Pointers {
   friend class FixGPU;
   friend class FixOMP;
   friend class ThrOMP;
+  friend class Info;
   friend class Input; //~ Added this friendship for the auto_timestep function [KH - 14 December 2012]
   friend class FixCrushing; //~ Added to access kn, kt and xmu [KH - 15 May 2013]
 

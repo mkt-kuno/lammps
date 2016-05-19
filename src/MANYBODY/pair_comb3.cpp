@@ -54,6 +54,8 @@ PairComb3::PairComb3(LAMMPS *lmp) : Pair(lmp)
   nmax = 0;
   NCo = NULL;
   bbij = NULL;
+  map = NULL;
+  esm = NULL;
   
   nelements = 0;
   elements = NULL;
@@ -3292,9 +3294,10 @@ double PairComb3::combqeq(double *qf_fix, int &igroup)
   qf = qf_fix;
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
-    if (mask[i] & groupbit)
+    if (mask[i] & groupbit) {
       qf[i] = 0.0;
       dpl[i][0] = dpl[i][1] = dpl[i][2] = 0.0;
+    }
   }
   // communicating charge force to all nodes, first forward then reverse
 

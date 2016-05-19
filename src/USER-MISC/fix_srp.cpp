@@ -152,7 +152,8 @@ void FixSRP::setup_pre_force(int zz)
   double delx, dely, delz, rmax, rsq, rsqmax;
   double **x = atom->x;
   bigint nall = atom->nlocal + atom->nghost;
-  double xold[nall][3];
+  double **xold;
+  memory->create(xold,nall,3,"fix_srp:xold");
 
   // make a copy of all coordinates and tags
   // need this because create_atom overwrites ghost atoms
@@ -163,7 +164,8 @@ void FixSRP::setup_pre_force(int zz)
   }
 
   tagint *tag = atom->tag;
-  tagint tagold[nall];
+  tagint *tagold;
+  memory->create(tagold,nall,"fix_srp:tagold");
 
   for(int i = 0; i < nall; i++){
     tagold[i]=tag[i];
@@ -178,7 +180,9 @@ void FixSRP::setup_pre_force(int zz)
   for (int n = 0; n < nbondlist; n++) {
 
    // consider only the user defined bond type
-   if(bondlist[n][2] != btype) continue;
+   // btype of zero considers all bonds
+   if(btype > 0 && bondlist[n][2] != btype)
+     continue;
 
    i = bondlist[n][0];
    j = bondlist[n][1];
@@ -210,7 +214,11 @@ void FixSRP::setup_pre_force(int zz)
         array[atom->nlocal-1][1] =  (double)tagold[j];
         nadd++;
     }
-  } 
+  }
+
+  // free temporary storage
+  memory->destroy(xold);
+  memory->destroy(tagold);
 
   // new total # of atoms
   bigint nblocal = atom->nlocal;

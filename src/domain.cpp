@@ -104,6 +104,8 @@ Domain::Domain(LAMMPS *lmp) : Pointers(lmp)
   nregion = maxregion = 0;
   regions = NULL;
 
+  copymode = 0;
+  
   //~ Initialise at 0 [KH - 17 December 2013]
   ncyclicsteps = 0;
   initialvolume = meaneffectivestress = deviatorstress = 0.0;
@@ -113,6 +115,8 @@ Domain::Domain(LAMMPS *lmp) : Pointers(lmp)
 
 Domain::~Domain()
 {
+  if (copymode) return;
+
   delete lattice;
   for (int i = 0; i < nregion; i++) delete regions[i];
   memory->sfree(regions);

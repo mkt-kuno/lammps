@@ -42,6 +42,8 @@ PairEAM::PairEAM(LAMMPS *lmp) : Pair(lmp)
   nmax = 0;
   rho = NULL;
   fp = NULL;
+  map = NULL;
+  type2frho = NULL;
 
   nfuncfl = 0;
   funcfl = NULL;
@@ -79,6 +81,8 @@ PairEAM::~PairEAM()
     memory->destroy(cutsq);
     delete [] map;
     delete [] type2frho;
+    map = NULL;
+    type2frho = NULL;
     memory->destroy(type2rhor);
     memory->destroy(type2z2r);
   }
@@ -91,6 +95,7 @@ PairEAM::~PairEAM()
       memory->destroy(funcfl[i].zr);
     }
     memory->sfree(funcfl);
+    funcfl = NULL;
   }
 
   if (setfl) {
@@ -101,6 +106,7 @@ PairEAM::~PairEAM()
     memory->destroy(setfl->rhor);
     memory->destroy(setfl->z2r);
     delete setfl;
+    setfl = NULL;
   }
 
   if (fs) {
@@ -111,6 +117,7 @@ PairEAM::~PairEAM()
     memory->destroy(fs->rhor);
     memory->destroy(fs->z2r);
     delete fs;
+    fs = NULL;
   }
 
   memory->destroy(frho);

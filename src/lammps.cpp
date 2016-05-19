@@ -89,6 +89,8 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
 
   suffix = suffix2 = NULL;
   suffix_enable = 0;
+  packargs = NULL;
+  num_package = 0;
   char *rfile = NULL;
   char *dfile = NULL;
   int wdfirst,wdlast;
@@ -192,16 +194,26 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
       if (iarg+2 > narg)
         error->universe_all(FLERR,"Invalid command-line argument");
       delete [] suffix;
-      int n = strlen(arg[iarg+1]) + 1;
-      suffix = new char[n];
-      strcpy(suffix,arg[iarg+1]);
-      // set 2nd suffix = "omp" when suffix = "intel"
-      if (strcmp(suffix,"intel") == 0) {
-        suffix2 = new char[4];
-        strcpy(suffix2,"omp");
-      }
+      delete [] suffix2;
+      suffix2 = NULL;
       suffix_enable = 1;
-      iarg += 2;
+      // hybrid option to set fall-back for suffix2
+      if (strcmp(arg[iarg+1],"hybrid") == 0) {
+        if (iarg+4 > narg)
+          error->universe_all(FLERR,"Invalid command-line argument");
+	int n = strlen(arg[iarg+2]) + 1;
+	suffix = new char[n];
+	strcpy(suffix,arg[iarg+2]);
+	n = strlen(arg[iarg+3]) + 1;
+	suffix2 = new char[n];
+	strcpy(suffix2,arg[iarg+3]);
+	iarg += 4;
+      } else {
+	int n = strlen(arg[iarg+1]) + 1;
+	suffix = new char[n];
+	strcpy(suffix,arg[iarg+1]);
+	iarg += 2;
+      }
     } else if (strcmp(arg[iarg],"-reorder") == 0 ||
                strcmp(arg[iarg],"-ro") == 0) {
       if (iarg+3 > narg)
@@ -500,12 +512,25 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
 
   input = new Input(this,narg,arg);
 
+  // copy package cmdline arguments
+  if (npack > 0) {
+    num_package = npack;
+    packargs = new char**[npack];
+    for (int i=0; i < npack; ++i) {
+      int n = plast[i] - pfirst[i];
+      packargs[i] = new char*[n+1];
+      for (int j=0; j < n; ++j)
+        packargs[i][j] = strdup(arg[pfirst[i]+j]);
+      packargs[i][n] = NULL;
+    }
+    memory->destroy(pfirst);
+    memory->destroy(plast);
+  }
+
   // allocate top-level classes
 
   create();
-  post_create(npack,pfirst,plast,arg);
-  memory->destroy(pfirst);
-  memory->destroy(plast);
+  post_create();
 
   // if helpflag set, print help and quit with "success" status
 
@@ -546,6 +571,17 @@ LAMMPS::~LAMMPS()
 
   destroy();
   delete citeme;
+
+  if (num_package) {
+    for (int i = 0; i < num_package; i++) {
+      for (char **ptr = packargs[i]; *ptr != NULL; ++ptr)
+        free(*ptr);
+      delete[] packargs[i];
+    }
+    delete[] packargs;
+  }
+  num_package = 0;
+  packargs = NULL;
 
   double totalclock = MPI_Wtime() - initclock;
   if ((me == 0) && (screen || logfile)) {
@@ -634,7 +670,6 @@ void LAMMPS::create()
 
 /* ----------------------------------------------------------------------
    check suffix consistency with installed packages
-   turn off suffix2 = omp if USER-OMP is not installed
    invoke package-specific deafult package commands
      only invoke if suffix is set and enabled
      also check if suffix2 is set
@@ -642,7 +677,7 @@ void LAMMPS::create()
      so that package-specific core classes have been instantiated
 ------------------------------------------------------------------------- */
 
-void LAMMPS::post_create(int npack, int *pfirst, int *plast, char **arg)
+void LAMMPS::post_create()
 {
   // default package commands triggered by "-c on" and "-k on"
 
@@ -667,33 +702,27 @@ void LAMMPS::post_create(int npack, int *pfirst, int *plast, char **arg)
   if (strcmp(suffix,"omp") == 0 && !modify->check_package("OMP"))
     error->all(FLERR,"Using suffix omp without USER-OMP package installed");
 
-  // suffix2 only currently set by -sf intel
-  // unset if LAMMPS was not built with USER-OMP package
-
-  if (suffix2 && strcmp(suffix2,"omp") == 0 && !modify->check_package("OMP")) {
-    delete [] suffix2;
-    suffix2 = NULL;
-  }
-
   if (strcmp(suffix,"gpu") == 0) input->one("package gpu 1");
   if (strcmp(suffix,"intel") == 0) input->one("package intel 1");
   if (strcmp(suffix,"omp") == 0) input->one("package omp 0");
 
   if (suffix2) {
+    if (strcmp(suffix2,"gpu") == 0) input->one("package gpu 1");
+    if (strcmp(suffix2,"intel") == 0) input->one("package intel 1");
     if (strcmp(suffix2,"omp") == 0) input->one("package omp 0");
   }
 
   // invoke any command-line package commands
 
-  if (npack) {
-    char str[128];
-    for (int i = 0; i < npack; i++) {
+  if (num_package) {
+    char str[256];
+    for (int i = 0; i < num_package; i++) {
       strcpy(str,"package");
-      for (int j = pfirst[i]; j < plast[i]; j++) {
-        if (strlen(str) + strlen(arg[j]) + 2 > 128)
+      for (char **ptr = packargs[i]; *ptr != NULL; ++ptr) {
+        if (strlen(str) + strlen(*ptr) + 2 > 256)
           error->all(FLERR,"Too many -pk arguments in command line");
         strcat(str," ");
-        strcat(str,arg[j]);
+        strcat(str,*ptr);
       }
       input->one(str);
     }

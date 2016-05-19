@@ -15,6 +15,7 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
+#include "errno.h"
 #include "ctype.h"
 #include "unistd.h"
 #include "sys/stat.h"
@@ -105,7 +106,7 @@ Input::Input(LAMMPS *lmp, int argc, char **argv) : Pointers(lmp)
   // check for args "-var" and "-echo"
   // caller has already checked that sufficient arguments exist
 
-  int iarg = 0;
+  int iarg = 1;
   while (iarg < argc) {
     if (strcmp(argv[iarg],"-var") == 0 || strcmp(argv[iarg],"-v") == 0) {
       int jarg = iarg+3;
@@ -733,7 +734,7 @@ void Input::clear()
   if (narg > 0) error->all(FLERR,"Illegal clear command");
   lmp->destroy();
   lmp->create();
-  lmp->post_create(0,NULL,NULL,NULL);
+  lmp->post_create();
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1086,48 +1087,96 @@ void Input::quit()
 
 /* ---------------------------------------------------------------------- */
 
+char *shell_failed_message(const char* cmd, int errnum)
+{
+  const char *errmsg = strerror(errnum);
+  int len = strlen(cmd)+strlen(errmsg)+64;
+  char *msg = new char[len];
+  sprintf(msg,"shell command '%s' failed with error '%s'", cmd, errmsg);
+  return msg;
+}
+
 void Input::shell()
 {
+  int rv,err;
+
   if (narg < 1) error->all(FLERR,"Illegal shell command");
 
   if (strcmp(arg[0],"cd") == 0) {
     if (narg != 2) error->all(FLERR,"Illegal shell cd command");
-    chdir(arg[1]);
+    rv = (chdir(arg[1]) < 0) ? errno : 0;
+    MPI_Reduce(&rv,&err,1,MPI_INT,MPI_MAX,0,world);
+    if (me == 0 && err != 0) {
+      char *message = shell_failed_message("cd",err);
+      error->warning(FLERR,message);
+      delete [] message;
+    }
 
   } else if (strcmp(arg[0],"mkdir") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal shell mkdir command");
     if (me == 0)
       for (int i = 1; i < narg; i++) {
 #if defined(_WIN32)
-        _mkdir(arg[i]);
+        rv = _mkdir(arg[i]);
 #else
-        mkdir(arg[i], S_IRWXU | S_IRGRP | S_IXGRP);
+        rv = mkdir(arg[i], S_IRWXU | S_IRGRP | S_IXGRP);
 #endif
+        if (rv < 0) {
+          char *message = shell_failed_message("mkdir",errno);
+          error->warning(FLERR,message);
+          delete [] message;
+        }
       }
 
   } else if (strcmp(arg[0],"mv") == 0) {
     if (narg != 3) error->all(FLERR,"Illegal shell mv command");
-    if (me == 0) rename(arg[1],arg[2]);
+    rv = (rename(arg[1],arg[2]) < 0) ? errno : 0;
+    MPI_Reduce(&rv,&err,1,MPI_INT,MPI_MAX,0,world);
+    if (me == 0 && err != 0) {
+      char *message = shell_failed_message("mv",err);
+      error->warning(FLERR,message);
+      delete [] message;
+    }
 
   } else if (strcmp(arg[0],"rm") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal shell rm command");
     if (me == 0)
-      for (int i = 1; i < narg; i++) unlink(arg[i]);
+      for (int i = 1; i < narg; i++) {
+        if (unlink(arg[i]) < 0) {
+          char *message = shell_failed_message("rm",errno);
+          error->warning(FLERR,message);
+          delete [] message;
+        }
+      }
 
   } else if (strcmp(arg[0],"rmdir") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal shell rmdir command");
     if (me == 0)
-      for (int i = 1; i < narg; i++) rmdir(arg[i]);
+      for (int i = 1; i < narg; i++) {
+        if (rmdir(arg[i]) < 0) {
+          char *message = shell_failed_message("rmdir",errno);
+          error->warning(FLERR,message);
+          delete [] message;
+        }
+      }
 
   } else if (strcmp(arg[0],"putenv") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal shell putenv command");
     for (int i = 1; i < narg; i++) {
       char *ptr = strdup(arg[i]);
+      rv = 0;
 #ifdef _WIN32 
-      if (ptr != NULL) _putenv(ptr);
+      if (ptr != NULL) rv = _putenv(ptr);
 #else
-      if (ptr != NULL) putenv(ptr);
+      if (ptr != NULL) rv = putenv(ptr);
 #endif
+      rv = (rv < 0) ? errno : 0;
+      MPI_Reduce(&rv,&err,1,MPI_INT,MPI_MAX,0,world);
+      if (me == 0 && err != 0) {
+        char *message = shell_failed_message("putenv",err);
+        error->warning(FLERR,message);
+        delete [] message;
+      }
     }
 
   // use work string to concat args back into one string separated by spaces
@@ -1144,7 +1193,9 @@ void Input::shell()
       strcat(work,arg[i]);
     }
 
-    if (me == 0) system(work);
+    if (me == 0)
+      if (system(work) != 0)
+        error->warning(FLERR,"shell command returned with non-zero status");
   }
 }
 
@@ -1699,7 +1750,7 @@ void Input::special_bonds()
 
 void Input::suffix()
 {
-  if (narg != 1) error->all(FLERR,"Illegal suffix command");
+  if (narg < 1) error->all(FLERR,"Illegal suffix command");
 
   if (strcmp(arg[0],"off") == 0) lmp->suffix_enable = 0;
   else if (strcmp(arg[0],"on") == 0) lmp->suffix_enable = 1;
@@ -1707,17 +1758,21 @@ void Input::suffix()
     lmp->suffix_enable = 1;
 
     delete [] lmp->suffix;
-    int n = strlen(arg[0]) + 1;
-    lmp->suffix = new char[n];
-    strcpy(lmp->suffix,arg[0]);
+    delete [] lmp->suffix2;
 
-    // set 2nd suffix = "omp" when suffix = "intel"
-    // but only if USER-OMP package is installed
-
-    if (strcmp(lmp->suffix,"intel") == 0 && modify->check_package("OMP")) {
-      delete [] lmp->suffix2;
-      lmp->suffix2 = new char[4];
-      strcpy(lmp->suffix2,"omp");
+    if (strcmp(arg[0],"hybrid") == 0) {
+      if (narg != 3) error->all(FLERR,"Illegal suffix command");
+      int n = strlen(arg[1]) + 1;
+      lmp->suffix = new char[n];
+      strcpy(lmp->suffix,arg[1]);
+      n = strlen(arg[2]) + 1;
+      lmp->suffix2 = new char[n];
+      strcpy(lmp->suffix2,arg[2]);
+    } else {
+      if (narg != 1) error->all(FLERR,"Illegal suffix command");
+      int n = strlen(arg[0]) + 1;
+      lmp->suffix = new char[n];
+      strcpy(lmp->suffix,arg[0]);
     }
   }
 }

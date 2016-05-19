@@ -97,6 +97,7 @@ class FixGCMC : public Fix {
   int max_region_attempts;
   double gas_mass;
   double reservoir_temperature;
+  double tfac_insert;
   double chemical_potential;
   double displace;
   double max_rotation_angle;
@@ -173,7 +174,7 @@ E: Fix gcmc molecule must have atom types
 
 The defined molecule does not specify atom types.
 
-E: Invalid atom type in fix gcmc mol command
+E: Atom type must be zero in fix gcmc mol command
 
 Self-explanatory.
 

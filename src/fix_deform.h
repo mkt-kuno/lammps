@@ -32,18 +32,18 @@ class FixDeform : public Fix {
   int mstractive; //~ A flag to indicate whether or not there is a fix_multistress active [KH - 13 December 2011]
 
   FixDeform(class LAMMPS *, int, char **);
-  ~FixDeform();
+  virtual ~FixDeform();
   int setmask();
   void init();
-  void pre_exchange();
-  void end_of_step();
+  virtual void pre_exchange();
+  virtual void end_of_step();
   double memory_usage();
 
   /*~ Added *param_export to allow the calling function to access 
     details of the rates of boundary movement [KH - 9 November 2011]*/
   double *param_export();
 
- private:
+ protected:
   int triclinic,scaleflag,flipflag;
   int flipxy,flipxz,flipyz;
   double *h_rate,*h_ratelo;
