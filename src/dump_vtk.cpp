@@ -59,7 +59,8 @@ DumpVTK::DumpVTK(LAMMPS *lmp, int narg, char **arg) :
   clearstep = 1;
 
   nevery = force->inumeric(FLERR,arg[3]);
-
+  if (nevery <= 0) error->all(FLERR,"Illegal dump vtk command");
+ 
   // size_one may be changed below if necessary
 
   size_one = nfield = narg - 1;
