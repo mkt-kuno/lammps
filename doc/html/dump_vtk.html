@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>dump/vtk command &mdash; LAMMPS 15 May 2015 version documentation</title>
+  <title>dump vtk command &mdash; LAMMPS documentation</title>
   
 
   
@@ -32,7 +32,7 @@
   
 
   
-    <link rel="top" title="LAMMPS 15 May 2015 version documentation" href="index.html"/> 
+    <link rel="top" title="LAMMPS documentation" href="index.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -109,7 +109,7 @@
   <ul class="wy-breadcrumbs">
     <li><a href="Manual.html">Docs</a> &raquo;</li>
       
-    <li>dump/vtk command</li>
+    <li>dump vtk command</li>
       <li class="wy-breadcrumbs-aside">
         
           
@@ -125,9 +125,9 @@
            <div itemprop="articleBody">
             
   <div class="section" id="dump-vtk-command">
-<span id="index-0"></span><h1>dump vtk command<a class="headerlink" href="#dump-vtk-command" title="Permalink to this headline">¶</a></h1>
+<span id="index-0"></span><h1>dump vtk command</h1>
 <div class="section" id="syntax">
-<h2>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h2>
+<h2>Syntax</h2>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">dump</span> <span class="n">ID</span> <span class="n">group</span><span class="o">-</span><span class="n">ID</span> <span class="n">vtk</span> <span class="n">N</span> <span class="n">dump</span><span class="o">.*.</span><span class="n">vtp</span> <span class="n">args</span>
 </pre></div>
 </div>
@@ -192,7 +192,7 @@ y-component of velocity for all particles. Note that x was ignored - this is bec
 written out by default (see below).</p>
 </div>
 <div class="section" id="description">
-<h2>Description<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h2>
+<h2>Description</h2>
 <p>This is a modification of <a class="reference internal" href="dump.html"><span class="doc">dump</span></a> with the <em>custom</em> style. Instead of
 creating conventional dump files, this fix creates .vtp files which are formatted
 correctly for input to ParaView. The .vtp files are written every N timesteps and
@@ -250,11 +250,11 @@ dump file.</p>
 </div>
 <hr class="docutils" />
 <div class="section" id="restrictions">
-<h2>Restrictions<a class="headerlink" href="#restrictions" title="Permalink to this headline">¶</a></h2>
+<h2>Restrictions</h2>
 <p>dump vtk has not been written for 2D simulations: 3D only.</p>
 </div>
 <div class="section" id="related-commands">
-<h2>Related commands<a class="headerlink" href="#related-commands" title="Permalink to this headline">¶</a></h2>
+<h2>Related commands</h2>
 <p><a class="reference internal" href="dump.html"><span class="doc">dump</span></a>,
 <a class="reference internal" href="dump_image.html"><span class="doc">dump image</span></a>, <a class="reference internal" href="dump_modify.html"><span class="doc">dump_modify</span></a>,
 <a class="reference internal" href="undump.html"><span class="doc">undump</span></a></p>
@@ -271,7 +271,7 @@ dump file.</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright .
+        &copy; Copyright 2013 Sandia Corporation.
     </p>
   </div>
   Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
@@ -292,7 +292,7 @@ dump file.</p>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'15 May 2015 version',
+            VERSION:'',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

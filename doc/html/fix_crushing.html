@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>fix crushing command &mdash; LAMMPS 15 May 2015 version documentation</title>
+  <title>fix crushing command &mdash; LAMMPS documentation</title>
   
 
   
@@ -32,7 +32,7 @@
   
 
   
-    <link rel="top" title="LAMMPS 15 May 2015 version documentation" href="index.html"/> 
+    <link rel="top" title="LAMMPS documentation" href="index.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -125,9 +125,9 @@
            <div itemprop="articleBody">
             
   <div class="section" id="fix-crushing-command">
-<span id="index-0"></span><h1>fix crushing command<a class="headerlink" href="#fix-crushing-command" title="Permalink to this headline">¶</a></h1>
+<span id="index-0"></span><h1>fix crushing command</h1>
 <div class="section" id="syntax">
-<h2>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h2>
+<h2>Syntax</h2>
 <pre class="literal-block">
 fix ID group-ID crushing outputflag seed m sigma0 d0 a b chi alpha redtype <em>reduction</em> constante <em>commlimit</em> <em>m2</em> <em>sigma02</em> <em>d02</em> <em>a2</em> <em>b2</em> <em>reallocate</em>
 </pre>
@@ -156,13 +156,13 @@ fix ID group-ID crushing outputflag seed m sigma0 d0 a b chi alpha redtype <em>r
 </ul>
 </div>
 <div class="section" id="examples">
-<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<h2>Examples</h2>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fix</span> <span class="mi">1</span> <span class="nb">all</span> <span class="n">crushing</span> <span class="mi">1</span> <span class="mi">73547</span> <span class="mf">1.0</span> <span class="mf">2.5e7</span> <span class="mf">1.29e-3</span> <span class="o">-</span><span class="mf">0.5882</span> <span class="mf">1.0</span> <span class="mi">100</span> <span class="mf">0.001</span> <span class="mi">1</span> <span class="mi">0</span> <span class="mi">6</span><span class="n">e</span><span class="o">-</span><span class="mi">5</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="description">
-<h2>Description<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h2>
+<h2>Description</h2>
 <p>This fix allows particle crushing during a simulation. The two-parameter failure
 criterion for brittle materials proposed by Christensen (2000) was chosen, which
 is well described by Russell and Muir Wood (2009). In order to use this failure
@@ -213,7 +213,7 @@ following syntax:</p>
 </div>
 </div>
 <div class="section" id="restrictions">
-<h2>Restrictions<a class="headerlink" href="#restrictions" title="Permalink to this headline">¶</a></h2>
+<h2>Restrictions</h2>
 <ul class="simple">
 <li>Fix crushing requires the use of the sphere atom_style.</li>
 <li>It is defined only for 3D simulations.</li>
@@ -238,7 +238,7 @@ following syntax:</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright .
+        &copy; Copyright 2013 Sandia Corporation.
     </p>
   </div>
   Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
@@ -259,7 +259,7 @@ following syntax:</p>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'15 May 2015 version',
+            VERSION:'',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

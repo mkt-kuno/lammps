@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>fix fluiddrag command &mdash; LAMMPS 15 May 2015 version documentation</title>
+  <title>fix fluiddrag command &mdash; LAMMPS documentation</title>
   
 
   
@@ -32,7 +32,7 @@
   
 
   
-    <link rel="top" title="LAMMPS 15 May 2015 version documentation" href="index.html"/> 
+    <link rel="top" title="LAMMPS documentation" href="index.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -125,9 +125,9 @@
            <div itemprop="articleBody">
             
   <div class="section" id="fix-fluiddrag-command">
-<span id="index-0"></span><h1>fix fluiddrag command<a class="headerlink" href="#fix-fluiddrag-command" title="Permalink to this headline">¶</a></h1>
+<span id="index-0"></span><h1>fix fluiddrag command</h1>
 <div class="section" id="syntax">
-<h2>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h2>
+<h2>Syntax</h2>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fix</span> <span class="n">ID</span> <span class="n">group</span><span class="o">-</span><span class="n">ID</span> <span class="n">fluiddrag</span> <span class="n">i</span> <span class="n">N</span> <span class="n">style</span> <span class="n">magnitude</span> <span class="n">args</span>
 </pre></div>
 </div>
@@ -162,13 +162,13 @@ the velocities of all particles in the system on each timestep
 </pre>
 </div>
 <div class="section" id="examples">
-<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<h2>Examples</h2>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fix</span> <span class="mi">1</span> <span class="nb">all</span> <span class="n">fluiddrag</span> <span class="mf">5.0</span> <span class="mi">0</span> <span class="n">vector</span> <span class="mi">1</span> <span class="mi">0</span> <span class="mi">0</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="description">
-<h2>Description<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h2>
+<h2>Description</h2>
 <p>A fix based on <a class="reference internal" href="fix_gravity.html"><span class="doc">fix gravity</span></a> which simulates the flow
 of water through a packing of particles using a simple model. It is
 important to note that SI units must be used as the specific weight
@@ -210,7 +210,7 @@ if so desired. There are 9 available columns in 2D and 11 in 3D which are ordere
 </ul>
 </div>
 <div class="section" id="restart-fix-modify-output-run-start-stop-minimize-info">
-<h2>Restart, fix_modify, output, run start/stop, minimize info<a class="headerlink" href="#restart-fix-modify-output-run-start-stop-minimize-info" title="Permalink to this headline">¶</a></h2>
+<h2>Restart, fix_modify, output, run start/stop, minimize info</h2>
 <p>No information about this fix is written to <a class="reference internal" href="restart.html"><span class="doc">binary restart files</span></a>.  None of the <a class="reference internal" href="fix_modify.html"><span class="doc">fix_modify</span></a> options
 are relevant to this fix. No parameter of this fix can
 be used with the <em>start/stop</em> keywords of the <a class="reference internal" href="run.html"><span class="doc">run</span></a> command.
@@ -218,14 +218,14 @@ This fix is not invoked during <a class="reference internal" href="minimize.html
 The existence of per-atom quantities has already be described.</p>
 </div>
 <div class="section" id="restrictions">
-<h2>Restrictions<a class="headerlink" href="#restrictions" title="Permalink to this headline">¶</a></h2>
+<h2>Restrictions</h2>
 <ul class="simple">
 <li>Fix fluiddrag requires the use of the sphere atom_style.</li>
 <li>SI units must be used at present.</li>
 </ul>
 </div>
 <div class="section" id="related-commands">
-<h2>Related commands<a class="headerlink" href="#related-commands" title="Permalink to this headline">¶</a></h2>
+<h2>Related commands</h2>
 <p><a class="reference internal" href="fix_gravity.html"><span class="doc">fix gravity</span></a></p>
 <p><strong>Default:</strong> none</p>
 </div>
@@ -241,7 +241,7 @@ The existence of per-atom quantities has already be described.</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright .
+        &copy; Copyright 2013 Sandia Corporation.
     </p>
   </div>
   Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
@@ -262,7 +262,7 @@ The existence of per-atom quantities has already be described.</p>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'15 May 2015 version',
+            VERSION:'',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>compute energy/gran command &mdash; LAMMPS 15 May 2015 version documentation</title>
+  <title>compute energy/gran command &mdash; LAMMPS documentation</title>
   
 
   
@@ -32,7 +32,7 @@
   
 
   
-    <link rel="top" title="LAMMPS 15 May 2015 version documentation" href="index.html"/> 
+    <link rel="top" title="LAMMPS documentation" href="index.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -125,9 +125,9 @@
            <div itemprop="articleBody">
             
   <div class="section" id="compute-energy-gran-command">
-<span id="index-0"></span><h1>compute energy/gran command<a class="headerlink" href="#compute-energy-gran-command" title="Permalink to this headline">¶</a></h1>
+<span id="index-0"></span><h1>compute energy/gran command</h1>
 <div class="section" id="syntax">
-<h2>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h2>
+<h2>Syntax</h2>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">compute</span> <span class="n">ID</span> <span class="n">group</span><span class="o">-</span><span class="n">ID</span> <span class="n">energy</span><span class="o">/</span><span class="n">gran</span> <span class="n">term_1</span> <span class="n">term_2</span> <span class="o">...</span>
 </pre></div>
 </div>
@@ -153,14 +153,14 @@
 </div>
 </div>
 <div class="section" id="examples">
-<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<h2>Examples</h2>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">compute</span> <span class="mi">1</span> <span class="nb">all</span> <span class="n">energy</span><span class="o">/</span><span class="n">gran</span> <span class="n">translational_kinetic</span> <span class="n">friction</span> <span class="n">kinetic</span> <span class="n">rotational_kinetic</span> <span class="n">normal_strain</span> <span class="n">shear_strain</span> <span class="n">boundary</span> <span class="n">strain</span> <span class="n">damping</span>
 <span class="n">compute</span> <span class="mi">1</span> <span class="nb">all</span> <span class="n">energy</span><span class="o">/</span><span class="n">gran</span> <span class="n">strain</span> <span class="n">friction</span> <span class="n">kinetic</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="description">
-<h2>Description<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h2>
+<h2>Description</h2>
 <p>Define a computation that allows various specified components of
 energy to be written out periodically during a simulation. This
 compute requires a granular pairstyle to be defined. When <em>boundary</em>
@@ -229,7 +229,7 @@ energy components using the following syntax:</p>
 options and a MATLAB plotting script are provided with the other documentation.</p>
 </div>
 <div class="section" id="restrictions">
-<h2>Restrictions<a class="headerlink" href="#restrictions" title="Permalink to this headline">¶</a></h2>
+<h2>Restrictions</h2>
 <blockquote>
 <div>A granular pairstyle must be defined.</div></blockquote>
 <p><strong>Default:</strong> none</p>
@@ -246,7 +246,7 @@ options and a MATLAB plotting script are provided with the other documentation.<
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright .
+        &copy; Copyright 2013 Sandia Corporation.
     </p>
   </div>
   Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
@@ -267,7 +267,7 @@ options and a MATLAB plotting script are provided with the other documentation.<
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'15 May 2015 version',
+            VERSION:'',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

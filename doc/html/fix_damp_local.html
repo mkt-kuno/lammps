@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>fix damp/local command &mdash; LAMMPS 15 May 2015 version documentation</title>
+  <title>fix damp/local command &mdash; LAMMPS documentation</title>
   
 
   
@@ -32,7 +32,7 @@
   
 
   
-    <link rel="top" title="LAMMPS 15 May 2015 version documentation" href="index.html"/> 
+    <link rel="top" title="LAMMPS documentation" href="index.html"/> 
 
   
   <script src="_static/js/modernizr.min.js"></script>
@@ -125,9 +125,9 @@
            <div itemprop="articleBody">
             
   <div class="section" id="fix-damp-local-command">
-<span id="index-0"></span><h1>fix damp/local command<a class="headerlink" href="#fix-damp-local-command" title="Permalink to this headline">¶</a></h1>
+<span id="index-0"></span><h1>fix damp/local command</h1>
 <div class="section" id="syntax">
-<h2>Syntax<a class="headerlink" href="#syntax" title="Permalink to this headline">¶</a></h2>
+<h2>Syntax</h2>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fix</span> <span class="n">ID</span> <span class="n">group</span><span class="o">-</span><span class="n">ID</span> <span class="n">damp</span><span class="o">/</span><span class="n">local</span> <span class="n">alpha</span>
 </pre></div>
 </div>
@@ -138,13 +138,13 @@
 </ul>
 </div>
 <div class="section" id="examples">
-<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<h2>Examples</h2>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">fix</span> <span class="mi">1</span> <span class="n">AtomsToDamp</span> <span class="n">damp</span><span class="o">/</span><span class="n">local</span> <span class="mf">0.7</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="description">
-<h2>Description<a class="headerlink" href="#description" title="Permalink to this headline">¶</a></h2>
+<h2>Description</h2>
 <p>Add a damping force to atoms in the group. This damping force is not
 related to any physically justified damping model, but constitutes a
 rather efficient way of bringing the system down to equilibrium.</p>
@@ -157,19 +157,19 @@ that will be removed if Fresultant and velocity are collinear.</p>
 </div>
 <hr class="docutils" />
 <div class="section" id="restart-fix-modify-output-run-start-stop-minimize-info">
-<h2>Restart, fix_modify, output, run start/stop, minimize info<a class="headerlink" href="#restart-fix-modify-output-run-start-stop-minimize-info" title="Permalink to this headline">¶</a></h2>
+<h2>Restart, fix_modify, output, run start/stop, minimize info</h2>
 <p>No information about this fix is written to <a class="reference internal" href="restart.html"><span class="doc">binary restart files</span></a>.  <a class="reference internal" href="fix_modify.html"><span class="doc">fix_modify</span></a> can be used
 to change the alpha parameter.  No global or per-atom quantities
 are stored by this fix for access by various <a class="reference internal" href="Section_howto.html#howto-15"><span class="std std-ref">output commands</span></a>.  No parameter of this fix can
 be used with the <em>start/stop</em> keywords of the <a class="reference internal" href="run.html"><span class="doc">run</span></a> command.</p>
 </div>
 <div class="section" id="restrictions">
-<h2>Restrictions<a class="headerlink" href="#restrictions" title="Permalink to this headline">¶</a></h2>
+<h2>Restrictions</h2>
 <blockquote>
 <div>none</div></blockquote>
 </div>
 <div class="section" id="related-commands">
-<h2>Related commands<a class="headerlink" href="#related-commands" title="Permalink to this headline">¶</a></h2>
+<h2>Related commands</h2>
 <p>The <a class="reference internal" href="fix_viscous.html"><span class="doc">fix viscous</span></a> damping command might be a useful alternative</p>
 <p><strong>Default:</strong> none</p>
 <hr class="docutils" />
@@ -188,7 +188,7 @@ be used with the <em>start/stop</em> keywords of the <a class="reference interna
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright .
+        &copy; Copyright 2013 Sandia Corporation.
     </p>
   </div>
   Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
@@ -209,7 +209,7 @@ be used with the <em>start/stop</em> keywords of the <a class="reference interna
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'15 May 2015 version',
+            VERSION:'',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true
