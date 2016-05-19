@@ -29,7 +29,7 @@
 #include "memory.h"
 #include "error.h"
 #include "domain.h" //~ Added these two header files [KH - 1 November 2011]
-#include "math.h"
+#include <math.h>
 
 using namespace LAMMPS_NS;
 

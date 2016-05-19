@@ -15,9 +15,9 @@
    Contributing author: Daniel Schwen
 ------------------------------------------------------------------------- */
 
-#include "math.h"
-#include "string.h"
-#include "stdlib.h"
+#include <math.h>
+#include <string.h>
+#include <stdlib.h>
 #include "compute_laguerre_atom.h"
 #include "atom.h"
 #include "update.h"

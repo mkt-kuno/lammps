@@ -25,7 +25,7 @@
 #include "modify.h"
 #include "memory.h"
 #include "error.h"
-#include "stdlib.h"  //added in GM
+#include <stdlib.h>  //added in GM
 
 using namespace LAMMPS_NS;
 using namespace FixConst;

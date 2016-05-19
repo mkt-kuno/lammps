@@ -11,11 +11,11 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include "mpi.h" //~ Added for MPI gathering of quantities on different procs
-#include "math.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "string.h"
+#include <mpi.h> //~ Added for MPI gathering of quantities on different procs
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "fix_fluiddrag.h"
 #include "atom.h"
 #include "update.h"

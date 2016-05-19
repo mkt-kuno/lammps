@@ -15,10 +15,10 @@
    Contributing author: Kevin Hanley (Imperial)
 ------------------------------------------------------------------------- */
 
-#include "mpi.h"
-#include "math.h"
-#include "stdlib.h"
-#include "string.h"
+#include <mpi.h>
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 #include "fix_crushing.h"
 #include "atom.h"
 #include "atom_vec.h"

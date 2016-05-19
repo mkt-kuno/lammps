@@ -37,7 +37,7 @@
 #include "math_extra.h" //~ For rolling resistance [KH - 23 October 2013]
 #include "fix_old_omega.h" //~ And these three too [KH - 6 November 2013]
 #include "math_special.h"
-#include "mpi.h"
+#include <mpi.h>
 #include "compute_energy_gran.h" //~ For energy tracing [KH - 19 February 2014]
 
 using namespace LAMMPS_NS;

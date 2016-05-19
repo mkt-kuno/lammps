@@ -15,8 +15,8 @@
    Contributing author: Kevin Hanley (Imperial)
 ------------------------------------------------------------------------- */
 
-#include "stdlib.h"
-#include "string.h"
+#include <stdlib.h>
+#include <string.h>
 #include "fix_old_omega.h"
 #include "atom.h"
 #include "update.h"

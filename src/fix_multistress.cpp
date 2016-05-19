@@ -15,10 +15,10 @@
    Contributing author: Kevin Hanley (Imperial)
 ------------------------------------------------------------------------- */
 
-#include "mpi.h"
-#include "string.h"
-#include "stdlib.h"
-#include "math.h"
+#include <mpi.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
 #include "atom.h"
 #include "modify.h"
 #include "fix_multistress.h"
