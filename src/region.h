@@ -100,6 +100,10 @@ E: Variable for region is not equal style
 
 Self-explanatory.
 
+E: Can only use Kokkos supported regions with Kokkos package
+
+Self-explanatory.
+
 E: Illegal ... command
 
 Self-explanatory.  Check the input script syntax and compare to the

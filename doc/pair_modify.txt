@@ -44,7 +44,7 @@ pair_modify trace_energy
 pair_modify table 12 
 pair_modify rolling 1 5.0 0.5 1
 pair_modify pair lj/cut compute no
-pair_modify pair lj/cut/coul/long 1 special lj/coul 0.0 0.0 0.0:pre
+pair_modify pair lj/cut/coul/long 1 special lj/coul 0.0 0.0 0.0 :pre
 
 [Description:]
 

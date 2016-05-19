@@ -109,14 +109,6 @@ E: Fix move cannot define z or vz variable for 2d problem
 
 Self-explanatory.
 
-W: Fix move does not update angular momentum
-
-Atoms store this quantity, but fix move does not (yet) update it.
-
-W: Fix move does not update quaternions
-
-Atoms store this quantity, but fix move does not (yet) update it.
-
 E: Zero length rotation vector with fix move
 
 Self-explanatory.

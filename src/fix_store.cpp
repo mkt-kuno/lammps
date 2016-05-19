@@ -23,7 +23,7 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-enum{GLOBAL,PERATOM};
+enum{UNKNOWN,GLOBAL,PERATOM};
 
 /* ---------------------------------------------------------------------- */
 
@@ -35,13 +35,16 @@ FixStore::FixStore(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   // syntax: id group style global nrow ncol
   //   Nrow by Ncol array of global values
   //   Ncol = 1 is vector, Nrow > 1 is array
-  // syntax: id group style peratom 0/1 nvalue
+  // syntax: id group style peratom 0/1 nvalues
   //   0/1 flag = not-store or store peratom values in restart file
-  //   nvalue = # of peratom values, N = 1 is vector, N > 1 is array
+  //   nvalues = # of peratom values, N = 1 is vector, N > 1 is array
+
+  nvalues = vecflag = 0;
+  flavor = UNKNOWN; 
 
   if (strcmp(arg[3],"global") == 0) flavor = GLOBAL;
   else if (strcmp(arg[3],"peratom") == 0) flavor = PERATOM;
-  else error->all(FLERR,"Invalid fix store command");
+  else error->all(FLERR,"Illegal fix store command");
 
   // GLOBAL values are always written to restart file
   // PERATOM restart_peratom is set by caller
@@ -51,7 +54,7 @@ FixStore::FixStore(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     nrow = force->inumeric(FLERR,arg[4]);
     ncol = force->inumeric(FLERR,arg[5]);
     if (nrow <= 0 || ncol <= 0)
-      error->all(FLERR,"Invalid fix store command");
+      error->all(FLERR,"Illegal fix store command");
     vecflag = 0;
     if (ncol == 1) vecflag = 1;
   }
@@ -59,7 +62,7 @@ FixStore::FixStore(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     restart_peratom = force->inumeric(FLERR,arg[4]);
     nvalues = force->inumeric(FLERR,arg[5]);
     if (restart_peratom < 0 or restart_peratom > 1 || nvalues <= 0)
-      error->all(FLERR,"Invalid fix store command");
+      error->all(FLERR,"Illegal fix store command");
     vecflag = 0;
     if (nvalues == 1) vecflag = 1;
   }
@@ -102,7 +105,6 @@ FixStore::FixStore(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
         for (int j = 0; j < nvalues; j++)
           astore[i][j] = 0.0;
   }
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -317,7 +319,7 @@ int FixStore::size_restart(int nlocal)
 
 double FixStore::memory_usage()
 {
-  double bytes;
+  double bytes = 0.0;
   if (flavor == GLOBAL) bytes += nrow*ncol * sizeof(double);
   if (flavor == PERATOM) bytes += atom->nmax*nvalues * sizeof(double);
   return bytes;
