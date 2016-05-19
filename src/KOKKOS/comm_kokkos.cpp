@@ -105,9 +105,9 @@ void CommKokkos::init()
 
   int check_forward = 0;
   int check_reverse = 0;
-  if (force->pair && !force->pair->execution_space == Device)
+  if (force->pair && (force->pair->execution_space == Host))
     check_forward += force->pair->comm_forward;
-  if (force->pair && !force->pair->execution_space == Device)
+  if (force->pair && (force->pair->execution_space == Host))
     check_reverse += force->pair->comm_reverse;
 
   for (int i = 0; i < modify->nfix; i++) {
@@ -364,7 +364,7 @@ void CommKokkos::exchange()
   if(atom->nextra_grow + atom->nextra_border) {
     if(!exchange_comm_classic) {
       static int print = 1;
-      if(print) {
+      if(print && comm->me==0) {
         error->warning(FLERR,"Fixes cannot send data in Kokkos communication, "
 		       "switching to classic communication");
         print = 0;

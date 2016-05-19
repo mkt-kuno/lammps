@@ -159,7 +159,6 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   double **torque = atom->torque;
   double *radius = atom->radius;
   double *rmass = atom->rmass;
-  int *type = atom->type;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
   double deltan,cri,crj;
@@ -859,7 +858,7 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
 
   // normal forces = Hookian contact
   ccel = kn*(radsum-r)*rinv;
-
+  
   // shear history effects
   // neighprev = index of found neigh on previous call
   // search entire jnum list of neighbors of I for neighbor J

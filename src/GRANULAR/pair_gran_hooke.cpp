@@ -89,7 +89,6 @@ void PairGranHooke::compute(int eflag, int vflag)
   double **torque = atom->torque;
   double *radius = atom->radius;
   double *rmass = atom->rmass;
-  int *type = atom->type;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
   int newton_pair = force->newton_pair;
@@ -351,7 +350,6 @@ double PairGranHooke::single(int i, int j, int itype, int jtype, double rsq,
   // if I or J is frozen, meff is other particle
 
   double *rmass = atom->rmass;
-  int *type = atom->type;
   int *mask = atom->mask;
 
   mi = rmass[i];

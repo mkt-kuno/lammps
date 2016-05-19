@@ -534,7 +534,7 @@ void Domain::pbc()
 
   double *coord;
   int n3 = 3*nlocal;
-  if (x) coord = &x[0][0];
+  coord = &x[0][0];  // note: x is always initialzed to at least one element.
   int flag = 0;
   for (i = 0; i < n3; i++)
     if (!ISFINITE(*coord++)) flag = 1;
