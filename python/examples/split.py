@@ -1,5 +1,5 @@
 #!/usr/bin/env python -i
-# preceeding line should have path for Python on your machine
+# preceding line should have path for Python on your machine
 
 # split.py
 # Purpose: similar to simple.py, but first the world communicator
@@ -7,13 +7,14 @@
 # Syntax:  split.py in.lammps
 #          in.lammps = LAMMPS input script
 
+from __future__ import print_function
 import sys
 
 # parse command line
 
 argv = sys.argv
 if len(argv) != 2:
-  print "Syntax: simple.py in.lammps"
+  print("Syntax: simple.py in.lammps")
   sys.exit()
 
 infile = sys.argv[1]
@@ -57,12 +58,12 @@ if color == 0:
   lmp.command("run 1");
 
   f = lmp.extract_atom("f",3)
-  print "Force on 1 atom via extract_atom: ",f[0][0]
+  print("Force on 1 atom via extract_atom: ",f[0][0])
 
   fx = lmp.extract_variable("fx","all",1)
-  print "Force on 1 atom via extract_variable:",fx[0]
-  print "Proc %d out of %d procs has" % (me,nprocs), lmp
-  print "Calculation on partition 0 complete"
+  print("Force on 1 atom via extract_variable:",fx[0])
+  print("Proc %d out of %d procs has" % (me,nprocs), lmp)
+  print("Calculation on partition 0 complete")
 
 else:
   # could run a 2nd calculation on second partition
@@ -71,7 +72,7 @@ else:
   
   import time
   time.sleep(2)
-  print "Calculation on partition 1 complete"
+  print("Calculation on partition 1 complete")
 
 # shutdown mpi4py
   

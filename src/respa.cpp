@@ -44,8 +44,12 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-Respa::Respa(LAMMPS *lmp, int narg, char **arg) : Integrate(lmp, narg, arg)
+Respa::Respa(LAMMPS *lmp, int narg, char **arg) : 
+  Integrate(lmp, narg, arg),
+  step(NULL), loop(NULL), hybrid_level(NULL), hybrid_compute(NULL), 
+  newton(NULL), fix_respa(NULL)
 {
+  nhybrid_styles = 0;
   if (narg < 1) error->all(FLERR,"Illegal run_style respa command");
 
   nlevels = force->inumeric(FLERR,arg[0]);
@@ -67,6 +71,7 @@ Respa::Respa(LAMMPS *lmp, int narg, char **arg) : Integrate(lmp, narg, arg)
   level_inner = level_middle = level_outer = -1;
 
   // defaults for hybrid pair styles
+
   nhybrid_styles = 0;
   tally_global = 1;
   pair_compute = 1;
@@ -150,9 +155,12 @@ Respa::Respa(LAMMPS *lmp, int narg, char **arg) : Integrate(lmp, narg, arg)
     error->all(FLERR,"Cannot set respa middle without inner/outer");
 
   // cannot combine hybrid with any of pair/inner/middle/outer
+
   if ((nhybrid_styles > 0) && (level_pair >= 0 || level_inner >= 0
                                || level_middle >= 0 || level_outer >= 0))
-    error->all(FLERR,"Cannot set respa hybrid and any of pair/inner/middle/outer");
+    error->all(FLERR,"Cannot set respa hybrid and "
+               "any of pair/inner/middle/outer");
+
   // set defaults if user did not specify level
   // bond to innermost level
   // angle same as bond, dihedral same as angle, improper same as dihedral
@@ -269,7 +277,9 @@ Respa::Respa(LAMMPS *lmp, int narg, char **arg) : Integrate(lmp, narg, arg)
     cutoff[3] = cutoff[1];
   }
 
-  // ensure that pair->compute() is run properly when the "hybrid" keyword is not used.
+  // ensure that pair->compute() is run properly
+  // when the hybrid keyword is not used
+
   if (nhybrid_styles < 1) {
     pair_compute = 1;
     tally_global = 1;
@@ -388,13 +398,27 @@ void Respa::init()
    setup before run
 ------------------------------------------------------------------------- */
 
-void Respa::setup()
+void Respa::setup(int flag)
 {
   if (comm->me == 0 && screen) {
     fprintf(screen,"Setting up r-RESPA run ...\n");
-    fprintf(screen,"  Unit style    : %s\n", update->unit_style);
-    fprintf(screen,"  Current step  : " BIGINT_FORMAT "\n", update->ntimestep);
-    fprintf(screen,"  OuterTime step: %g\n", update->dt);
+    if (flag) {
+      fprintf(screen,"  Unit style    : %s\n", update->unit_style);
+      fprintf(screen,"  Current step  : " BIGINT_FORMAT "\n",
+              update->ntimestep);
+      fprintf(screen,"  Time steps    :");
+      for (int ilevel=0; ilevel < nlevels; ++ilevel)
+        fprintf(screen," %d:%g",ilevel+1, step[ilevel]);
+      fprintf(screen,"\n  r-RESPA fixes :");
+      for (int l=0; l < modify->n_post_force_respa; ++l) {
+        Fix *f = modify->fix[modify->list_post_force_respa[l]];
+        if (f->respa_level >= 0)
+          fprintf(screen," %d:%s[%s]",
+                  MIN(f->respa_level+1,nlevels),f->style,f->id);
+      }
+      fprintf(screen,"\n");
+      timer->print_timeout(screen);
+    }
   }
 
   update->setupflag = 1;
@@ -454,14 +478,14 @@ void Respa::setup()
       if (kspace_compute_flag) force->kspace->compute(eflag,vflag);
     }
 
-    modify->pre_reverse(eflag,vflag);
+    modify->setup_pre_reverse(eflag,vflag);
     if (newton[ilevel]) comm->reverse_comm();
     copy_f_flevel(ilevel);
   }
 
   sum_flevel_f();
   modify->setup(vflag);
-  output->setup();
+  output->setup(flag);
   update->setupflag = 0;
 }
 
@@ -530,7 +554,7 @@ void Respa::setup_minimal(int flag)
       if (kspace_compute_flag) force->kspace->compute(eflag,vflag);
     }
 
-    modify->pre_reverse(eflag,vflag);
+    modify->setup_pre_reverse(eflag,vflag);
     if (newton[ilevel]) comm->reverse_comm();
     copy_f_flevel(ilevel);
   }
@@ -549,6 +573,10 @@ void Respa::run(int n)
   bigint ntimestep;
 
   for (int i = 0; i < n; i++) {
+    if (timer->check_timeout(i)) {
+      update->nsteps = i;
+      break;
+    }
 
     ntimestep = ++update->ntimestep;
     ev_set(ntimestep);
@@ -718,7 +746,7 @@ void Respa::recurse(int ilevel)
     if (modify->n_pre_reverse) {
       modify->pre_reverse(eflag,vflag);
       timer->stamp(Timer::MODIFY);
-   }
+    }
 
     if (newton[ilevel]) {
       comm->reverse_comm();

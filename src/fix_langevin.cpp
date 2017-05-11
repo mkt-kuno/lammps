@@ -51,7 +51,9 @@ enum{CONSTANT,EQUAL,ATOM};
 /* ---------------------------------------------------------------------- */
 
 FixLangevin::FixLangevin(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  gjfflag(0), gfactor1(NULL), gfactor2(NULL), ratio(NULL), tstr(NULL),
+  flangevin(NULL), tforce(NULL), franprev(NULL), id_temp(NULL), random(NULL)
 {
   if (narg < 7) error->all(FLERR,"Illegal fix langevin command");
 
@@ -61,7 +63,6 @@ FixLangevin::FixLangevin(LAMMPS *lmp, int narg, char **arg) :
   extscalar = 1;
   nevery = 1;
 
-  tstr = NULL;
   if (strstr(arg[3],"v_") == arg[3]) {
     int n = strlen(&arg[3][2]) + 1;
     tstr = new char[n];
@@ -157,10 +158,9 @@ FixLangevin::FixLangevin(LAMMPS *lmp, int narg, char **arg) :
   tforce = NULL;
   maxatom1 = maxatom2 = 0;
 
-  // Setup atom-based array for franprev
+  // setup atom-based array for franprev
   // register with Atom class
-  // No need to set peratom_flag
-  // as this data is for internal use only
+  // no need to set peratom_flag, b/c data is for internal use only
 
   if (gjfflag) {
     nvalues = 3;
@@ -511,7 +511,7 @@ void FixLangevin::post_force_untemplated
   // reallocate flangevin if necessary
 
   if (Tp_TALLY) {
-    if (atom->nlocal > maxatom1) {
+    if (atom->nmax > maxatom1) {
       memory->destroy(flangevin);
       maxatom1 = atom->nmax;
       memory->create(flangevin,maxatom1,3,"langevin:flangevin");
@@ -641,7 +641,7 @@ void FixLangevin::compute_target()
         error->one(FLERR,"Fix langevin variable returned negative temperature");
       tsqrt = sqrt(t_target);
     } else {
-      if (nlocal > maxatom2) {
+      if (atom->nmax > maxatom2) {
         maxatom2 = atom->nmax;
         memory->destroy(tforce);
         memory->create(tforce,maxatom2,"langevin:tforce");

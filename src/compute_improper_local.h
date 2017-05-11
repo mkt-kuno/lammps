@@ -37,8 +37,8 @@ class ComputeImproperLocal : public Compute {
   int ncount;
 
   int nmax;
-  double *vector;
-  double **array;
+  double *vlocal;
+  double **alocal;
 
   int compute_impropers(int);
   void reallocate(int);

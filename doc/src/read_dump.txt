@@ -15,11 +15,12 @@ read_dump file Nstep field1 field2 ... keyword values ... :pre
 file = name of dump file to read :ulb,l
 Nstep = snapshot timestep to read from file :l
 one or more fields may be appended :l
-field = {x} or {y} or {z} or {vx} or {vy} or {vz} or {q} or {ix} or {iy} or {iz}
+field = {x} or {y} or {z} or {vx} or {vy} or {vz} or {q} or {ix} or {iy} or {iz} or {fx} or {fy} or {fz}
   {x},{y},{z} = atom coordinates
   {vx},{vy},{vz} = velocity components
   {q} = charge
-  {ix},{iy},{iz} = image flags in each dimension :pre
+  {ix},{iy},{iz} = image flags in each dimension
+  {fx},{fy},{fz} = force components :pre
 zero or more keyword/value pairs may be appended :l
 keyword = {box} or {replace} or {purge} or {trim} or {add} or {label} or {scaled} or {wrapped} or {format} :l
   {box} value = {yes} or {no} = replace simulation box with dump box
@@ -48,7 +49,7 @@ read_dump dump.xyz 10 x y z box no format molfile xyz "../plugins"
 read_dump dump.dcd 0 x y z box yes format molfile dcd
 read_dump dump.file 1000 x y z vx vy vz box yes format molfile lammpstrj /usr/local/lib/vmd/plugins/LINUXAMD64/plugins/molfile
 read_dump dump.file 5000 x y vx vy trim yes
-read_dump ../run7/dump.file.gz 10000 x y z box yes 
+read_dump ../run7/dump.file.gz 10000 x y z box yes
 read_dump dump.xyz 10 x y z box no format molfile xyz ../plugins
 read_dump dump.dcd 0 x y z format molfile dcd
 read_dump dump.file 1000 x y z vx vy vz format molfile lammpstrj /usr/local/lib/vmd/plugins/LINUXAMD64/plugins/molfile :pre
@@ -57,7 +58,7 @@ read_dump dump.file 1000 x y z vx vy vz format molfile lammpstrj /usr/local/lib/
 
 Read atom information from a dump file to overwrite the current atom
 coordinates, and optionally the atom velocities and image flags and
-the simluation box dimensions.  This is useful for restarting a run
+the simulation box dimensions.  This is useful for restarting a run
 from a particular snapshot in a dump file.  See the
 "read_restart"_read_restart.html and "read_data"_read_data.html
 commands for alternative methods to do this.  Also see the
@@ -185,7 +186,7 @@ For dump files in {xyz} format, only the {x}, {y}, and {z} fields are
 supported.  The dump file does not store atom IDs, so these are
 assigned consecutively to the atoms as they appear in the dump file,
 starting from 1.  Thus you should insure that order of atoms is
-consistent from snapshot to snapshot in the the XYZ dump file.  See
+consistent from snapshot to snapshot in the XYZ dump file.  See
 the "dump_modify sort"_dump_modify.html command if the XYZ dump file
 was written by LAMMPS.
 
@@ -195,7 +196,7 @@ velocities, or their respective plugins may not support reading of
 velocities.  The molfile dump files do not store atom IDs, so these
 are assigned consecutively to the atoms as they appear in the dump
 file, starting from 1.  Thus you should insure that order of atoms are
-consistent from snapshot to snapshot in the the molfile dump file.
+consistent from snapshot to snapshot in the molfile dump file.
 See the "dump_modify sort"_dump_modify.html command if the dump file
 was written by LAMMPS.
 
@@ -213,7 +214,7 @@ you wish to change this after the dump snapshot is read.
 If the {box} keyword is specified with a {yes} value, then the current
 simulation box dimensions are replaced by the dump snapshot box
 dimensions.  If the {box} keyword is specified with a {no} value, the
-current simulatoin box is unchanged.
+current simulation box is unchanged.
 
 If the {purge} keyword is specified with a {yes} value, then all
 current atoms in the system are deleted before any of the operations
@@ -322,3 +323,6 @@ They are only enabled if LAMMPS was built with that packages.  See the
 
 The option defaults are box = yes, replace = yes, purge = no, trim =
 no, add = no, scaled = no, wrapped = yes, and format = native.
+
+:link(vmd,http://www.ks.uiuc.edu/Research/vmd)
+

@@ -50,7 +50,12 @@ enum{FULL_BODY,INITIAL,FINAL,FORCE_TORQUE,VCM_ANGMOM,XCM_MASS,ITENSOR,DOF};
 /* ---------------------------------------------------------------------- */
 
 FixRigidNHSmall::FixRigidNHSmall(LAMMPS *lmp, int narg, char **arg) :
-  FixRigidSmall(lmp, narg, arg)
+  FixRigidSmall(lmp, narg, arg), w(NULL), wdti1(NULL), 
+  wdti2(NULL), wdti4(NULL), q_t(NULL), q_r(NULL), eta_t(NULL), 
+  eta_r(NULL), eta_dot_t(NULL), eta_dot_r(NULL), f_eta_t(NULL), 
+  f_eta_r(NULL), q_b(NULL), eta_b(NULL), eta_dot_b(NULL), 
+  f_eta_b(NULL), rfix(NULL), id_temp(NULL), id_press(NULL), 
+  temperature(NULL), pressure(NULL)
 {
   // error checks
 
@@ -163,6 +168,9 @@ FixRigidNHSmall::FixRigidNHSmall(LAMMPS *lmp, int narg, char **arg) :
 
   tcomputeflag = 0;
   pcomputeflag = 0;
+
+  id_temp = NULL;
+  id_press = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -176,10 +184,8 @@ FixRigidNHSmall::~FixRigidNHSmall()
 
   if (rfix) delete [] rfix;
 
-  if (tcomputeflag) {
-    modify->delete_compute(id_temp);
-    delete [] id_temp;
-  }
+  if (tcomputeflag) modify->delete_compute(id_temp);
+  delete [] id_temp;
 
   // delete pressure if fix created it
 
@@ -315,36 +321,8 @@ void FixRigidNHSmall::init()
 void FixRigidNHSmall::setup(int vflag)
 {
   FixRigidSmall::setup(vflag);
-
-  // total translational and rotational degrees of freedom
-
-  nf_t = dimension * nlocal_body;
-  if (dimension == 3) {
-    nf_r = dimension * nlocal_body;
-    for (int ibody = 0; ibody < nlocal_body; ibody++) {
-      Body *b = &body[ibody];
-      for (int k = 0; k < dimension; k++)
-        if (fabs(b->inertia[k]) < EPSILON) nf_r--;
-    }
-  } else if (dimension == 2) {
-    nf_r = nlocal_body;
-    for (int ibody = 0; ibody < nlocal_body; ibody++) {
-      Body *b = &body[ibody];
-      if (fabs(b->inertia[2]) < EPSILON) nf_r--;
-    }
-  }
-
-  double nf[2], nfall[2];
-  nf[0] = nf_t;
-  nf[1] = nf_r;
-  MPI_Allreduce(nf,nfall,2,MPI_DOUBLE,MPI_SUM,world);
-  nf_t = nfall[0];
-  nf_r = nfall[1];
-
-  g_f = nf_t + nf_r;
-  onednft = 1.0 + (double)(dimension) / (double)g_f;
-  onednfr = (double) (dimension) / (double)g_f;
-
+  compute_dof();
+  
   double mbody[3];
   akin_t = akin_r = 0.0;
   for (int ibody = 0; ibody < nlocal_body; ibody++) {
@@ -602,6 +580,7 @@ void FixRigidNHSmall::initial_integrate(int vflag)
 
   if (tstat_flag) {
     compute_temp_target();
+    if (dynamic) compute_dof();
     nhc_temp_integrate();
   }
 
@@ -643,6 +622,7 @@ void FixRigidNHSmall::final_integrate()
   double tmp,scale_t[3],scale_r;
   double dtfm;
   double mbody[3],tbody[3],fquat[4];
+
   double dtf2 = dtf * 2.0;
 
   // compute scale variables
@@ -1266,6 +1246,40 @@ void FixRigidNHSmall::nh_epsilon_dot()
   mtk_term2 /= g_f;
 }
 
+/* ---------------------------------------------------------------------- */
+
+void FixRigidNHSmall::compute_dof()
+{
+  // total translational and rotational degrees of freedom
+
+  nf_t = dimension * nlocal_body;
+  if (dimension == 3) {
+    nf_r = dimension * nlocal_body;
+    for (int ibody = 0; ibody < nlocal_body; ibody++) {
+      Body *b = &body[ibody];
+      for (int k = 0; k < dimension; k++)
+        if (fabs(b->inertia[k]) < EPSILON) nf_r--;
+    }
+  } else if (dimension == 2) {
+    nf_r = nlocal_body;
+    for (int ibody = 0; ibody < nlocal_body; ibody++) {
+      Body *b = &body[ibody];
+      if (fabs(b->inertia[2]) < EPSILON) nf_r--;
+    }
+  }
+
+  double nf[2], nfall[2];
+  nf[0] = nf_t;
+  nf[1] = nf_r;
+  MPI_Allreduce(nf,nfall,2,MPI_DOUBLE,MPI_SUM,world);
+  nf_t = nfall[0];
+  nf_r = nfall[1];
+
+  g_f = nf_t + nf_r;
+  onednft = 1.0 + (double)(dimension) / (double)g_f;
+  onednfr = (double) (dimension) / (double)g_f;
+}
+
 /* ----------------------------------------------------------------------
    pack entire state of Fix into one write
 ------------------------------------------------------------------------- */
@@ -1374,7 +1388,6 @@ int FixRigidNHSmall::modify_param(int narg, char **arg)
 {
   if (strcmp(arg[0],"temp") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal fix_modify command");
-    if (!pstat_flag) error->all(FLERR,"Illegal fix_modify command");
     if (tcomputeflag) {
       modify->delete_compute(id_temp);
       tcomputeflag = 0;
@@ -1502,4 +1515,3 @@ void FixRigidNHSmall::deallocate_order()
   delete [] wdti2;
   delete [] wdti4;
 }
-

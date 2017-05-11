@@ -56,7 +56,11 @@ using namespace MathConst;
 /* ---------------------------------------------------------------------- */
 
 FixAtomSwap::FixAtomSwap(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  idregion(NULL), type_list(NULL), mu(NULL), qtype(NULL), 
+  sqrt_mass_ratio(NULL), local_swap_iatom_list(NULL), 
+  local_swap_jatom_list(NULL), local_swap_atom_list(NULL), 
+  random_equal(NULL), random_unequal(NULL), c_pe(NULL)
 {
   if (narg < 10) error->all(FLERR,"Illegal fix atom/swap command");
 
@@ -68,9 +72,7 @@ FixAtomSwap::FixAtomSwap(LAMMPS *lmp, int narg, char **arg) :
   extvector = 0;
   restart_global = 1;
   time_depend = 1;
-  type_list = NULL;
-  qtype = NULL;
-
+  
   // required args
 
   nevery = force->inumeric(FLERR,arg[3]);
@@ -251,15 +253,15 @@ void FixAtomSwap::init()
 	    } else if (qtype[iswaptype] != atom->q[i])
 	      error->one(FLERR,"All atoms of a swapped type must have the same charge.");
 	  }
-	  MPI_Allreduce(&first,&firstall,1,MPI_INT,MPI_MIN,world);
-	  if (firstall) error->all(FLERR,"At least one atom of each swapped type must be present to define charges.");
-	  if (first) qtype[iswaptype] = -DBL_MAX;
-	  MPI_Allreduce(&qtype[iswaptype],&qmax,1,MPI_DOUBLE,MPI_MAX,world);
-	  if (first) qtype[iswaptype] = DBL_MAX;
-	  MPI_Allreduce(&qtype[iswaptype],&qmin,1,MPI_DOUBLE,MPI_MIN,world);
-	  if (qmax != qmin) error->all(FLERR,"All atoms of a swapped type must have same charge.");
 	}
       }
+      MPI_Allreduce(&first,&firstall,1,MPI_INT,MPI_MIN,world);
+      if (firstall) error->all(FLERR,"At least one atom of each swapped type must be present to define charges.");
+      if (first) qtype[iswaptype] = -DBL_MAX;
+      MPI_Allreduce(&qtype[iswaptype],&qmax,1,MPI_DOUBLE,MPI_MAX,world);
+      if (first) qtype[iswaptype] = DBL_MAX;
+      MPI_Allreduce(&qtype[iswaptype],&qmin,1,MPI_DOUBLE,MPI_MIN,world);
+      if (qmax != qmin) error->all(FLERR,"All atoms of a swapped type must have same charge.");
     }
   }
 
@@ -584,7 +586,7 @@ void FixAtomSwap::update_semi_grand_atoms_list()
   int nlocal = atom->nlocal;
   double **x = atom->x;
 
-  if (nlocal > atom_swap_nmax) {
+  if (atom->nmax > atom_swap_nmax) {
     memory->sfree(local_swap_atom_list);
     atom_swap_nmax = atom->nmax;
     local_swap_atom_list = (int *) memory->smalloc(atom_swap_nmax*sizeof(int),
@@ -639,7 +641,7 @@ void FixAtomSwap::update_swap_atoms_list()
   int *type = atom->type;
   double **x = atom->x;
 
-  if (nlocal > atom_swap_nmax) {
+  if (atom->nmax > atom_swap_nmax) {
     memory->sfree(local_swap_iatom_list);
     memory->sfree(local_swap_jatom_list);
     atom_swap_nmax = atom->nmax;

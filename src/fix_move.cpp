@@ -47,7 +47,11 @@ enum{EQUAL,ATOM};
 /* ---------------------------------------------------------------------- */
 
 FixMove::FixMove(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  xvarstr(NULL), yvarstr(NULL), zvarstr(NULL), vxvarstr(NULL), 
+  vyvarstr(NULL), vzvarstr(NULL),
+  xoriginal(NULL), toriginal(NULL), qoriginal(NULL), 
+  displace(NULL), velocity(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal fix move command");
 
@@ -65,9 +69,7 @@ FixMove::FixMove(LAMMPS *lmp, int narg, char **arg) :
   // parse args
 
   int iarg;
-  xvarstr = yvarstr = zvarstr = NULL;
-  vxvarstr = vyvarstr = vzvarstr = NULL;
-
+  
   if (strcmp(arg[3],"linear") == 0) {
     if (narg < 7) error->all(FLERR,"Illegal fix move command");
     iarg = 7;
@@ -108,6 +110,7 @@ FixMove::FixMove(LAMMPS *lmp, int narg, char **arg) :
       az = force->numeric(FLERR,arg[6]);
     }
     period = force->numeric(FLERR,arg[7]);
+    if (period <= 0.0) error->all(FLERR,"Illegal fix move command");
 
   } else if (strcmp(arg[3],"rotate") == 0) {
     if (narg < 11) error->all(FLERR,"Illegal fix move command");
@@ -120,6 +123,7 @@ FixMove::FixMove(LAMMPS *lmp, int narg, char **arg) :
     axis[1] = force->numeric(FLERR,arg[8]);
     axis[2] = force->numeric(FLERR,arg[9]);
     period = force->numeric(FLERR,arg[10]);
+    if (period <= 0.0) error->all(FLERR,"Illegal fix move command");
 
   } else if (strcmp(arg[3],"variable") == 0) {
     if (narg < 10) error->all(FLERR,"Illegal fix move command");
@@ -187,7 +191,7 @@ FixMove::FixMove(LAMMPS *lmp, int narg, char **arg) :
       error->all(FLERR,"Fix move cannot set wiggle z motion for 2d problem");
     if (mstyle == ROTATE && (axis[0] != 0.0 || axis[1] != 0.0))
       error->all(FLERR,
-                 "Fix move cannot rotate aroung non z-axis for 2d problem");
+                 "Fix move cannot rotate around non z-axis for 2d problem");
     if (mstyle == VARIABLE && (zvarstr || vzvarstr))
       error->all(FLERR,
                  "Fix move cannot define z or vz variable for 2d problem");
@@ -253,9 +257,6 @@ FixMove::FixMove(LAMMPS *lmp, int narg, char **arg) :
   // perform initial allocation of atom-based array
   // register with Atom class
 
-  xoriginal = NULL;
-  toriginal = NULL;
-  qoriginal = NULL;
   grow_arrays(atom->nmax);
   atom->add_callback(0);
   atom->add_callback(1);
@@ -726,7 +727,7 @@ void FixMove::initial_integrate(int vflag)
 
     // reallocate displace and velocity arrays as necessary
 
-    if ((displaceflag || velocityflag) && nlocal > maxatom) {
+    if ((displaceflag || velocityflag) && atom->nmax > maxatom) {
       maxatom = atom->nmax;
       if (displaceflag) {
         memory->destroy(displace);

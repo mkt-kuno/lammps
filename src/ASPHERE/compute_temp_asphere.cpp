@@ -38,7 +38,8 @@ enum{ROTATE,ALL};
 /* ---------------------------------------------------------------------- */
 
 ComputeTempAsphere::ComputeTempAsphere(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  id_bias(NULL), tbias(NULL), avec(NULL)
 {
   if (narg < 3) error->all(FLERR,"Illegal compute temp/asphere command");
 
@@ -71,6 +72,11 @@ ComputeTempAsphere::ComputeTempAsphere(LAMMPS *lmp, int narg, char **arg) :
       iarg += 2;
     } else error->all(FLERR,"Illegal compute temp/asphere command");
   }
+
+  // when computing only the rotational temperature,
+  // do not remove DOFs for translation as set by default
+
+  if (mode == ROTATE) extra_dof = 0;
 
   vector = new double[6];
 

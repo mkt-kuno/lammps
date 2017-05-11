@@ -18,7 +18,7 @@ bodystyle = {single} or {molecule} or {group} :l
   {single} args = none
   {molecule} args = none
   {group} args = N groupID1 groupID2 ...
-    N = # of groups
+    N = # of groups :pre
 zero or more keyword/value pairs may be appended :l
 keyword = {force} or {torque} or {innerNodes} :l
   {force} values = M xflag yflag zflag
@@ -26,14 +26,14 @@ keyword = {force} or {torque} or {innerNodes} :l
     xflag,yflag,zflag = off/on if component of center-of-mass force is active
   {torque} values = M xflag yflag zflag
     M = which rigid body from 1-Nbody (see asterisk form below)
-    xflag,yflag,zflag = off/on if component of center-of-mass torque is active 
-  {innerNodes} values = innergroup-ID 
+    xflag,yflag,zflag = off/on if component of center-of-mass torque is active
+  {innerNodes} values = innergroup-ID
     innergroup-ID = ID of the atom group which does not experience a hydrodynamic force from the lattice-Boltzmann fluid :pre
 :ule
 
 [Examples:]
 
-fix 1 spheres lb/rigid/pc/sphere 
+fix 1 spheres lb/rigid/pc/sphere
 fix 1 all lb/rigid/pc/sphere force 1 0 0 innerNodes ForceAtoms :pre
 
 [Description:]
@@ -68,7 +68,7 @@ is desirable simply to place an atom at the center of each sphere,
 which does not contribute to the hydrodynamic force, and have these
 central atoms interact with one another.
 
-:line  
+:line
 
 Apart from the features described above, this fix is very similar to
 the rigid fix (although it includes fewer optional arguments, and
@@ -80,7 +80,7 @@ assumes the constituent atoms are point particles); see
 No information about the {rigid} and {rigid/nve} fixes are written to
 "binary restart files"_restart.html.
 
-Similar to the "fix rigid"_fix_rigid.html command: &quot; The rigid
+Similar to the "fix rigid"_fix_rigid.html command: The rigid
 fix computes a global scalar which can be accessed by various "output
 commands"_Section_howto.html#howto_15.  The scalar value calculated by
 these fixes is "intensive".  The scalar is the current temperature of
@@ -91,9 +91,9 @@ mass of the body and v = the velocity of its center of mass.  The
 rotational energy of a rigid body is 1/2 I w^2, where I = the moment
 of inertia tensor of the body and w = its angular velocity.  Degrees
 of freedom constrained by the {force} and {torque} keywords are
-removed from this calculation.&quot;
+removed from this calculation.
 
-&quot;All of these fixes compute a global array of values which can be
+All of these fixes compute a global array of values which can be
 accessed by various "output commands"_Section_howto.html#howto_15.
 The number of rows in the array is equal to the number of rigid
 bodies.  The number of columns is 15.  Thus for each rigid body, 15
@@ -117,9 +117,9 @@ they are independent of the number of atoms in the simulation.
 
 No parameter of these fixes can be used with the {start/stop} keywords
 of the "run"_run.html command.  These fixes are not invoked during
-"energy minimization"_minimize.html. &quot;
+"energy minimization"_minimize.html.
 
-[Restrictions:] 
+[Restrictions:]
 
 This fix is part of the USER-LB package.  It is only enabled if LAMMPS
 was built with that package.  See the "Making
@@ -136,7 +136,7 @@ by default.
 
 "fix lb/fluid"_fix_lb_fluid.html, "fix lb/pc"_fix_lb_pc.html
 
-[Default:] 
+[Default:]
 
 The defaults are force * on on on, and torque * on on on.
 

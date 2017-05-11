@@ -7,7 +7,6 @@
 :line
 
 pair_style lj/smooth command :h3
-pair_style lj/smooth/cuda command :h3
 pair_style lj/smooth/omp command :h3
 
 [Syntax:]
@@ -32,7 +31,7 @@ applied between the inner and outer cutoff.
 
 The polynomial coefficients C1, C2, C3, C4 are computed by LAMMPS to
 cause the force to vary smoothly from the inner cutoff Rin to the
-outer cutoff Rc. 
+outer cutoff Rc.
 
 At the inner cutoff the force and its 1st derivative
 will match the unsmoothed LJ formula.  At the outer cutoff the force
@@ -52,7 +51,7 @@ commands, or by mixing as described below:
 
 epsilon (energy units)
 sigma (distance units)
-innner (distance units)
+inner (distance units)
 outer (distance units) :ul
 
 The last 2 coefficients are optional inner and outer cutoffs.  If not
@@ -60,17 +59,17 @@ specified, the global values for Rin and Rc are used.
 
 :line
 
-Styles with a {cuda}, {gpu}, {intel}, {kk}, {omp}, or {opt} suffix are
+Styles with a {gpu}, {intel}, {kk}, {omp}, or {opt} suffix are
 functionally the same as the corresponding style without the suffix.
 They have been optimized to run faster, depending on your available
-hardware, as discussed in "Section_accelerate"_Section_accelerate.html
+hardware, as discussed in "Section 5"_Section_accelerate.html
 of the manual.  The accelerated styles take the same arguments and
 should produce the same results, except for round-off and precision
 issues.
 
-These accelerated styles are part of the USER-CUDA, GPU, USER-INTEL,
-KOKKOS, USER-OMP and OPT packages, respectively.  They are only
-enabled if LAMMPS was built with those packages.  See the "Making
+These accelerated styles are part of the GPU, USER-INTEL, KOKKOS,
+USER-OMP and OPT packages, respectively.  They are only enabled if
+LAMMPS was built with those packages.  See the "Making
 LAMMPS"_Section_start.html#start_3 section for more info.
 
 You can specify the accelerated styles explicitly in your input script
@@ -78,7 +77,7 @@ by including their suffix, or you can use the "-suffix command-line
 switch"_Section_start.html#start_7 when you invoke LAMMPS, or you can
 use the "suffix"_suffix.html command in your input script.
 
-See "Section_accelerate"_Section_accelerate.html of the manual for
+See "Section 5"_Section_accelerate.html of the manual for
 more instructions on how to use the accelerated styles effectively.
 
 :line

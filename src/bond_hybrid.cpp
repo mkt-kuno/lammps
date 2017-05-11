@@ -103,7 +103,7 @@ void BondHybrid::compute(int eflag, int vflag)
   // accumulate sub-style global/peratom energy/virial in hybrid
 
   if (eflag || vflag) ev_setup(eflag,vflag);
-  else evflag = 0;
+  else evflag = eflag_global = vflag_global = eflag_atom = vflag_atom = 0;
 
   for (m = 0; m < nstyles; m++) {
     neighbor->nbondlist = nbondlist[m];
@@ -243,7 +243,7 @@ void BondHybrid::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi;
-  force->bounds(arg[0],atom->nbondtypes,ilo,ihi);
+  force->bounds(FLERR,arg[0],atom->nbondtypes,ilo,ihi);
 
   // 2nd arg = bond sub-style name
   // allow for "none" as valid sub-style name

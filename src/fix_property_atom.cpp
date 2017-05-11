@@ -29,7 +29,8 @@ enum{MOLECULE,CHARGE,RMASS,INTEGER,DOUBLE};
 /* ---------------------------------------------------------------------- */
 
 FixPropertyAtom::FixPropertyAtom(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  nvalue(0), style(NULL), index(NULL), astyle(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal fix property/atom command");
 
@@ -119,7 +120,7 @@ FixPropertyAtom::FixPropertyAtom(LAMMPS *lmp, int narg, char **arg) :
           || style[i] == CHARGE
           || style[i] == RMASS) flag = 1;
     if (flag && comm->me == 0)
-      error->warning(FLERR,"Fix property/atom mol or charge or rmass"
+      error->warning(FLERR,"Fix property/atom mol or charge or rmass "
                      "w/out ghost communication");
   }
 

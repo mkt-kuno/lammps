@@ -74,7 +74,7 @@ void PairEAMAlloyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
 
   if (neighflag == FULL) no_virial_fdotr_compute = 1;
 
-  if (eflag || vflag) ev_setup(eflag,vflag);
+  if (eflag || vflag) ev_setup(eflag,vflag,0);
   else evflag = vflag_fdotr = 0;
 
   // reallocate per-atom arrays if necessary
@@ -82,12 +82,12 @@ void PairEAMAlloyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   if (eflag_atom) {
     memory->destroy_kokkos(k_eatom,eatom);
     memory->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
-    d_eatom = k_eatom.d_view;
+    d_eatom = k_eatom.view<DeviceType>();
   }
   if (vflag_atom) {
     memory->destroy_kokkos(k_vatom,vatom);
     memory->create_kokkos(k_vatom,vatom,maxvatom,6,"pair:vatom");
-    d_vatom = k_vatom.d_view;
+    d_vatom = k_vatom.view<DeviceType>();
   }
 
   atomKK->sync(execution_space,datamask_read);
@@ -246,8 +246,6 @@ void PairEAMAlloyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     virial[5] += ev.v[5];
   }
 
-  if (vflag_fdotr) pair_virial_fdotr_compute(this);
-
   if (eflag_atom) {
     k_eatom.template modify<DeviceType>();
     k_eatom.template sync<LMPHostType>();
@@ -257,6 +255,8 @@ void PairEAMAlloyKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
     k_vatom.template modify<DeviceType>();
     k_vatom.template sync<LMPHostType>();
   }
+
+  if (vflag_fdotr) pair_virial_fdotr_compute(this);
 
   copymode = 0;
 }
@@ -286,11 +286,9 @@ void PairEAMAlloyKokkos<DeviceType>::init_style()
   if (neighflag == FULL) {
     neighbor->requests[irequest]->full = 1;
     neighbor->requests[irequest]->half = 0;
-    neighbor->requests[irequest]->full_cluster = 0;
   } else if (neighflag == HALF || neighflag == HALFTHREAD) {
     neighbor->requests[irequest]->full = 0;
     neighbor->requests[irequest]->half = 1;
-    neighbor->requests[irequest]->full_cluster = 0;
   } else {
     error->all(FLERR,"Cannot use chosen neighbor list style with pair eam/kk/alloy");
   }
@@ -936,7 +934,7 @@ void PairEAMAlloyKokkos<DeviceType>::coeff(int narg, char **arg)
     for (j = i; j <= n; j++) {
       if (map[i] >= 0 && map[j] >= 0) {
         setflag[i][j] = 1;
-        if (i == j) atom->set_mass(i,setfl->mass[map[i]]);
+        if (i == j) atom->set_mass(FLERR,i,setfl->mass[map[i]]);
         count++;
       }
     }

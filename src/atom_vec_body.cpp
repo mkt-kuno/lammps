@@ -26,10 +26,6 @@
 #include "memory.h"
 #include "error.h"
 
-// debug
-#include "update.h"
-
-
 using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
@@ -122,7 +118,7 @@ void AtomVecBody::grow(int n)
   if (n == 0) grow_nmax();
   else nmax = n;
   atom->nmax = nmax;
-  if (nmax < 0)
+  if (nmax < 0 || nmax > MAXSMALLINT)
     error->one(FLERR,"Per-processor system is too big");
 
   tag = memory->grow(atom->tag,nmax,"atom:tag");
@@ -199,9 +195,10 @@ void AtomVecBody::copy(int i, int j, int delflag)
   // if deleting atom J via delflag and J has bonus data, then delete it
 
   if (delflag && body[j] >= 0) {
-    icp->put(bonus[body[j]].iindex);
-    dcp->put(bonus[body[j]].dindex);
-    copy_bonus(nlocal_bonus-1,body[j]);
+    int k = body[j];
+    icp->put(bonus[k].iindex);
+    dcp->put(bonus[k].dindex);
+    copy_bonus(nlocal_bonus-1,k);
     nlocal_bonus--;
   }
 
@@ -850,6 +847,7 @@ void AtomVecBody::unpack_border(int n, int first, double *buf)
       inertia[2] = buf[m++];
       bonus[j].ninteger = (int) ubuf(buf[m++]).i;
       bonus[j].ndouble = (int) ubuf(buf[m++]).i;
+      // corresponding put() calls are in clear_bonus()
       bonus[j].ivalue = icp->get(bonus[j].ninteger,bonus[j].iindex);
       bonus[j].dvalue = dcp->get(bonus[j].ndouble,bonus[j].dindex);
       m += bptr->unpack_border_body(&bonus[j],&buf[m]);
@@ -900,6 +898,7 @@ void AtomVecBody::unpack_border_vel(int n, int first, double *buf)
       inertia[2] = buf[m++];
       bonus[j].ninteger = (int) ubuf(buf[m++]).i;
       bonus[j].ndouble = (int) ubuf(buf[m++]).i;
+      // corresponding put() calls are in clear_bonus()
       bonus[j].ivalue = icp->get(bonus[j].ninteger,bonus[j].iindex);
       bonus[j].dvalue = dcp->get(bonus[j].ndouble,bonus[j].dindex);
       m += bptr->unpack_border_body(&bonus[j],&buf[m]);
@@ -949,6 +948,7 @@ int AtomVecBody::unpack_border_hybrid(int n, int first, double *buf)
       inertia[2] = buf[m++];
       bonus[j].ninteger = (int) ubuf(buf[m++]).i;
       bonus[j].ndouble = (int) ubuf(buf[m++]).i;
+      // corresponding put() calls are in clear_bonus()
       bonus[j].ivalue = icp->get(bonus[j].ninteger,bonus[j].iindex);
       bonus[j].dvalue = dcp->get(bonus[j].ndouble,bonus[j].dindex);
       m += bptr->unpack_border_body(&bonus[j],&buf[m]);
@@ -1053,6 +1053,7 @@ int AtomVecBody::unpack_exchange(double *buf)
     inertia[2] = buf[m++];
     bonus[nlocal_bonus].ninteger = (int) ubuf(buf[m++]).i;
     bonus[nlocal_bonus].ndouble = (int) ubuf(buf[m++]).i;
+    // corresponding put() calls are in copy()
     bonus[nlocal_bonus].ivalue = icp->get(bonus[nlocal_bonus].ninteger,
 					  bonus[nlocal_bonus].iindex);
     bonus[nlocal_bonus].dvalue = dcp->get(bonus[nlocal_bonus].ndouble,

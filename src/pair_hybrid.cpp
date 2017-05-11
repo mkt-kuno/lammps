@@ -31,15 +31,12 @@ using namespace LAMMPS_NS;
 
 /* ---------------------------------------------------------------------- */
 
-PairHybrid::PairHybrid(LAMMPS *lmp) : Pair(lmp)
+PairHybrid::PairHybrid(LAMMPS *lmp) : Pair(lmp),
+  styles(NULL), keywords(NULL), multiple(NULL), nmap(NULL),
+  map(NULL), special_lj(NULL), special_coul(NULL), compute_tally(NULL)
 {
   nstyles = 0;
-  styles = NULL;
-  keywords = NULL;
-  multiple = NULL;
-  special_lj = NULL;
-  special_coul = NULL;
-
+  
   outerflag = 0;
   respaflag = 0;
 
@@ -65,6 +62,7 @@ PairHybrid::~PairHybrid()
 
   delete [] special_lj;
   delete [] special_coul;
+  delete [] compute_tally;
 
   delete [] svector;
 
@@ -172,6 +170,23 @@ void PairHybrid::compute(int eflag, int vflag)
   if (vflag_fdotr) virial_fdotr_compute();
 }
 
+
+/* ---------------------------------------------------------------------- */
+
+void PairHybrid::add_tally_callback(Compute *ptr)
+{
+  for (int m = 0; m < nstyles; m++)
+    if (compute_tally[m]) styles[m]->add_tally_callback(ptr);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void PairHybrid::del_tally_callback(Compute *ptr)
+{
+  for (int m = 0; m < nstyles; m++)
+    if (compute_tally[m]) styles[m]->del_tally_callback(ptr);
+}
+
 /* ---------------------------------------------------------------------- */
 
 void PairHybrid::compute_inner()
@@ -256,6 +271,8 @@ void PairHybrid::settings(int narg, char **arg)
   special_lj = new double*[narg];
   special_coul = new double*[narg];
 
+  compute_tally = new int[narg];
+
   // allocate each sub-style
   // allocate uses suffix, but don't store suffix version in keywords,
   //   else syntax in coeff() will not match
@@ -275,6 +292,7 @@ void PairHybrid::settings(int narg, char **arg)
     styles[nstyles] = force->new_pair(arg[iarg],1,dummy);
     force->store_style(keywords[nstyles],arg[iarg],0);
     special_lj[nstyles] = special_coul[nstyles] = NULL;
+    compute_tally[nstyles] = 1;
 
     jarg = iarg + 1;
     while (jarg < narg && !force->pair_map->count(arg[jarg])) jarg++;
@@ -365,8 +383,8 @@ void PairHybrid::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
-  force->bounds(arg[0],atom->ntypes,ilo,ihi);
-  force->bounds(arg[1],atom->ntypes,jlo,jhi);
+  force->bounds(FLERR,arg[0],atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,arg[1],atom->ntypes,jlo,jhi);
 
   // 3rd arg = pair sub-style name
   // 4th arg = pair sub-style index if name used multiple times
@@ -491,13 +509,13 @@ void PairHybrid::init_style()
 
   for (istyle = 0; istyle < nstyles; istyle++) styles[istyle]->init_style();
 
-  // create skip lists for each pair neigh request
-  // any kind of list can have its skip flag set at this stage
+  // create skip lists inside each pair neigh request
+  // any kind of list can have its skip flag set in this loop
 
   for (i = 0; i < neighbor->nrequest; i++) {
     if (!neighbor->requests[i]->pair) continue;
 
-    // istyle = associated sub-style for that request
+    // istyle = associated sub-style for the request
 
     for (istyle = 0; istyle < nstyles; istyle++)
       if (styles[istyle] == neighbor->requests[i]->requestor) break;
@@ -539,6 +557,7 @@ void PairHybrid::init_style()
     // if any skipping occurs
     // set request->skip and copy iskip and ijskip into request
     // else delete iskip and ijskip
+    // no skipping if pair style assigned to all type pairs
 
     skip = 0;
     for (itype = 1; itype <= ntypes; itype++)
@@ -554,10 +573,6 @@ void PairHybrid::init_style()
       memory->destroy(ijskip);
     }
   }
-
-  // combine sub-style neigh list requests and create new ones if needed
-
-  modify_requests();
 }
 
 /* ----------------------------------------------------------------------
@@ -615,58 +630,6 @@ double PairHybrid::init_one(int i, int j)
 void PairHybrid::setup()
 {
   for (int m = 0; m < nstyles; m++) styles[m]->setup();
-}
-
-/* ----------------------------------------------------------------------
-   combine sub-style neigh list requests and create new ones if needed
-------------------------------------------------------------------------- */
-
-void PairHybrid::modify_requests()
-{
-  int i,j;
-  NeighRequest *irq,*jrq;
-
-  // loop over pair requests only
-  // if list is skip list and not copy, look for non-skip list of same kind
-  // if one exists, point at that one via otherlist
-  // else make new non-skip request of same kind and point at that one
-  //   don't bother to set ID for new request, since pair hybrid ignores list
-  // only exception is half_from_full:
-  //   ignore it, turn off skip, since it will derive from its skip parent
-  // after possible new request creation, unset skip flag and otherlist
-  //   for these derived lists: granhistory, rRESPA inner/middle
-  //   this prevents neighbor from treating them as skip lists
-  // copy list check is for pair style = hybrid/overlay
-  //   which invokes this routine
-
-  for (i = 0; i < neighbor->nrequest; i++) {
-    if (!neighbor->requests[i]->pair) continue;
-
-    irq = neighbor->requests[i];
-    if (irq->skip == 0 || irq->copy) continue;
-    if (irq->half_from_full) {
-      irq->skip = 0;
-      continue;
-    }
-
-    for (j = 0; j < neighbor->nrequest; j++) {
-      if (!neighbor->requests[j]->pair) continue;
-      jrq = neighbor->requests[j];
-      if (irq->same_kind(jrq) && jrq->skip == 0) break;
-    }
-
-    if (j < neighbor->nrequest) irq->otherlist = j;
-    else {
-      int newrequest = neighbor->request(this,instance_me);
-      neighbor->requests[newrequest]->copy_request(irq);
-      irq->otherlist = newrequest;
-    }
-
-    if (irq->granhistory || irq->respainner || irq->respamiddle) {
-      irq->skip = 0;
-      irq->otherlist = -1;
-    }
-  }
 }
 
 /* ----------------------------------------------------------------------
@@ -838,6 +801,20 @@ void PairHybrid::modify_params(int narg, char **arg)
         error->all(FLERR,"Illegal pair_modify special command");
       modify_special(m,narg-iarg,&arg[iarg+1]);
       iarg += 5;
+    }
+
+    // if 2nd keyword (after pair) is compute/tally:
+    // set flag to register USER-TALLY computes accordingly
+
+    if (iarg < narg && strcmp(arg[iarg],"compute/tally") == 0) {
+      if (narg < iarg+2)
+        error->all(FLERR,"Illegal pair_modify compute/tally command");
+      if (strcmp(arg[iarg+1],"yes") == 0) {
+        compute_tally[m] = 1;
+      } else if (strcmp(arg[iarg+1],"no") == 0) {
+        compute_tally[m] = 0;
+      } else error->all(FLERR,"Illegal pair_modify compute/tally command");
+      iarg += 2;
     }
 
     // apply the remaining keywords to the base pair style itself and the

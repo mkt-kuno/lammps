@@ -36,6 +36,8 @@ BondClass2::BondClass2(LAMMPS *lmp) : Bond(lmp) {}
 
 BondClass2::~BondClass2()
 {
+  if (copymode) return;
+
   if (allocated) {
     memory->destroy(setflag);
     memory->destroy(r0);
@@ -132,7 +134,7 @@ void BondClass2::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi;
-  force->bounds(arg[0],atom->nbondtypes,ilo,ihi);
+  force->bounds(FLERR,arg[0],atom->nbondtypes,ilo,ihi);
 
   double r0_one = force->numeric(FLERR,arg[1]);
   double k2_one = force->numeric(FLERR,arg[2]);

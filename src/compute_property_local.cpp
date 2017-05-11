@@ -27,27 +27,28 @@
 using namespace LAMMPS_NS;
 
 enum{NONE,NEIGH,PAIR,BOND,ANGLE,DIHEDRAL,IMPROPER};
+enum{TYPE,RADIUS};
 
 #define DELTA 10000
 
 /* ---------------------------------------------------------------------- */
 
 ComputePropertyLocal::ComputePropertyLocal(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  vlocal(NULL), alocal(NULL), indices(NULL), pack_choice(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal compute property/local command");
 
   local_flag = 1;
   nvalues = narg - 3;
-  if (nvalues == 1) size_local_cols = 0;
-  else size_local_cols = nvalues;
-
   pack_choice = new FnPtrPack[nvalues];
 
   kindflag = NONE;
 
   int i;
-  for (int iarg = 3; iarg < narg; iarg++) {
+  nvalues = 0;
+  int iarg = 3;
+  while (iarg < narg) {
     i = iarg-3;
 
     if (strcmp(arg[iarg],"natom1") == 0) {
@@ -206,8 +207,28 @@ ComputePropertyLocal::ComputePropertyLocal(LAMMPS *lmp, int narg, char **arg) :
                    "Compute property/local cannot use these inputs together");
       kindflag = IMPROPER;
 
-    } else error->all(FLERR,
-                      "Invalid keyword in compute property/local command");
+    } else break;
+
+    nvalues++;
+    iarg++;
+  }
+
+  if (nvalues == 1) size_local_cols = 0;
+  else size_local_cols = nvalues;
+
+  // optional args
+
+  cutstyle = TYPE;
+
+  while (iarg < narg) {
+    if (strcmp(arg[iarg],"cutoff") == 0) {
+      if (iarg+2 > narg) 
+        error->all(FLERR,"Illegal compute property/local command");
+      if (strcmp(arg[iarg+1],"type") == 0) cutstyle = TYPE;
+      else if (strcmp(arg[iarg+1],"radius") == 0) cutstyle = RADIUS;
+      else error->all(FLERR,"Illegal compute property/local command");
+      iarg += 2;
+    } else error->all(FLERR,"Illegal compute property/local command");
   }
 
   // error check
@@ -229,11 +250,12 @@ ComputePropertyLocal::ComputePropertyLocal(LAMMPS *lmp, int narg, char **arg) :
   if (kindflag == IMPROPER && atom->avec->impropers_allow == 0)
     error->all(FLERR,
                "Compute property/local for property that isn't allocated");
+  if (cutstyle == RADIUS && !atom->radius_flag)
+    error->all(FLERR,"Compute property/local requires atom attribute radius");
 
   nmax = 0;
-  vector = NULL;
-  array = NULL;
-  indices = NULL;
+  vlocal = NULL;
+  alocal = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -241,8 +263,8 @@ ComputePropertyLocal::ComputePropertyLocal(LAMMPS *lmp, int narg, char **arg) :
 ComputePropertyLocal::~ComputePropertyLocal()
 {
   delete [] pack_choice;
-  memory->destroy(vector);
-  memory->destroy(array);
+  memory->destroy(vlocal);
+  memory->destroy(alocal);
   memory->destroy(indices);
 }
 
@@ -315,10 +337,10 @@ void ComputePropertyLocal::compute_local()
   // fill vector or array with local values
 
   if (nvalues == 1) {
-    buf = vector;
+    buf = vlocal;
     (this->*pack_choice[0])(0);
   } else {
-    if (array) buf = &array[0][0];
+    if (alocal) buf = &alocal[0][0];
     for (int n = 0; n < nvalues; n++)
       (this->*pack_choice[n])(n);
   }
@@ -336,10 +358,11 @@ int ComputePropertyLocal::count_pairs(int allflag, int forceflag)
 {
   int i,j,m,ii,jj,inum,jnum,itype,jtype;
   tagint itag,jtag;
-  double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
+  double xtmp,ytmp,ztmp,delx,dely,delz,rsq,radsum;
   int *ilist,*jlist,*numneigh,**firstneigh;
 
   double **x = atom->x;
+  double *radius = atom->radius;
   tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
@@ -404,7 +427,14 @@ int ComputePropertyLocal::count_pairs(int allflag, int forceflag)
       delz = ztmp - x[j][2];
       rsq = delx*delx + dely*dely + delz*delz;
       jtype = type[j];
-      if (forceflag && rsq >= cutsq[itype][jtype]) continue;
+      if (forceflag) {
+        if (cutstyle == TYPE) {
+          if (rsq >= cutsq[itype][jtype]) continue;
+        } else {
+          radsum = radius[i] + radius[j];
+          if (rsq >= radsum*radsum) continue;
+        }
+      }
 
       if (allflag) {
         indices[m][0] = i;
@@ -592,17 +622,18 @@ int ComputePropertyLocal::count_impropers(int flag)
 
 void ComputePropertyLocal::reallocate(int n)
 {
-  // grow vector or array and indices array
+  // grow vector_local or array_local, also indices
 
   while (nmax < n) nmax += DELTA;
+
   if (nvalues == 1) {
-    memory->destroy(vector);
-    memory->create(vector,nmax,"property/local:vector");
-    vector_local = vector;
+    memory->destroy(vlocal);
+    memory->create(vlocal,nmax,"property/local:vector_local");
+    vector_local = vlocal;
   } else {
-    memory->destroy(array);
-    memory->create(array,nmax,nvalues,"property/local:array");
-    array_local = array;
+    memory->destroy(alocal);
+    memory->create(alocal,nmax,nvalues,"property/local:array_local");
+    array_local = alocal;
   }
 
   memory->destroy(indices);

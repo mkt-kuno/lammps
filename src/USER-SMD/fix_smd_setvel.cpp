@@ -31,7 +31,6 @@
 #include "modify.h"
 #include "domain.h"
 #include "region.h"
-#include "respa.h"
 #include "input.h"
 #include "variable.h"
 #include "memory.h"
@@ -192,9 +191,6 @@ void FixSMDSetVel::init() {
 	else
 		varflag = CONSTANT;
 
-	if (strstr(update->integrate_style, "respa"))
-		nlevels_respa = ((Respa *) update->integrate)->nlevels;
-
 	// cannot use non-zero forces for a minimization since no energy is integrated
 	// use fix addforce instead
 
@@ -223,11 +219,7 @@ void FixSMDSetVel::setup(int vflag) {
 	if (strstr(update->integrate_style, "verlet"))
 		post_force(vflag);
 	else
-		for (int ilevel = 0; ilevel < nlevels_respa; ilevel++) {
-			((Respa *) update->integrate)->copy_flevel_f(ilevel);
-			post_force_respa(vflag, ilevel, 0);
-			((Respa *) update->integrate)->copy_f_flevel(ilevel);
-		}
+      error->all(FLERR,"Fix smd/setvel does not support RESPA");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -257,7 +249,7 @@ void FixSMDSetVel::post_force(int vflag) {
 
 	// reallocate sforce array if necessary
 
-	if (varflag == ATOM && nlocal > maxatom) {
+	if (varflag == ATOM && atom->nmax > maxatom) {
 		maxatom = atom->nmax;
 		memory->destroy(sforce);
 		memory->create(sforce, maxatom, 3, "setvelocity:sforce");

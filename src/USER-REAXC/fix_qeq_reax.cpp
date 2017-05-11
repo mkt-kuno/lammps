@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fix_qeq_reax.h"
-#include "pair_reax_c.h"
+#include "pair_reaxc.h"
 #include "atom.h"
 #include "comm.h"
 #include "domain.h"
@@ -129,6 +129,8 @@ FixQEqReax::~FixQEqReax()
 {
   // unregister callbacks to this fix from Atom class
 
+  if (copymode) return;
+
   atom->delete_callback(id,0);
 
   memory->destroy(s_hist);
@@ -164,6 +166,9 @@ void FixQEqReax::pertype_parameters(char *arg)
   if (strcmp(arg,"reax/c") == 0) {
     reaxflag = 1;
     Pair *pair = force->pair_match("reax/c",1);
+    if (pair == NULL)
+      pair = force->pair_match("reax/c/kk",1);
+
     if (pair == NULL) error->all(FLERR,"No pair reax/c for fix qeq/reax");
     int tmp;
     chi = (double *) pair->extract("chi",tmp);
@@ -370,7 +375,7 @@ void FixQEqReax::init_shielding()
 
   ntypes = atom->ntypes;
   if (shld == NULL)
-    memory->create(shld,ntypes+1,ntypes+1,"qeq:shileding");
+    memory->create(shld,ntypes+1,ntypes+1,"qeq:shielding");
 
   for( i = 1; i <= ntypes; ++i )
     for( j = 1; j <= ntypes; ++j )
@@ -411,7 +416,8 @@ void FixQEqReax::init_taper()
 
 void FixQEqReax::setup_pre_force(int vflag)
 {
-  neighbor->build_one(list);
+  // should not be needed
+  // neighbor->build_one(list);
 
   deallocate_storage();
   allocate_storage();
@@ -429,13 +435,6 @@ void FixQEqReax::setup_pre_force(int vflag)
 void FixQEqReax::setup_pre_force_respa(int vflag, int ilevel)
 {
   if (ilevel < nlevels_respa-1) return;
-  setup_pre_force(vflag);
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixQEqReax::min_setup_pre_force(int vflag)
-{
   setup_pre_force(vflag);
 }
 

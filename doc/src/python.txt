@@ -14,7 +14,7 @@ python func keyword args ... :pre
 
 func = name of Python function :ulb,l
 one or more keyword/args pairs must be appended :l
-keyword = {invoke} or {input} or {return} or {format} or {file} or {here} or {exists}
+keyword = {invoke} or {input} or {return} or {format} or {length} or {file} or {here} or {exists}
   {invoke} arg = none = invoke the previously defined Python function
   {input} args = N i1 i2 ... iN
     N = # of inputs to function
@@ -24,11 +24,13 @@ keyword = {invoke} or {input} or {return} or {format} or {file} or {here} or {ex
       variable = v_name, where name = name of LAMMPS variable, e.g. v_abc
   {return} arg = varReturn
     varReturn = v_name  = LAMMPS variable name which return value of function will be assigned to
-  {format} arg = fstring with M characters 
+  {format} arg = fstring with M characters
     M = N if no return value, where N = # of inputs
     M = N+1 if there is a return value
     fstring = each character (i,f,s,p) corresponds in order to an input or return value
     'i' = integer, 'f' = floating point, 's' = string, 'p' = SELF
+  {length} arg = Nlen
+    Nlen = max length of string returned from Python function
   {file} arg = filename
     filename = file of Python code, which defines func
   {here} arg = inline
@@ -48,7 +50,7 @@ def factorial(n):
   return n * factorial(n-1)
  """ :pre
 
-python loop input 1 SELF return v_value format -f here """
+python loop input 1 SELF return v_value format pf here """
 def loop(lmpptr,N,cut0):
   from lammps import lammps
   lmp = lammps(ptr=lmpptr) :pre
@@ -57,18 +59,13 @@ def loop(lmpptr,N,cut0):
 
   for i in range(N):
     cut = cut0 + i*0.1
-    lmp.set_variable("cut",cut)               # set a variable in LAMMPS
+    lmp.set_variable("cut",cut)                 # set a variable in LAMMPS
     lmp.command("pair_style lj/cut $\{cut\}")   # LAMMPS commands
     lmp.command("pair_coeff * * 1.0 1.0")
     lmp.command("run 100")
  """ :pre
 
 [Description:]
-
-NOTE: It is not currently possible to use the "python"_python.html
-command described in this section with Python 3, only with Python 2.
-The C API changed from Python 2 to 3 and the LAMMPS code is not
-compatible with both.
 
 Define a Python function or execute a previously defined function.
 Arguments, including LAMMPS variables, can be passed to the function
@@ -97,7 +94,7 @@ be passed to various commands as arguments, so that the variable is
 evaluated during a simulation run.
 
 A broader overview of how Python can be used with LAMMPS is
-given in "Section python"_Section_python.html.  There is an
+given in "Section 11"_Section_python.html.  There is an
 examples/python directory which illustrates use of the python
 command.
 
@@ -141,7 +138,7 @@ numeric or string value, as specified by the {format} keyword.
 As explained on the "variable"_variable.html doc page, the definition
 of a python-style variable associates a Python function name with the
 variable.  This must match the {func} setting for this command.  For
-exampe these two commands would be self-consistent:
+example these two commands would be self-consistent:
 
 variable foo python myMultiply
 python myMultiply return v_foo format f file funcs.py :pre
@@ -164,6 +161,17 @@ variable"_variable.html in a LAMMPS command that allows for an
 equal-style variable as an argument, but only if the output of the
 Python function is flagged as a numeric value ("i" or "f") via the
 {format} keyword.
+
+If the {return} keyword is used and the {format} keyword specifies the
+output as a string, then the default maximum length of that string is
+63 characters (64-1 for the string terminator).  If you want to return
+a longer string, the {length} keyword can be specified with its {Nlen}
+value set to a larger number (the code allocates space for Nlen+1 to
+include the string terminator).  If the Python function generates a
+string longer than the default 63 or the specified {Nlen}, it will be
+truncated.
+
+:line
 
 Either the {file}, {here}, or {exists} keyword must be used, but only
 one of them.  These keywords specify what Python code to load into the
@@ -188,7 +196,7 @@ is assumed to have been previously loaded by another python command.
 
 Note that the Python code that is loaded and run must contain a
 function with the specified {func} name.  To operate properly when
-later invoked, the the function code must match the {input} and
+later invoked, the function code must match the {input} and
 {return} and {format} keywords specified by the python command.
 Otherwise Python will generate an error.
 
@@ -231,7 +239,7 @@ nvaluelast = 0 :pre
 def expensive(nstep):
   global nsteplast,nvaluelast
   if nstep == nsteplast: return nvaluelast
-  nsteplast = nstep  
+  nsteplast = nstep
   # perform complicated calculation
   nvalue = ...
   nvaluelast = nvalue
@@ -255,7 +263,7 @@ function loaded first.
 It's important to realize that if you are running LAMMPS in parallel,
 each MPI task will load the Python interpreter and execute a local
 copy of the Python function(s) you define.  There is no connection
-between the Python interpreters running on different processors.  
+between the Python interpreters running on different processors.
 This implies three important things.
 
 First, if you put a print statement in your Python function, you will
@@ -297,7 +305,7 @@ which corresponds to SELF in the python command.  The first line of
 the function imports the Python module lammps.py in the python dir of
 the distribution.  The second line creates a Python object "lmp" which
 wraps the instance of LAMMPS that called the function.  The
-"ptr=lmpptr" argument is what makes that happen.  The thrid line
+"ptr=lmpptr" argument is what makes that happen.  The third line
 invokes the command() function in the LAMMPS library interface.  It
 takes a single string argument which is a LAMMPS input script command
 for LAMMPS to execute, the same as if it appeared in your input
@@ -321,7 +329,7 @@ def loop(N,cut0,thresh,lmpptr):
   from lammps import lammps
   lmp = lammps(ptr=lmpptr)
   natoms = lmp.get_natoms() :pre
-  
+
   for i in range(N):
     cut = cut0 + i*0.1 :pre
 
@@ -343,7 +351,7 @@ python          loop invoke :pre
 This has the effect of looping over a series of 10 short runs (10
 timesteps each) where the pair style cutoff is increased from a value
 of 1.0 in distance units, in increments of 0.1.  The looping stops
-when the per-atom potential energy falls below a threshhold of -4.0 in
+when the per-atom potential energy falls below a threshold of -4.0 in
 energy units.  More generally, Python can be used to implement a loop
 with complex logic, much more so than can be created using the LAMMPS
 "jump"_jump.html and "if"_if.html commands.
@@ -359,7 +367,7 @@ LAMMPS, more than the single value that can be passed back via a
 return statement.  This cutoff value in the "cut" variable is then
 substituted (by LAMMPS) in the pair_style command that is executed
 next.  Alternatively, the "LAMMPS command option" line could be used
-in place of the 2 preceeding lines, to have Python insert the value
+in place of the 2 preceding lines, to have Python insert the value
 into the LAMMPS command string.
 
 NOTE: When using the callback mechanism just described, recognize that
@@ -371,7 +379,7 @@ file() functions, so long as the command would work if it were
 executed in the LAMMPS input script directly at the same point.
 
 However, a Python function can also be invoked during a run, whenever
-an associated LAMMPS variable it is assigned to is evaluted.  If the
+an associated LAMMPS variable it is assigned to is evaluated.  If the
 variable is an input argument to another LAMMPS command (e.g. "fix
 setforce"_fix_setforce.html), then the Python function will be invoked
 inside the class for that command, in one of its methods that is
@@ -460,20 +468,11 @@ your Python function must be able to to load the Python module in
 python/lammps.py that wraps the LAMMPS library interface.  These are
 the same steps required to use Python by itself to wrap LAMMPS.
 Details on these steps are explained in "Section
-python"_Section.python.html.  Note that it is important that the
+python"_Section_python.html.  Note that it is important that the
 stand-alone LAMMPS executable and the LAMMPS shared library be
 consistent (built from the same source code files) in order for this
 to work.  If the two have been built at different times using
-different source files, problems may occur.
-
-As described above, you can use the python command to invoke a Python
-function which calls back to LAMMPS through its Python-wrapped library
-interface.  However you cannot do the opposite.  I.e. you cannot call
-LAMMPS from Python and invoke the python command to "callback" to
-Python and execute a Python function.  LAMMPS will generate an error
-if you try to do that.  Note that we think there actually should be a
-way to do that, but haven't yet been able to figure out how to do it
-successfully.
+different source files, problems may occur. 
 
 [Related commands:]
 

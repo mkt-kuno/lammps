@@ -26,6 +26,7 @@ template<class DeviceType>
 FixNVTKokkos<DeviceType>::FixNVTKokkos(LAMMPS *lmp, int narg, char **arg) :
   FixNHKokkos<DeviceType>(lmp, narg, arg)
 {
+  this->kokkosable = 1;
   if (!this->tstat_flag)
     this->error->all(FLERR,"Temperature control must be used with fix nvt");
   if (this->pstat_flag)
@@ -46,7 +47,7 @@ FixNVTKokkos<DeviceType>::FixNVTKokkos(LAMMPS *lmp, int narg, char **arg) :
 
   this->modify->add_compute(3,newarg);
   delete [] newarg;
-  this->tflag = 1;
+  this->tcomputeflag = 1;
 }
 
 namespace LAMMPS_NS {

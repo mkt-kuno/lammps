@@ -5,7 +5,7 @@
 :link(lc,Section_commands.html#comm)
 
 :line
-   
+
 write_dump command :h3
 
 [Syntax:]
@@ -17,7 +17,8 @@ style = any of the supported "dump styles"_dump.html :l
 file = name of file to write dump info to :l
 dump-args = any additional args needed for a particular "dump style"_dump.html :l
 modify = all args after this keyword are passed to "dump_modify"_dump_modify.html (optional) :l
-dump-modify-args = args for "dump_modify"_dump_modify.html (optional) :l,ule
+dump-modify-args = args for "dump_modify"_dump_modify.html (optional) :l
+:ule
 
 [Examples:]
 
@@ -25,7 +26,7 @@ write_dump all atom dump.atom
 write_dump subgroup atom dump.run.bin
 write_dump all custom dump.myforce.* id type x y vx fx
 write_dump flow custom dump.%.myforce id type c_myF\[3\] v_ke modify sort id
-write_dump all xyz system.xyz modify sort id elements O H 
+write_dump all xyz system.xyz modify sort id element O H
 write_dump all image snap*.jpg type type size 960 960 modify backcolor white
 write_dump all image snap*.jpg element element &
    bond atom 0.3 shiny 0.1 ssao yes 6345 0.2 size 1600 1600  &
@@ -52,7 +53,7 @@ support optional arguments and thus LAMMPS needs to be able to cleanly
 separate the two sets of args.
 
 Note that if the specified filename uses wildcard characters "*" or
-"%", as supported by the "dump"_dump.html commmand, they will operate
+"%", as supported by the "dump"_dump.html command, they will operate
 in the same fashion to create the new filename(s).  Normally, "dump
 image"_dump_image.html files require a filename with a "*" character
 for the timestep.  That is not the case for the write_dump command; no
@@ -77,7 +78,7 @@ else LAMMPS will generate an error message.
 For example, it is not possible to dump per-atom energy with this
 command before a run has been performed, since no energies and forces
 have yet been calculated.  See the "variable"_variable.html doc page
-sectinn on Variable Accuracy for more information on this topic.
+section on Variable Accuracy for more information on this topic.
 
 [Related commands:]
 

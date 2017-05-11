@@ -11,7 +11,7 @@
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
-#include "string.h"
+#include <string.h>
 #include "compute_dipole_chunk.h"
 #include "atom.h"
 #include "update.h"
@@ -30,9 +30,13 @@ enum { MASSCENTER, GEOMCENTER };
 /* ---------------------------------------------------------------------- */
 
 ComputeDipoleChunk::ComputeDipoleChunk(LAMMPS *lmp, int narg, char **arg) : 
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  idchunk(NULL), massproc(NULL), masstotal(NULL), chrgproc(NULL), 
+  chrgtotal(NULL), com(NULL),
+  comall(NULL), dipole(NULL), dipoleall(NULL)
 {
-  if ((narg != 4) && (narg != 5)) error->all(FLERR,"Illegal compute dipole/chunk command");
+  if ((narg != 4) && (narg != 5)) 
+    error->all(FLERR,"Illegal compute dipole/chunk command");
 
   array_flag = 1;
   size_array_cols = 4;
@@ -60,10 +64,6 @@ ComputeDipoleChunk::ComputeDipoleChunk(LAMMPS *lmp, int narg, char **arg) :
 
   nchunk = 1;
   maxchunk = 0;
-  massproc = masstotal = NULL;
-  chrgproc = chrgtotal = NULL;
-  com = comall = NULL;
-  dipole = dipoleall = NULL;
   allocate();
 }
 
@@ -159,10 +159,11 @@ void ComputeDipoleChunk::compute_array()
   MPI_Allreduce(&com[0][0],&comall[0][0],3*nchunk,MPI_DOUBLE,MPI_SUM,world);
 
   for (int i = 0; i < nchunk; i++) {
-    if (masstotal[i] == 0.0) masstotal[i] = 1.0;
-    comall[i][0] /= masstotal[i];
-    comall[i][1] /= masstotal[i];
-    comall[i][2] /= masstotal[i];
+    if (masstotal[i] > 0.0) {
+      comall[i][0] /= masstotal[i];
+      comall[i][1] /= masstotal[i];
+      comall[i][2] /= masstotal[i];
+    }
   }
 
   // compute dipole for each chunk

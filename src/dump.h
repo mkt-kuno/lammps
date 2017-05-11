@@ -71,15 +71,23 @@ class Dump : protected Pointers {
   int buffer_allow;          // 1 if style allows for buffer_flag, 0 if not
   int buffer_flag;           // 1 if buffer output as one big string, 0 if not
   int padflag;               // timestep padding in filename
+  int pbcflag;               // 1 if remap dumped atoms via PBC, 0 if not
   int singlefile_opened;     // 1 = one big file, already opened, else 0
   int sortcol;               // 0 to sort on ID, 1-N on columns
   int sortcolm1;             // sortcol - 1
   int sortorder;             // ASCEND or DESCEND
 
   char boundstr[9];          // encoding of boundary flags
-  char *format_default;      // default format string
-  char *format_user;         // format string set by user
+
   char *format;              // format string for the file write
+  char *format_default;      // default format string
+
+  char *format_line_user;    // user-specified format strings
+  char *format_float_user;
+  char *format_int_user;
+  char *format_bigint_user;
+  char **format_column_user;
+
   FILE *fp;                  // file to write dump to
   int size_one;              // # of quantities for one atom
   int nme;                   // # of atoms in this dump from me
@@ -109,6 +117,10 @@ class Dump : protected Pointers {
   tagint *idsort;
   int *index,*proclist;
 
+  double **xpbc,**vpbc;
+  imageint *imagepbc;
+  int maxpbc;
+
   class Irregular *irregular;
 
   virtual void init_style() = 0;
@@ -119,7 +131,8 @@ class Dump : protected Pointers {
   virtual void pack(tagint *) = 0;
   virtual int convert_string(int, double *) {return 0;}
   virtual void write_data(int, double *) = 0;
-
+  void pbc_allocate();
+    
   void sort();
   static int idcompare(const void *, const void *);
   static int bufcompare(const void *, const void *);

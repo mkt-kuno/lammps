@@ -34,7 +34,6 @@
 #include "update.h"
 #include "modify.h"
 #include "compute.h"
-#include "accelerator_cuda.h"
 #include "suffix.h"
 #include "atom_masks.h"
 #include "memory.h"
@@ -88,6 +87,8 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
   ndisptablebits = 12;
   tabinner = sqrt(2.0);
   tabinner_disp = sqrt(2.0);
+  ftable = NULL;
+  fdisptable = NULL;
 
   allocated = 0;
   suffix_flag = Suffix::NONE;
@@ -99,10 +100,7 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
   num_tally_compute = 0;
   list_tally_compute = NULL;
 
-  // CUDA and KOKKOS per-fix data masks
-
-  datamask = ALL_MASK;
-  datamask_ext = ALL_MASK;
+  // KOKKOS per-fix data masks
 
   execution_space = Host;
   datamask_read = ALL_MASK;
@@ -116,7 +114,7 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
 Pair::~Pair()
 {
   num_tally_compute = 0;
-  memory->sfree((void *)list_tally_compute);
+  memory->sfree((void *) list_tally_compute);
   list_tally_compute = NULL;
 
   if (copymode) return;
@@ -199,9 +197,11 @@ void Pair::init()
   if (tail_flag && domain->nonperiodic && comm->me == 0)
     error->warning(FLERR,"Using pair tail corrections with nonperiodic system");
   if (!compute_flag && tail_flag)
-    error->warning(FLERR,"Using pair tail corrections with pair_modify compute no");
+    error->warning(FLERR,"Using pair tail corrections with "
+                   "pair_modify compute no");
   if (!compute_flag && offset_flag)
-    error->warning(FLERR,"Using pair potential shift with pair_modify compute no");
+    error->warning(FLERR,"Using pair potential shift with "
+                   "pair_modify compute no");
 
   // for manybody potentials
   // check if bonded exclusions could invalidate the neighbor list
@@ -749,7 +749,7 @@ void Pair::del_tally_callback(Compute *ptr)
    see integrate::ev_set() for values of eflag (0-3) and vflag (0-6)
 ------------------------------------------------------------------------- */
 
-void Pair::ev_setup(int eflag, int vflag)
+void Pair::ev_setup(int eflag, int vflag, int alloc)
 {
   int i,n;
 
@@ -767,13 +767,17 @@ void Pair::ev_setup(int eflag, int vflag)
 
   if (eflag_atom && atom->nmax > maxeatom) {
     maxeatom = atom->nmax;
-    memory->destroy(eatom);
-    memory->create(eatom,comm->nthreads*maxeatom,"pair:eatom");
+    if (alloc) {
+      memory->destroy(eatom);
+      memory->create(eatom,comm->nthreads*maxeatom,"pair:eatom");
+    }
   }
   if (vflag_atom && atom->nmax > maxvatom) {
     maxvatom = atom->nmax;
-    memory->destroy(vatom);
-    memory->create(vatom,comm->nthreads*maxvatom,6,"pair:vatom");
+    if (alloc) {
+      memory->destroy(vatom);
+      memory->create(vatom,comm->nthreads*maxvatom,6,"pair:vatom");
+    }
   }
 
   // zero accumulators
@@ -782,12 +786,12 @@ void Pair::ev_setup(int eflag, int vflag)
 
   if (eflag_global) eng_vdwl = eng_coul = 0.0;
   if (vflag_global) for (i = 0; i < 6; i++) virial[i] = 0.0;
-  if (eflag_atom) {
+  if (eflag_atom && alloc) {
     n = atom->nlocal;
     if (force->newton) n += atom->nghost;
     for (i = 0; i < n; i++) eatom[i] = 0.0;
   }
-  if (vflag_atom) {
+  if (vflag_atom && alloc) {
     n = atom->nlocal;
     if (force->newton) n += atom->nghost;
     for (i = 0; i < n; i++) {
@@ -810,8 +814,6 @@ void Pair::ev_setup(int eflag, int vflag)
     if (vflag_atom == 0) vflag_either = 0;
     if (vflag_either == 0 && eflag_either == 0) evflag = 0;
   } else vflag_fdotr = 0;
-
-  if (lmp->cuda) lmp->cuda->evsetup_eatom_vatom(eflag_atom,vflag_atom);
 }
 
 /* ----------------------------------------------------------------------
@@ -1536,7 +1538,7 @@ void Pair::virial_fdotr_compute()
 
 void Pair::write_file(int narg, char **arg)
 {
-  if (narg < 8) error->all(FLERR,"Illegal pair_write command");
+  if (narg != 8 && narg != 10) error->all(FLERR,"Illegal pair_write command");
   if (single_enable == 0)
     error->all(FLERR,"Pair style does not support pair_write");
 

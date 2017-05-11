@@ -50,7 +50,7 @@ This compute calculates a per-atom vector, which can be accessed by
 any command that uses per-atom values from a compute as input. See
 Section_howto 15 for an overview of LAMMPS output options.
 
-The per-atom vector values are unitlesss numbers (theta) >= 0.0.
+The per-atom vector values are unitless numbers (theta) >= 0.0.
 
 [Restrictions:]
 
@@ -60,7 +60,7 @@ LAMMPS"_Section_start.html#start_3 section for more info.
 
 [Related commands:]
 
-"compute damage"_compute_damage.html, "compute
-plasticity"_compute_plasticity.html
+"compute damage/atom"_compute_damage_atom.html,
+"compute plasticity/atom"_compute_plasticity_atom.html
 
-[Default:] none 
+[Default:] none

@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -17,8 +17,8 @@ PairStyle(vashishta,PairVashishta)
 
 #else
 
-#ifndef LMP_PAIR_Vashishta_H
-#define LMP_PAIR_Vashishta_H
+#ifndef LMP_PAIR_VASHISHITA_H
+#define LMP_PAIR_VASHISHITA_H
 
 #include "pair.h"
 
@@ -29,12 +29,11 @@ class PairVashishta : public Pair {
   PairVashishta(class LAMMPS *);
   virtual ~PairVashishta();
   virtual void compute(int, int);
-  void settings(int, char **);
+  virtual void settings(int, char **);
   void coeff(int, char **);
-  virtual double init_one(int, int);
-  virtual void init_style();
+  double init_one(int, int);
+  void init_style();
 
- protected:
   struct Param {
     double bigb,gamma,r0,bigc,costheta;
     double bigh,eta,zi,zj;
@@ -45,7 +44,7 @@ class PairVashishta : public Pair {
     double lam1rc,lam4rc,vrcc2,vrcc3,vrc,dvrc,c0;
     int ielement,jelement,kelement;
   };
-
+ protected:
   double cutmax;                // max cutoff for all elements
   int nelements;                // # of unique elements
   char **elements;              // names of unique elements
@@ -54,10 +53,13 @@ class PairVashishta : public Pair {
   int nparams;                  // # of stored parameter sets
   int maxparam;                 // max # of parameter sets
   Param *params;                // parameter set for an I-J-K interaction
+  double r0max;                 // largest value of r0
+  int maxshort;                 // size of short neighbor list array
+  int *neighshort;              // short neighbor list array
 
-  virtual void allocate();
+  void allocate();
   void read_file(char *);
-  void setup_params();
+  virtual void setup_params();
   void twobody(Param *, double, double &, int, double &);
   void threebody(Param *, Param *, Param *, double, double, double *, double *,
                  double *, double *, int, double &);

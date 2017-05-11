@@ -180,7 +180,7 @@ used appropriately when each data file is read, the values in those
 sections will be stored correctly in the larger data structures
 allocated by the use of the {extra} keywords.  E.g. the substrate file
 can list mass and pair coefficients for type 1 silicon atoms.  The
-water file can list mass and pair coeffcients for type 1 and type 2
+water file can list mass and pair coefficients for type 1 and type 2
 hydrogen and oxygen atoms.  Use of the {extra} and {offset} keywords
 will store those mass and pair coefficient values appropriately in
 data structures that allow for 3 atom types (Si, H, O).  Of course,
@@ -310,7 +310,7 @@ with tilt factors that exceed these limits, you can use the "box
 tilt"_box.html command, with a setting of {large}; a setting of
 {small} is the default.
 
-See "Section_howto 12"_Section_howto.html#howto_12 of the doc pages
+See "Section 6.12"_Section_howto.html#howto_12 of the doc pages
 for a geometric description of triclinic boxes, as defined by LAMMPS,
 and how to transform these parameters to and from other commonly used
 triclinic representations.
@@ -431,8 +431,8 @@ Atoms # sphere
 Pair Coeffs # lj/cut :pre
 
 will check if the currently-defined "atom_style"_atom_style.html is
-{sphere}, and the current "pair_style"_pair_style is {lj/cut}.  If
-not, LAMMPS will issue a warning to indicate that the data file
+{sphere}, and the current "pair_style"_pair_style.html is {lj/cut}.
+If not, LAMMPS will issue a warning to indicate that the data file
 section likely does not contain the correct number or type of
 parameters expected for the currently-defined style.
 
@@ -574,7 +574,7 @@ spin = electron spin (+1/-1), 0 = nuclei, 2 = fixed-core, 3 = pseudo-cores (i.e.
 template-atom = which atom within a template molecule the atom is
 template-index = which molecule within the molecule template the atom is part of
 theta = internal temperature of a DPD particle
-triangleflag = 1 for triangular particles, 0 for point or sperhical particles
+triangleflag = 1 for triangular particles, 0 for point or spherical particles
 volume = volume of Peridynamic particle (distance^3 units)
 x,y,z = coordinates of atom (distance units) :ul
 
@@ -632,6 +632,15 @@ density value is used as the mass.  One exception is for the body atom
 style, in which case the mass of each particle (body or point
 particle) is specified explicitly.  This is because the volume of the
 body is unknown.
+
+Note that for 2d simulations of spheres, this command will treat them
+as spheres when converting density to mass.  However, they can also be
+modeled as 2d discs (circles) if the "set density/disc"_set.html
+command is used to reset their mass after the read_data command is
+used.  A {disc} keyword can also be used with time integration fixes,
+such as "fix nve/sphere"_fix_nve_sphere.html and "fix
+nvt/sphere"_fix_nve_sphere.html to time integrate their motion as 2d
+discs (not 3d spheres), by changing their moment of inertia.
 
 For atom_style hybrid, following the 5 initial values (ID,type,x,y,z),
 specific values for each sub-style must be listed.  The order of the
@@ -698,7 +707,8 @@ atoms in such a bond. :l
 If you plan to "dump"_dump.html image flags and perform post-analysis
 that will unwrap atom coordinates, it may be important that a
 continued run (restarted from a data file) begins with image flags
-that are consistent with the previous run. :l,ule
+that are consistent with the previous run. :l
+:ule
 
 NOTE: If your system is an infinite periodic crystal with bonds then
 it is impossible to have fully consistent image flags.  This is because
@@ -1044,7 +1054,7 @@ script.
 {Triangles} section:
 
 one line per triangle :ulb,l
-line syntax: atom-ID x1 y1 x2 y2 :l
+line syntax: atom-ID x1 y1 z1 x2 y2 z2 x3 y3 z3 :l
   atom-ID = ID of atom which is a line segment
   x1,y1,z1 = 1st corner point
   x2,y2,z2 = 2nd corner point

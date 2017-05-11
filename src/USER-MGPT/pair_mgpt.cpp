@@ -1983,7 +1983,7 @@ void PairMGPT::coeff(int narg, char **arg)
 
   // Set atomic mass.
   for(int i = 1; i <= atom->ntypes; i++)
-    atom->set_mass(i, splinepot.mass);
+    atom->set_mass(FLERR,i, splinepot.mass);
 
   // Initialize linear algebra routines.
   linalg = mgpt_linalg(lmax,single_precision);
@@ -2010,10 +2010,6 @@ void PairMGPT::init_style()
 	// Also need half neighbor list.
 	int irequest_half = neighbor->request(this);
 	neighbor->requests[irequest_half]->id = 2;
-	neighbor->requests[irequest_half]->half = 0;
-	neighbor->requests[irequest_half]->half_from_full = 1;
-	neighbor->requests[irequest_half]->otherlist = irequest_full;
-
 }
 
 /* ----------------------------------------------------------------------

@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -58,14 +58,15 @@ class AtomVecDPD : public AtomVec {
   void write_data(FILE *, int, double **);
   int write_data_hybrid(FILE *, double *);
   bigint memory_usage();
-  double *uCond,*uMech,*dpdTheta,*rho;
-  double *duCond,*duMech;
+  double *uCond,*uMech,*uChem,*uCG,*uCGnew,*rho,*dpdTheta;
+  double *duChem;
 
  protected:
   tagint *tag;
   int *type,*mask;
   imageint *image;
   double **x,**v,**f;
+
 };
 
 }

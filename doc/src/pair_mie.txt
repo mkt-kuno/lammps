@@ -28,7 +28,7 @@ The {mie/cut} style computes the Mie potential, given by
 
 :c,image(Eqs/pair_mie.jpg)
 
-Rc is the cutoff and C is a function that depends on the repulsive and 
+Rc is the cutoff and C is a function that depends on the repulsive and
 attractive exponents, given by:
 
 :c,image(Eqs/pair_mie2.jpg)
@@ -48,7 +48,7 @@ gammaR
 gammaA
 cutoff (distance units) :ul
 
-The last coefficient is optional.  If not specified, the global 
+The last coefficient is optional.  If not specified, the global
 cutoff specified in the pair_style command is used.
 
 :line
@@ -57,7 +57,7 @@ cutoff specified in the pair_style command is used.
 
 For atom type pairs I,J and I != J, the epsilon and sigma coefficients
 and cutoff distance for all of the mie/cut pair styles can be mixed.
-If not explicity defined, both the repulsive and attractive gamma
+If not explicitly defined, both the repulsive and attractive gamma
 exponents for different atoms will be calculated following the same
 mixing rule defined for distances.  The default mix value is
 {geometric}. See the "pair_modify" command for details.

@@ -13,7 +13,7 @@
 
 // define integer data types used by LAMMPS and associated size limits
 
-// smallint = variables for on-procesor system (nlocal, nmax, etc)
+// smallint = variables for on-processor system (nlocal, nmax, etc)
 // imageint = variables for atom image flags (image)
 // tagint = variables for atom IDs and molecule IDs (tag,molecule)
 // bigint = variables for total system (natoms, ntimestep, etc)
@@ -89,6 +89,7 @@ typedef int64_t bigint;
 #define MAXBIGINT INT64_MAX
 
 #define MPI_LMP_TAGINT MPI_INT
+#define MPI_LMP_IMAGEINT MPI_INT
 #define MPI_LMP_BIGINT MPI_LL
 
 #define TAGINT_FORMAT "%d"
@@ -120,6 +121,7 @@ typedef int64_t bigint;
 #define MAXBIGINT INT64_MAX
 
 #define MPI_LMP_TAGINT MPI_LL
+#define MPI_LMP_IMAGEINT MPI_LL
 #define MPI_LMP_BIGINT MPI_LL
 
 #define TAGINT_FORMAT "%" PRId64
@@ -150,6 +152,7 @@ typedef int bigint;
 #define MAXBIGINT INT_MAX
 
 #define MPI_LMP_TAGINT MPI_INT
+#define MPI_LMP_IMAGEINT MPI_INT
 #define MPI_LMP_BIGINT MPI_INT
 
 #define TAGINT_FORMAT "%d"

@@ -33,7 +33,9 @@ class FixNVESphere : public FixNVE {
   virtual void final_integrate();
 
  protected:
+  double inertia;
   int extra;
+  int dlm;
 };
 
 }
@@ -53,12 +55,17 @@ E: Fix nve/sphere requires atom style sphere
 
 Self-explanatory.
 
-E: Fix nve/sphere dipole requires atom attribute mu
+E: Fix nve/sphere update dipole requires atom attribute mu
 
 An atom style with this attribute is needed.
 
 E: Fix nve/sphere requires extended particles
 
 This fix can only be used for particles of a finite size.
+ 
+E: Fix nve/sphere dlm must be used with update dipole
+ 
+The DLM algorithm can only be used in conjunction with update dipole.
+
 
 */

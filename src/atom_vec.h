@@ -43,9 +43,7 @@ class AtomVec : protected Pointers {
   class Molecule **onemols;            // list of molecules for style template
   int nset;                            // # of molecules in list
 
-  int cudable;                         // 1 if atom style is CUDA-enabled
   int kokkosable;                      // 1 if atom style is KOKKOS-enabled
-  int *maxsend;                        // CUDA-specific variable
 
   int nargcopy;          // copy of command-line args for atom_style command
   char **argcopy;        // used when AtomVec is realloced (restart,replicate)
@@ -155,10 +153,6 @@ class AtomVec : protected Pointers {
 /* ERROR/WARNING messages:
 
 E: Invalid atom_style command
-
-Self-explanatory.
-
-E: USER-CUDA package requires a cuda enabled atom_style
 
 Self-explanatory.
 

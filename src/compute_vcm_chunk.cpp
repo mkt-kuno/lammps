@@ -28,7 +28,8 @@ enum{ONCE,NFREQ,EVERY};
 /* ---------------------------------------------------------------------- */
 
 ComputeVCMChunk::ComputeVCMChunk(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  idchunk(NULL), massproc(NULL), masstotal(NULL), vcm(NULL), vcmall(NULL)
 {
   if (narg != 4) error->all(FLERR,"Illegal compute vcm/chunk command");
 
@@ -50,8 +51,6 @@ ComputeVCMChunk::ComputeVCMChunk(LAMMPS *lmp, int narg, char **arg) :
 
   nchunk = 1;
   maxchunk = 0;
-  massproc = masstotal = NULL;
-  vcm = vcmall = NULL;
   allocate();
 
   firstflag = massneed = 1;
@@ -146,9 +145,11 @@ void ComputeVCMChunk::compute_array()
     MPI_Allreduce(massproc,masstotal,nchunk,MPI_DOUBLE,MPI_SUM,world);
 
   for (int i = 0; i < nchunk; i++) {
-    vcmall[i][0] /= masstotal[i];
-    vcmall[i][1] /= masstotal[i];
-    vcmall[i][2] /= masstotal[i];
+    if (masstotal[i] > 0.0) {
+      vcmall[i][0] /= masstotal[i];
+      vcmall[i][1] /= masstotal[i];
+      vcmall[i][2] /= masstotal[i];
+    } else vcmall[i][0] = vcmall[i][1] = vcmall[i][2] = 0.0;
   }
 }
 

@@ -5,6 +5,10 @@ mode=$1
 
 # arg1 = file, arg2 = file it depends on
 
+# enforce using portable C locale
+LC_ALL=C
+export LC_ALL
+
 action () {
   if (test $mode = 0) then
     rm -f ../$1
@@ -22,16 +26,14 @@ action () {
   fi
 }
 
-# force rebuild of files with LMP_KOKKOS switch
-# also variable so its *.d dependence on changed python_wrapper.h is rebuilt
+# force rebuild of files using python header
 
-touch ../python_wrapper.h
-touch ../variable.cpp
+touch ../python.h
 
 # all package files with no dependencies
 
 for file in *.cpp *.h; do
-  action $file
+  test -f ${file} && action $file
 done
 
 # edit 2 Makefile.package files to include/exclude package info

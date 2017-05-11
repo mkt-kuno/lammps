@@ -122,16 +122,16 @@ custom"_thermo_style.html or "fix ave/time"_fix_ave_time.html command.
 Or the values can be referenced in a "variable equal"_variable.html or
 "variable atom"_variable.html command. :ulb,l
 
-Per-atom values can be output via the "dump custom"_dump.html command
-or the "fix ave/spatial"_fix_ave_spatial.html command.  Or they can be
-time-averaged via the "fix ave/atom"_fix_ave_atom.html command or
-reduced by the "compute reduce"_compute_reduce.html command.  Or the
-per-atom values can be referenced in an "atom-style
+Per-atom values can be output via the "dump custom"_dump.html command.
+Or they can be time-averaged via the "fix ave/atom"_fix_ave_atom.html
+command or reduced by the "compute reduce"_compute_reduce.html
+command.  Or the per-atom values can be referenced in an "atom-style
 variable"_variable.html. :l
 
 Local values can be reduced by the "compute
 reduce"_compute_reduce.html command, or histogrammed by the "fix
-ave/histo"_fix_ave_histo.html command. :l,ule
+ave/histo"_fix_ave_histo.html command. :l
+:ule
 
 See this "howto section"_Section_howto.html#howto_15 for a summary of
 various LAMMPS output options, many of which involve fixes.
@@ -171,7 +171,6 @@ of "this page"_Section_commands.html#cmd_5.
 "ave/chunk"_fix_ave_chunk.html - compute per-chunk time-averaged quantities
 "ave/correlate"_fix_ave_correlate.html - compute/output time correlations
 "ave/histo"_fix_ave_histo.html - compute/output time-averaged histograms
-"ave/spatial"_fix_ave_spatial.html - compute/output time-averaged per-atom quantities by layer
 "ave/time"_fix_ave_time.html - compute/output global time-averaged quantities
 "balance"_fix_balance.html - perform dynamic load-balancing
 "bond/break"_fix_bond_break.html - break bonds on the fly
@@ -183,6 +182,7 @@ of "this page"_Section_commands.html#cmd_5.
 "drag"_fix_drag.html - drag atoms towards a defined coordinate
 "dt/reset"_fix_dt_reset.html - reset the timestep based on velocity, forces
 "efield"_fix_efield.html - impose electric field on system
+"ehex"_fix_ehex.html - ehanced heat exchange algorithm
 "enforce2d"_fix_enforce2d.html - zero out z-dimension velocity and force
 "evaporate"_fix_evaporate.html - remove atoms from simulation periodically
 "external"_fix_external.html - callback to an external driver program
@@ -190,6 +190,7 @@ of "this page"_Section_commands.html#cmd_5.
 "gcmc"_fix_gcmc.html - grand canonical insertions/deletions
 "gld"_fix_gcmc.html - generalized Langevin dynamics integrator
 "gravity"_fix_gravity.html - add gravity to atoms in a granular simulation
+"halt"_fix_halt.html - terminate a dynamics run or minimization
 "heat"_fix_heat.html - add/subtract momentum-conserving heat
 "indent"_fix_indent.html - impose force due to an indenter
 "langevin"_fix_langevin.html - Langevin temperature control
@@ -222,7 +223,8 @@ of "this page"_Section_commands.html#cmd_5.
 "nvt/sllod"_fix_nvt_sllod.html - NVT for NEMD with SLLOD equations
 "nvt/sphere"_fix_nvt_sphere.html - NVT for spherical particles
 "oneway"_fix_oneway.html - constrain particles on move in one direction
-"orient/fcc"_fix_orient_fcc.html - add grain boundary migration force
+"orient/bcc"_fix_orient.html - add grain boundary migration force for BCC
+"orient/fcc"_fix_orient.html - add grain boundary migration force for FCC
 "planeforce"_fix_planeforce.html - constrain atoms to move in a plane
 "poems"_fix_poems.html - constrain clusters of atoms to move \
   as coupled rigid bodies
@@ -265,6 +267,7 @@ of "this page"_Section_commands.html#cmd_5.
 "setforce"_fix_setforce.html - set the force on each atom
 "shake"_fix_shake.html - SHAKE constraints on bonds and/or angles
 "spring"_fix_spring.html - apply harmonic spring force to group of atoms
+"spring/chunk"_fix_spring_chunk.html - apply harmonic spring force to each chunk of atoms
 "spring/rg"_fix_spring_rg.html - spring on radius of gyration of \
      group of atoms
 "spring/self"_fix_spring_self.html - spring from each atom to its origin

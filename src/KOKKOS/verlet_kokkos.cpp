@@ -64,21 +64,27 @@ VerletKokkos::VerletKokkos(LAMMPS *lmp, int narg, char **arg) :
    setup before run
 ------------------------------------------------------------------------- */
 
-void VerletKokkos::setup()
+void VerletKokkos::setup(int flag)
 {
   if (comm->me == 0 && screen) {
     fprintf(screen,"Setting up Verlet run ...\n");
-    fprintf(screen,"  Unit style  : %s\n", update->unit_style);
-    fprintf(screen,"  Current step: " BIGINT_FORMAT "\n", update->ntimestep);
-    fprintf(screen,"  Time step   : %g\n", update->dt);
+    if (flag) {
+      fprintf(screen,"  Unit style    : %s\n", update->unit_style);
+      fprintf(screen,"  Current step  : " BIGINT_FORMAT "\n",
+              update->ntimestep);
+      fprintf(screen,"  Time step     : %g\n", update->dt);
+      timer->print_timeout(screen);
+    }
   }
 
   update->setupflag = 1;
+  lmp->kokkos->auto_sync = 0;
 
   // setup domain, communication and neighboring
   // acquire ghosts
   // build neighbor lists
 
+  atomKK->sync(Host,ALL_MASK);
   atomKK->modified(Host,ALL_MASK);
 
   atomKK->setup();
@@ -123,8 +129,8 @@ void VerletKokkos::setup()
 
   if (pair_compute_flag) {
     atomKK->sync(force->pair->execution_space,force->pair->datamask_read);
-    atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
     force->pair->compute(eflag,vflag);
+    atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
     timer->stamp(Timer::PAIR);
   }
   else if (force->pair) force->pair->compute_dummy(eflag,vflag);
@@ -133,23 +139,23 @@ void VerletKokkos::setup()
   if (atomKK->molecular) {
     if (force->bond) {
       atomKK->sync(force->bond->execution_space,force->bond->datamask_read);
-      atomKK->modified(force->bond->execution_space,force->bond->datamask_modify);
       force->bond->compute(eflag,vflag);
+      atomKK->modified(force->bond->execution_space,force->bond->datamask_modify);
     }
     if (force->angle) {
       atomKK->sync(force->angle->execution_space,force->angle->datamask_read);
-      atomKK->modified(force->angle->execution_space,force->angle->datamask_modify);
       force->angle->compute(eflag,vflag);
+      atomKK->modified(force->angle->execution_space,force->angle->datamask_modify);
     }
     if (force->dihedral) {
       atomKK->sync(force->dihedral->execution_space,force->dihedral->datamask_read);
-      atomKK->modified(force->dihedral->execution_space,force->dihedral->datamask_modify);
       force->dihedral->compute(eflag,vflag);
+      atomKK->modified(force->dihedral->execution_space,force->dihedral->datamask_modify);
     }
     if (force->improper) {
       atomKK->sync(force->improper->execution_space,force->improper->datamask_read);
-      atomKK->modified(force->improper->execution_space,force->improper->datamask_modify);
       force->improper->compute(eflag,vflag);
+      atomKK->modified(force->improper->execution_space,force->improper->datamask_modify);
     }
     timer->stamp(Timer::BOND);
   }
@@ -158,17 +164,17 @@ void VerletKokkos::setup()
     force->kspace->setup();
     if (kspace_compute_flag) {
       atomKK->sync(force->kspace->execution_space,force->kspace->datamask_read);
-      atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
       force->kspace->compute(eflag,vflag);
+      atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
       timer->stamp(Timer::KSPACE);
     } else force->kspace->compute_dummy(eflag,vflag);
   }
-
   if (force->newton) comm->reverse_comm();
 
   modify->setup(vflag);
-  output->setup();
-  update->setupflag = 0;
+  output->setup(flag);
+  lmp->kokkos->auto_sync = 1;
+  update->setupflag = 1;
 }
 
 /* ----------------------------------------------------------------------
@@ -180,12 +186,14 @@ void VerletKokkos::setup()
 void VerletKokkos::setup_minimal(int flag)
 {
   update->setupflag = 1;
+  lmp->kokkos->auto_sync = 0;
 
   // setup domain, communication and neighboring
   // acquire ghosts
   // build neighbor lists
 
   if (flag) {
+    atomKK->sync(Host,ALL_MASK);
     atomKK->modified(Host,ALL_MASK);
 
     modify->setup_pre_exchange();
@@ -225,8 +233,8 @@ void VerletKokkos::setup_minimal(int flag)
 
   if (pair_compute_flag) {
     atomKK->sync(force->pair->execution_space,force->pair->datamask_read);
-    atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
     force->pair->compute(eflag,vflag);
+    atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
     timer->stamp(Timer::PAIR);
   }
   else if (force->pair) force->pair->compute_dummy(eflag,vflag);
@@ -235,23 +243,23 @@ void VerletKokkos::setup_minimal(int flag)
   if (atomKK->molecular) {
     if (force->bond) {
       atomKK->sync(force->bond->execution_space,force->bond->datamask_read);
-      atomKK->modified(force->bond->execution_space,force->bond->datamask_modify);
       force->bond->compute(eflag,vflag);
+      atomKK->modified(force->bond->execution_space,force->bond->datamask_modify);
     }
     if (force->angle) {
       atomKK->sync(force->angle->execution_space,force->angle->datamask_read);
-      atomKK->modified(force->angle->execution_space,force->angle->datamask_modify);
       force->angle->compute(eflag,vflag);
+      atomKK->modified(force->angle->execution_space,force->angle->datamask_modify);
     }
     if (force->dihedral) {
       atomKK->sync(force->dihedral->execution_space,force->dihedral->datamask_read);
-      atomKK->modified(force->dihedral->execution_space,force->dihedral->datamask_modify);
       force->dihedral->compute(eflag,vflag);
+      atomKK->modified(force->dihedral->execution_space,force->dihedral->datamask_modify);
     }
     if (force->improper) {
       atomKK->sync(force->improper->execution_space,force->improper->datamask_read);
-      atomKK->modified(force->improper->execution_space,force->improper->datamask_modify);
       force->improper->compute(eflag,vflag);
+      atomKK->modified(force->improper->execution_space,force->improper->datamask_modify);
     }
     timer->stamp(Timer::BOND);
   }
@@ -260,8 +268,8 @@ void VerletKokkos::setup_minimal(int flag)
     force->kspace->setup();
     if (kspace_compute_flag) {
       atomKK->sync(force->kspace->execution_space,force->kspace->datamask_read);
-      atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
       force->kspace->compute(eflag,vflag);
+      atomKK->modified(force->kspace->execution_space,force->kspace->datamask_modify);
       timer->stamp(Timer::KSPACE);
     } else force->kspace->compute_dummy(eflag,vflag);
   }
@@ -269,6 +277,7 @@ void VerletKokkos::setup_minimal(int flag)
   if (force->newton) comm->reverse_comm();
 
   modify->setup(vflag);
+  lmp->kokkos->auto_sync = 1;
   update->setupflag = 0;
 }
 
@@ -288,18 +297,24 @@ void VerletKokkos::run(int n)
   int n_post_force = modify->n_post_force;
   int n_end_of_step = modify->n_end_of_step;
 
+  lmp->kokkos->auto_sync = 0;
+
   if (atomKK->sortfreq > 0) sortflag = 1;
   else sortflag = 0;
 
   f_merge_copy = DAT::t_f_array("VerletKokkos::f_merge_copy",atomKK->k_f.dimension_0());
 
   static double time = 0.0;
-  static int count = 0;
   atomKK->sync(Device,ALL_MASK);
   Kokkos::Impl::Timer ktimer;
 
+  timer->init_timeout();
   for (int i = 0; i < n; i++) {
 
+    if (timer->check_timeout(i)) {
+      update->nsteps = i;
+      break;
+    }
     ntimestep = ++update->ntimestep;
     ev_set(ntimestep);
 
@@ -383,7 +398,6 @@ void VerletKokkos::run(int n)
     unsigned int datamask_read_device = 0;
     unsigned int datamask_modify_device = 0;
     unsigned int datamask_read_host = 0;
-    unsigned int datamask_modify_host = 0;
 
     if ( pair_compute_flag ) {
       if (force->pair->execution_space==Host) {
@@ -449,11 +463,11 @@ void VerletKokkos::run(int n)
 
     if (pair_compute_flag) {
       atomKK->sync(force->pair->execution_space,force->pair->datamask_read);
-      atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
       atomKK->sync(force->pair->execution_space,~(~force->pair->datamask_read|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
-      atomKK->modified(force->pair->execution_space,~(~force->pair->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
       Kokkos::Impl::Timer ktimer;
       force->pair->compute(eflag,vflag);
+      atomKK->modified(force->pair->execution_space,force->pair->datamask_modify);
+      atomKK->modified(force->pair->execution_space,~(~force->pair->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
       timer->stamp(Timer::PAIR);
     }
 
@@ -469,31 +483,31 @@ void VerletKokkos::run(int n)
     if (atomKK->molecular) {
       if (force->bond) {
         atomKK->sync(force->bond->execution_space,~(~force->bond->datamask_read|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
-        atomKK->modified(force->bond->execution_space,~(~force->bond->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
         force->bond->compute(eflag,vflag);
+        atomKK->modified(force->bond->execution_space,~(~force->bond->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
       }
       if (force->angle) {
         atomKK->sync(force->angle->execution_space,~(~force->angle->datamask_read|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
-        atomKK->modified(force->angle->execution_space,~(~force->angle->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
         force->angle->compute(eflag,vflag);
+        atomKK->modified(force->angle->execution_space,~(~force->angle->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
       }
       if (force->dihedral) {
         atomKK->sync(force->dihedral->execution_space,~(~force->dihedral->datamask_read|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
-        atomKK->modified(force->dihedral->execution_space,~(~force->dihedral->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
         force->dihedral->compute(eflag,vflag);
+        atomKK->modified(force->dihedral->execution_space,~(~force->dihedral->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
       }
       if (force->improper) {
         atomKK->sync(force->improper->execution_space,~(~force->improper->datamask_read|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
-        atomKK->modified(force->improper->execution_space,~(~force->improper->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
         force->improper->compute(eflag,vflag);
+        atomKK->modified(force->improper->execution_space,~(~force->improper->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
       }
       timer->stamp(Timer::BOND);
     }
 
     if (kspace_compute_flag) {
       atomKK->sync(force->kspace->execution_space,~(~force->kspace->datamask_read|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
-      atomKK->modified(force->kspace->execution_space,~(~force->kspace->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
       force->kspace->compute(eflag,vflag);
+      atomKK->modified(force->kspace->execution_space,~(~force->kspace->datamask_modify|(F_MASK | ENERGY_MASK | VIRIAL_MASK)));
       timer->stamp(Timer::KSPACE);
     }
 
@@ -505,7 +519,8 @@ void VerletKokkos::run(int n)
       Kokkos::deep_copy(LMPHostType(),f_merge_copy,atomKK->k_f.h_view);
       Kokkos::parallel_for(atomKK->k_f.dimension_0(),
         ForceAdder<DAT::t_f_array,DAT::t_f_array>(atomKK->k_f.d_view,f_merge_copy));
-      atomKK->k_f.template modify<LMPDeviceType>();
+      atomKK->k_f.modified_host() = 0; // special case
+      atomKK->k_f.modify<LMPDeviceType>();
     }
 
 
@@ -531,6 +546,9 @@ void VerletKokkos::run(int n)
       timer->stamp(Timer::OUTPUT);
     }
   }
+
+  atomKK->sync(Host,ALL_MASK);
+  lmp->kokkos->auto_sync = 1;
 }
 
 /* ----------------------------------------------------------------------
@@ -557,8 +575,9 @@ void VerletKokkos::force_clear()
 
     if (nbytes) {
       if (atomKK->k_f.modified_host() > atomKK->k_f.modified_device()) {
-    	memset_kokkos(atomKK->k_f.view<LMPHostType>());
-    	atomKK->modified(Host,F_MASK);
+        memset_kokkos(atomKK->k_f.view<LMPHostType>());
+        atomKK->modified(Host,F_MASK);
+        atomKK->sync(Device,F_MASK);
       } else {
         memset_kokkos(atomKK->k_f.view<LMPDeviceType>());
         atomKK->modified(Device,F_MASK);

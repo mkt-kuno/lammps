@@ -7,9 +7,9 @@
 
 :line
 
-"Return to Section accelerate overview"_Section_accelerate.html
+"Return to Section 5 overview"_Section_accelerate.html
 
-5.3.5 USER-OMP package :h4
+5.3.4 USER-OMP package :h5
 
 The USER-OMP package was developed by Axel Kohlmeyer at Temple
 University.  It provides multi-threaded versions of most pair styles,
@@ -96,15 +96,15 @@ variable.
 
 Depending on which styles are accelerated, you should look for a
 reduction in the "Pair time", "Bond time", "KSpace time", and "Loop
-time" values printed at the end of a run.  
+time" values printed at the end of a run.
 
 You may see a small performance advantage (5 to 20%) when running a
 USER-OMP style (in serial or parallel) with a single thread per MPI
 task, versus running standard LAMMPS with its standard un-accelerated
 styles (in serial or all-MPI parallelization with 1 task/core).  This
 is because many of the USER-OMP styles contain similar optimizations
-to those used in the OPT package, described in "Section accelerate
-5.3.6"_accelerate_opt.html.
+to those used in the OPT package, described in "Section
+5.3.5"_accelerate_opt.html.
 
 With multiple threads/task, the optimal choice of number of MPI
 tasks/node and OpenMP threads/task can vary a lot and should always be
@@ -163,7 +163,8 @@ sometimes be achived by increasing the length of the Coulombic cutoff
 and thus reducing the work done by the long-range solver.  Using the
 "run_style verlet/split"_run_style.html command, which is compatible
 with the USER-OMP package, is an alternative way to reduce the number
-of MPI tasks assigned to the KSpace calculation. :l,ule
+of MPI tasks assigned to the KSpace calculation. :l
+:ule
 
 Additional performance tips are as follows:
 
@@ -178,7 +179,8 @@ NOTE: By default, several current MPI implementations use a processor
 affinity setting that restricts each MPI task to a single CPU core.
 Using multi-threading in this mode will force all threads to share the
 one core and thus is likely to be counterproductive.  Instead, binding
-MPI tasks to a (multi-core) socket, should solve this issue. :l,ule
+MPI tasks to a (multi-core) socket, should solve this issue. :l
+:ule
 
 [Restrictions:]
 

@@ -37,7 +37,8 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixTFMC::FixTFMC(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  xd(NULL), rotflag(0), random_num(NULL)
 {
   if (narg < 6) error->all(FLERR,"Illegal fix tfmc command");
 
@@ -229,9 +230,12 @@ void FixTFMC::initial_integrate(int vflag)
   // zero com motion
   if (comflag == 1 && group->count(igroup) != 0) {
     MPI_Allreduce(xcm_d,xcm_dall,3,MPI_DOUBLE,MPI_SUM,world);
-    xcm_dall[0] /= masstotal;
-    xcm_dall[1] /= masstotal;
-    xcm_dall[2] /= masstotal;
+    if (masstotal > 0.0) {
+      xcm_dall[0] /= masstotal;
+      xcm_dall[1] /= masstotal;
+      xcm_dall[2] /= masstotal;
+    } else xcm_dall[0] = xcm_dall[1] = xcm_dall[2] = 0.0;
+    
     for (int i = 0; i < nlocal; i++) {
       if (mask[i] & groupbit) {
         if (xflag) x[i][0] -= xcm_dall[0];

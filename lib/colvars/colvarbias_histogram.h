@@ -1,5 +1,12 @@
 // -*- c++ -*-
 
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 #ifndef COLVARBIAS_HISTOGRAM_H
 #define COLVARBIAS_HISTOGRAM_H
 
@@ -16,12 +23,11 @@ class colvarbias_histogram : public colvarbias {
 
 public:
 
-  colvarbias_histogram(std::string const &conf, char const *key);
+  colvarbias_histogram(char const *key);
   ~colvarbias_histogram();
-
-  int update();
-
-  int write_output_files();
+  virtual int init(std::string const &conf);
+  virtual int update();
+  virtual int write_output_files();
 
 protected:
 
@@ -36,8 +42,8 @@ protected:
   /// If colvar_array_size is larger than 1, weigh each one by this number before accumulating the histogram
   std::vector<cvm::real> weights;
 
-  std::istream& read_restart(std::istream&);
-  std::ostream& write_restart(std::ostream&);
+  virtual std::istream & read_state_data(std::istream &is);
+  virtual std::ostream & write_state_data(std::ostream &os);
 };
 
 #endif

@@ -1,4 +1,11 @@
-/// -*- c++ -*-
+// -*- c++ -*-
+
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
 
 #include "colvarmodule.h"
 #include "colvarvalue.h"
@@ -35,13 +42,13 @@ colvar_grid_scalar::colvar_grid_scalar(colvar_grid_scalar const &g)
 }
 
 colvar_grid_scalar::colvar_grid_scalar(std::vector<int> const &nx_i)
-  : colvar_grid<cvm::real>(nx_i, 0.0, 1), samples(NULL)
+  : colvar_grid<cvm::real>(nx_i, 0.0, 1), samples(NULL), grad(NULL)
 {
   grad = new cvm::real[nd];
 }
 
 colvar_grid_scalar::colvar_grid_scalar(std::vector<colvar *> &colvars, bool margin)
-  : colvar_grid<cvm::real>(colvars, 0.0, 1, margin), samples(NULL)
+  : colvar_grid<cvm::real>(colvars, 0.0, 1, margin), samples(NULL), grad(NULL)
 {
   grad = new cvm::real[nd];
 }
@@ -73,6 +80,21 @@ cvm::real colvar_grid_scalar::minimum_value() const
   return min;
 }
 
+cvm::real colvar_grid_scalar::minimum_pos_value() const
+{
+  cvm::real minpos = data[0];
+  size_t i;
+  for (i = 0; i < nt; i++) {
+    if(data[i] > 0) {
+      minpos = data[i];
+      break;
+    }
+  }
+  for (i = 0; i < nt; i++) {
+    if (data[i] > 0 && data[i] < minpos) minpos = data[i];
+  }
+  return minpos;
+}
 
 cvm::real colvar_grid_scalar::integral() const
 {

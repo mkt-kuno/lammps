@@ -107,7 +107,7 @@ fashion.  For the latter, see the {start} and {stop} keywords of the
 "run"_run.html command and the {elaplong} keyword of "thermo_style
 custom"_thermo_style.html for details.
 
-For example, if a spherical indenter's x-position is specfied as v_x,
+For example, if a spherical indenter's x-position is specified as v_x,
 then this variable definition will keep it's center at a relative
 position in the simulation box, 1/4 of the way from the left edge to
 the right edge, even if the box size changes:
@@ -121,7 +121,7 @@ variable x equal "2.5 + 5*elaplong*dt"
 variable x equal vdisplace(2.5,5) :pre
 
 If a spherical indenter's radius is specified as v_r, then these
-variable definitions will grow the size of the indenter at a specfied
+variable definitions will grow the size of the indenter at a specified
 rate.
 
 variable r0 equal 0.0
@@ -173,6 +173,10 @@ fix to add the energy of interaction between atoms and the indenter to
 the system's potential energy as part of "thermodynamic
 output"_thermo_style.html.  The energy of each particle interacting
 with the indenter is K/3 (r - R)^3.
+
+The "fix_modify"_fix_modify.html {respa} option is supported by this
+fix. This allows to set at which level of the "r-RESPA"_run_style.html
+integrator the fix is adding its forces. Default is the outermost level.
 
 This fix computes a global scalar energy and a global 3-vector of
 forces (on the indenter), which can be accessed by various "output

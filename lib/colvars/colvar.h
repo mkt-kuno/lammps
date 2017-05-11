@@ -1,4 +1,11 @@
-/// -*- c++ -*-
+// -*- c++ -*-
+
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
 
 #ifndef COLVAR_H
 #define COLVAR_H
@@ -38,7 +45,7 @@
 /// \link colvarvalue \endlink type, you should also add its
 /// initialization line in the \link colvar \endlink constructor.
 
-class colvar : public colvarparse, public cvm::deps {
+class colvar : public colvarparse, public colvardeps {
 
 public:
 
@@ -54,7 +61,7 @@ public:
   /// \brief Current velocity (previously set by calc() or by read_traj())
   colvarvalue const & velocity() const;
 
-  /// \brief Current system force (previously obtained from calc() or
+  /// \brief Current total force (previously obtained from calc() or
   /// read_traj()).  Note: this is calculated using the atomic forces
   /// from the last simulation step.
   ///
@@ -62,7 +69,7 @@ public:
   /// acting on the collective variable is calculated summing those
   /// from all colvar components, the bias and walls forces are
   /// subtracted.
-  colvarvalue const & system_force() const;
+  colvarvalue const & total_force() const;
 
   /// \brief Typical fluctuation amplitude for this collective
   /// variable (e.g. local width of a free energy basin)
@@ -160,7 +167,7 @@ protected:
   /// \brief Jacobian force, when Jacobian_force is enabled
   colvarvalue fj;
 
-  /// Cached reported system force
+  /// Cached reported total force
   colvarvalue ft_reported;
 
 public:
@@ -170,22 +177,24 @@ public:
   /// the biases are updated
   colvarvalue fb;
 
+  /// \brief Bias force to the actual value (only useful with extended Lagrangian)
+  colvarvalue fb_actual;
+
   /// \brief Total \em applied force; fr (if extended_lagrangian
   /// is defined), fb (if biases are applied) and the walls' forces
   /// (if defined) contribute to it
   colvarvalue f;
 
+  /// Applied force at the previous step (to be subtracted from total force if needed)
+  colvarvalue f_old;
+
   /// \brief Total force, as derived from the atomic trajectory;
-  /// should equal the total system force plus \link f \endlink
+  /// should equal the system force plus \link f \endlink
   colvarvalue ft;
 
 
-  /// Period, if it is a constant
+  /// Period, if this variable is periodic
   cvm::real period;
-
-  /// \brief Same as above, but also takes into account components
-  /// with a variable period, such as distanceZ
-  bool b_periodic;
 
 
   /// \brief Expand the boundaries of multiples of width, to keep the
@@ -218,9 +227,32 @@ public:
 
 
   /// Constructor
-  colvar(std::string const &conf);
+  colvar();
 
-  /// Get ready for a run and possibly re-initialize internal data
+  /// Main init function
+  int init(std::string const &conf);
+
+  /// Parse the CVC configuration and allocate their data
+  int init_components(std::string const &conf);
+
+  /// Init defaults for grid options
+  int init_grid_parameters(std::string const &conf);
+
+  /// Init extended Lagrangian parameters
+  int init_extended_Lagrangian(std::string const &conf);
+
+  /// Init output flags
+  int init_output_flags(std::string const &conf);
+
+private:
+  /// Parse the CVC configuration for all components of a certain type
+  template<typename def_class_name> int init_components_type(std::string const &conf,
+                                                             char const *def_desc,
+                                                             char const *def_config_key);
+
+public:
+
+  /// Get ready for a run and re-initialize internal data if needed
   void setup();
 
   /// Destructor
@@ -242,8 +274,8 @@ public:
   int calc_cvc_values(int first, size_t num_cvcs);
   /// \brief Same as \link colvar::calc_cvc_values \endlink but for gradients
   int calc_cvc_gradients(int first, size_t num_cvcs);
-  /// \brief Same as \link colvar::calc_cvc_values \endlink but for system forces
-  int calc_cvc_sys_forces(int first, size_t num_cvcs);
+  /// \brief Same as \link colvar::calc_cvc_values \endlink but for total forces
+  int calc_cvc_total_force(int first, size_t num_cvcs);
   /// \brief Same as \link colvar::calc_cvc_values \endlink but for Jacobian derivatives/forces
   int calc_cvc_Jacobians(int first, size_t num_cvcs);
 
@@ -254,17 +286,20 @@ public:
   int collect_cvc_values();
   /// \brief Same as \link colvar::collect_cvc_values \endlink but for gradients
   int collect_cvc_gradients();
-  /// \brief Same as \link colvar::collect_cvc_values \endlink but for system forces
-  int collect_cvc_sys_forces();
+  /// \brief Same as \link colvar::collect_cvc_values \endlink but for total forces
+  int collect_cvc_total_forces();
   /// \brief Same as \link colvar::collect_cvc_values \endlink but for Jacobian derivatives/forces
   int collect_cvc_Jacobians();
   /// \brief Calculate the quantities associated to the colvar (but not to the CVCs)
   int calc_colvar_properties();
 
-  /// Get the current biasing force
-  inline colvarvalue bias_force() const
+  /// Get the current applied force
+  inline colvarvalue const applied_force() const
   {
-    return fb;
+    if (is_enabled(f_cv_extended_Lagrangian)) {
+      return fr;
+    }
+    return f;
   }
 
   /// Set the total biasing force to zero
@@ -272,6 +307,9 @@ public:
 
   /// Add to the total force from biases
   void add_bias_force(colvarvalue const &force);
+
+  /// Apply a force to the actual value (only meaningful with extended Lagrangian)
+  void add_bias_force_actual_value(colvarvalue const &force);
 
   /// \brief Collect all forces on this colvar, integrate internal
   /// equations of motion of internal degrees of freedom; see also
@@ -296,9 +334,23 @@ protected:
   /// Sum of square coefficients for active cvcs
   cvm::real active_cvc_square_norm;
 
+  /// Time step multiplier (for coarse-time-step colvars)
+  /// Colvar will only be calculated at those times; biases may ignore the information and
+  /// always update their own forces (which is typically inexpensive) especially if
+  /// they rely on other colvars. In this case, the colvar will accumulate forces applied between
+  /// colvar updates. Alternately they may use it to calculate "impulse" biasing
+  /// forces at longer intervals. Impulse forces must be multiplied by the timestep factor.
+  int   time_step_factor;
+
+  /// Biasing force collected between updates, to be applied at next update for coarse-time-step colvars
+  colvarvalue f_accumulated;
+
 public:
   /// \brief Return the number of CVC objects with an active flag (as set by update_cvc_flags)
   inline size_t num_active_cvcs() const { return n_active_cvcs; }
+
+  /// \brief returns time_step_factor
+  inline int get_time_step_factor() const {return time_step_factor;}
 
   /// \brief Use the internal metrics (as from \link cvc
   /// \endlink objects) to calculate square distances and gradients
@@ -352,9 +404,14 @@ public:
 
 
 protected:
-
   /// Previous value (to calculate velocities during analysis)
   colvarvalue            x_old;
+
+  /// Value read from the most recent state file (if any)
+  colvarvalue            x_restart;
+
+  /// True if a state file was just read
+  bool                   after_restart;
 
   /// Time series of values and velocities used in correlation
   /// functions
@@ -458,6 +515,7 @@ public:
   class dihedral;
   class coordnum;
   class selfcoordnum;
+  class groupcoordnum;
   class h_bond;
   class rmsd;
   class orientation_angle;
@@ -531,7 +589,7 @@ inline colvarvalue const & colvar::velocity() const
 }
 
 
-inline colvarvalue const & colvar::system_force() const
+inline colvarvalue const & colvar::total_force() const
 {
   return ft_reported;
 }
@@ -546,9 +604,20 @@ inline void colvar::add_bias_force(colvarvalue const &force)
 }
 
 
+inline void colvar::add_bias_force_actual_value(colvarvalue const &force)
+{
+  if (cvm::debug()) {
+    cvm::log("Adding biasing force "+cvm::to_str(force)+" to colvar \""+name+"\".\n");
+  }
+  fb_actual += force;
+}
+
+
 inline void colvar::reset_bias_force() {
   fb.type(value());
   fb.reset();
+  fb_actual.type(value());
+  fb_actual.reset();
 }
 
 #endif

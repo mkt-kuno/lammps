@@ -1,3 +1,12 @@
+// -*- c++ -*-
+
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 /* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
@@ -128,7 +137,7 @@ E: Cannot use fix colvars without atom IDs
 
 Atom IDs are not defined, but fix colvars needs them to identify an atom.
 
-E: Fix colvars requires an atom map
+E: Fix colvars requires an atom map, see atom_modify
 
 Use the atom_modify command to create an atom map.
 

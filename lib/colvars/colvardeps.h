@@ -1,26 +1,33 @@
-/// -*- c++ -*-
+// -*- c++ -*-
 
-#include "colvarmodule.h"
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
 
 #ifndef COLVARDEPS_H
 #define COLVARDEPS_H
 
-/// Parent class for a member object of a bias, cv or cvc etc. containing dependencies
-/// (features) and handling dependency resolution
+#include "colvarmodule.h"
+#include "colvarparse.h"
 
-// Some features like colvar::f_linear have no dependencies, require() doesn't enable anything but fails if unavailable
-// Policy: those features are unavailable at all times
-// Other features are under user control
-// They are unavailable unless requested by the user, then they may be enabled subject to
-// satisfied dependencies
-
-// It seems important to have available default to false (for safety) and enabled to false (for efficiency)
-
-class cvm::deps {
+/// \brief Parent class for a member object of a bias, cv or cvc etc. containing features and
+/// their dependencies, and handling dependency resolution
+///
+/// There are 3 kinds of features:
+/// 1. Dynamic features are under the control of the dependency resolution
+/// system. They may be enabled or disabled depending on dependencies.
+/// 2. User features may be enabled based on user input (they may trigger a failure upon dependency resolution, though)
+/// 3. Static features are static properties of the object, determined
+///   programatically at initialization time.
+///
+class colvardeps {
 public:
 
-  deps() {}
-  virtual ~deps();
+  colvardeps() {}
+  virtual ~colvardeps();
 
   // Subclasses should initialize the following members:
 
@@ -31,12 +38,7 @@ public:
     feature_state(bool a, bool e)
     : available(a), enabled(e) {}
 
-    /// Available means: supported, subject to dependencies as listed,
-    /// MAY BE ENABLED AS A RESULT OF DEPENDENCY SOLVING
-    /// Remains false for passive flags that are set based on other object properties,
-    /// eg. f_cv_linear
-    /// Is set to true upon user request for features that are implemented by the user
-    /// or under his/her direct control, e.g. f_cv_scripted or f_cv_extended_Lagrangian
+    /// Feature may be enabled, subject to possible dependencies
     bool available;
     /// Currently enabled - this flag is subject to change dynamically
     /// TODO consider implications for dependency solving: anyone who disables
@@ -45,8 +47,22 @@ public:
     // bool enabledOnce; // this should trigger an update when object is evaluated
   };
 
-  /// List of the state of all features
-  std::vector<feature_state *> feature_states;
+
+private:
+  /// List of the states of all features
+  std::vector<feature_state> feature_states;
+
+  /// Enum of possible feature types
+  enum feature_type {
+    f_type_not_set,
+    f_type_dynamic,
+    f_type_user,
+    f_type_static
+  };
+
+public:
+  /// Pair a numerical feature ID with a description and type
+  void init_feature(int feature_id, const char *description, feature_type type = f_type_not_set);
 
   /// Describes a feature and its dependecies
   /// used in a static array within each subclass
@@ -75,7 +91,17 @@ public:
 
     // features that this feature requires in children
     std::vector<int> requires_children;
+
+    inline bool is_dynamic() { return type == f_type_dynamic; }
+    inline bool is_static() { return type == f_type_static; }
+    inline bool is_user() { return type == f_type_user; }
+    /// Type of this feature, from the enum feature_type
+    feature_type type;
   };
+
+  inline bool is_dynamic(int id) { return features()[id]->type == f_type_dynamic; }
+  inline bool is_static(int id) { return features()[id]->type == f_type_static; }
+  inline bool is_user(int id) { return features()[id]->type == f_type_user; }
 
   // Accessor to array of all features with deps, static in most derived classes
   // Subclasses with dynamic dependency trees may override this
@@ -84,25 +110,24 @@ public:
   // implement this as virtual to allow overriding
   virtual std::vector<feature *>&features() = 0;
 
-  void add_child(deps *child);
+  void add_child(colvardeps *child);
 
-  void remove_child(deps *child);
+  void remove_child(colvardeps *child);
 
   /// Used before deleting an object, if not handled by that object's destructor
   /// (useful for cvcs because their children are member objects)
   void remove_all_children();
 
-
-
 private:
+
   // pointers to objects this object depends on
   // list should be maintained by any code that modifies the object
   // this could be secured by making lists of colvars / cvcs / atom groups private and modified through accessor functions
-  std::vector<deps *> children;
+  std::vector<colvardeps *> children;
 
   // pointers to objects that depend on this object
   // the size of this array is in effect a reference counter
-  std::vector<deps *> parents;
+  std::vector<colvardeps *> parents;
 
 public:
   // disabling a feature f:
@@ -115,23 +140,43 @@ public:
 //
 //   }
 
-  // std::vector<deps *> parents; // Needed to trigger a refresh if capabilities of this object change
+  // std::vector<colvardeps *> parents; // Needed to trigger a refresh if capabilities of this object change
 
   // End of members to be initialized by subclasses
 
   // Checks whether given feature is enabled
   // Defaults to querying f_*_active
   inline bool is_enabled(int f = f_cv_active) const {
-    return feature_states[f]->enabled;
+    return feature_states[f].enabled;
   }
 
   // Checks whether given feature is available
   // Defaults to querying f_*_active
   inline bool is_available(int f = f_cv_active) const {
-    return feature_states[f]->available;
+    return feature_states[f].available;
   }
 
-  void provide(int feature_id); // set the feature's flag to available in local object
+  /// Set the feature's available flag, without checking
+  /// To be used for dynamic properties
+  /// dependencies will be checked by enable()
+  void provide(int feature_id, bool truefalse = true);
+
+  /// Set the feature's enabled flag, without dependency check or resolution
+  /// To be used for static properties only
+  /// Checking for availability is up to the caller
+  void set_enabled(int feature_id, bool truefalse = true);
+
+protected:
+
+
+
+  /// Parse a keyword and enable a feature accordingly
+  bool get_keyval_feature(colvarparse *cvp,
+                          std::string const &conf, char const *key,
+                          int feature_id, bool const &def_value,
+                          colvarparse::Parse_Mode const parse_mode = colvarparse::parse_normal);
+
+public:
 
   int enable(int f, bool dry_run = false, bool toplevel = true);  // enable a feature and recursively solve its dependencies
   // dry_run is set to true to recursively test if a feature is available, without enabling it
@@ -147,8 +192,11 @@ public:
   enum features_biases {
     /// \brief Bias is active
     f_cvb_active,
-    f_cvb_apply_force,
-    f_cvb_get_system_force,
+    f_cvb_apply_force, // will apply forces
+    f_cvb_get_total_force, // requires total forces
+    f_cvb_history_dependent, // depends on simulation history
+    f_cvb_scalar_variables, // requires scalar colvars
+    f_cvb_calc_pmf, // whether this bias will compute a PMF
     f_cvb_ntot
   };
 
@@ -163,14 +211,16 @@ public:
     f_cv_collect_gradient,
     /// \brief Calculate the velocity with finite differences
     f_cv_fdiff_velocity,
-    /// \brief The system force is calculated, projecting the atomic
+    /// \brief The total force is calculated, projecting the atomic
     /// forces on the inverse gradient
-    f_cv_system_force,
-    /// \brief Calculate system force from atomic forces
-    f_cv_system_force_calc,
+    f_cv_total_force,
+    /// \brief Calculate total force from atomic forces
+    f_cv_total_force_calc,
+    /// \brief Subtract the applied force from the total force
+    f_cv_subtract_applied_force,
     /// \brief Estimate Jacobian derivative
     f_cv_Jacobian,
-    /// \brief Do not report the Jacobian force as part of the system force
+    /// \brief Do not report the Jacobian force as part of the total force
     /// instead, apply a correction internally to cancel it
     f_cv_hide_Jacobian,
     /// \brief The variable has a harmonic restraint around a moving
@@ -188,8 +238,8 @@ public:
     f_cv_output_velocity,
     /// \brief Output the applied force to the trajectory file
     f_cv_output_applied_force,
-    /// \brief Output the system force to the trajectory file
-    f_cv_output_system_force,
+    /// \brief Output the total force to the trajectory file
+    f_cv_output_total_force,
     /// \brief A lower boundary is defined
     f_cv_lower_boundary,
     /// \brief An upper boundary is defined
@@ -198,12 +248,6 @@ public:
     /// be used by the biases or in analysis (needs lower and upper
     /// boundary)
     f_cv_grid,
-    /// \brief Apply a restraining potential (|x-xb|^2) to the colvar
-    /// when it goes below the lower wall
-    f_cv_lower_wall,
-    /// \brief Apply a restraining potential (|x-xb|^2) to the colvar
-    /// when it goes above the upper wall
-    f_cv_upper_wall,
     /// \brief Compute running average
     f_cv_runave,
     /// \brief Compute time correlation function
@@ -228,6 +272,7 @@ public:
     /// \brief If enabled, calc_gradients() will call debug_gradients() for every group needed
     f_cvc_debug_gradient,
     f_cvc_Jacobian,
+    f_cvc_one_site_total_force,
     f_cvc_com_based,
     f_cvc_scalable,
     f_cvc_scalable_com,
@@ -238,7 +283,7 @@ public:
     f_ag_active,
     f_ag_center,
     f_ag_rotate,
-    f_ag_ref_pos_group,
+    f_ag_fitting_group,
     /// Perform a standard minimum msd fit for given atoms
     /// ie. not using refpositionsgroup
 //     f_ag_min_msd_fit,

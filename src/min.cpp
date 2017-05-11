@@ -180,12 +180,17 @@ void Min::init()
    setup before run
 ------------------------------------------------------------------------- */
 
-void Min::setup()
+void Min::setup(int flag)
 {
   if (comm->me == 0 && screen) {
     fprintf(screen,"Setting up %s style minimization ...\n",
             update->minimize_style);
-    fprintf(screen,"  Unit style: %s\n", update->unit_style);
+    if (flag) {
+      fprintf(screen,"  Unit style    : %s\n", update->unit_style);
+      fprintf(screen,"  Current step  : " BIGINT_FORMAT "\n",
+              update->ntimestep);
+      timer->print_timeout(screen);
+    }
   }
   update->setupflag = 1;
 
@@ -193,7 +198,12 @@ void Min::setup()
   // cannot be done in init() b/c update init() is before modify init()
 
   nextra_global = modify->min_dof();
-  if (nextra_global) fextra = new double[nextra_global];
+  if (nextra_global) {
+    fextra = new double[nextra_global];
+    if (comm->me == 0 && screen)
+      fprintf(screen,"WARNING: Energy due to %d extra global DOFs will"
+              " be included in minimizer energies\n",nextra_global);
+  }
 
   // compute for potential energy
 
@@ -240,12 +250,21 @@ void Min::setup()
 
   // remove these restriction eventually
 
-  if (nextra_global && searchflag == 0)
-    error->all(FLERR,
-               "Cannot use a damped dynamics min style with fix box/relax");
-  if (nextra_atom && searchflag == 0)
-    error->all(FLERR,
-               "Cannot use a damped dynamics min style with per-atom DOF");
+  if (searchflag == 0) {
+    if (nextra_global)
+      error->all(FLERR,
+                 "Cannot use a damped dynamics min style with fix box/relax");
+    if (nextra_atom)
+      error->all(FLERR,
+                 "Cannot use a damped dynamics min style with per-atom DOF");
+  }
+
+  if (strcmp(update->minimize_style,"hftn") == 0) {
+    if (nextra_global)
+      error->all(FLERR, "Cannot use hftn min style with fix box/relax");
+    if (nextra_atom)
+      error->all(FLERR, "Cannot use hftn min style with per-atom DOF");
+  }
 
   // atoms may have migrated in comm->exchange()
 
@@ -274,7 +293,7 @@ void Min::setup()
     else force->kspace->compute_dummy(eflag,vflag);
   }
 
-  modify->pre_reverse(eflag,vflag);
+  modify->setup_pre_reverse(eflag,vflag);
   if (force->newton) comm->reverse_comm();
 
   // update per-atom minimization variables stored by pair styles
@@ -284,7 +303,7 @@ void Min::setup()
       requestor[m]->min_xf_get(m);
 
   modify->setup(vflag);
-  output->setup();
+  output->setup(flag);
   update->setupflag = 0;
 
   // stats for initial thermo output
@@ -355,7 +374,7 @@ void Min::setup_minimal(int flag)
     else force->kspace->compute_dummy(eflag,vflag);
   }
 
-  modify->pre_reverse(eflag,vflag);
+  modify->setup_pre_reverse(eflag,vflag);
   if (force->newton) comm->reverse_comm();
 
   // update per-atom minimization variables stored by pair styles
@@ -397,7 +416,7 @@ void Min::run(int n)
   // add ntimestep to all computes that store invocation times
   //   since are hardwiring call to thermo/dumps and computes may not be ready
 
-  if (stop_condition) {
+  if (stop_condition != MAXITER) {
     update->nsteps = niter;
 
     if (update->restrict_output == 0) {
@@ -483,6 +502,11 @@ double Min::energy_force(int resetflag)
     comm->borders();
     if (triclinic) domain->lamda2x(atom->nlocal+atom->nghost);
     timer->stamp(Timer::COMM);
+    if (modify->n_min_pre_neighbor) {
+      timer->stamp();
+      modify->min_pre_neighbor();
+      timer->stamp(Timer::MODIFY);
+    }
     neighbor->build();
     timer->stamp(Timer::NEIGH);
   }
@@ -515,8 +539,8 @@ double Min::energy_force(int resetflag)
     timer->stamp(Timer::KSPACE);
   }
 
-  if (modify->n_pre_reverse) {
-    modify->pre_reverse(eflag,vflag);
+  if (modify->n_min_pre_reverse) {
+    modify->min_pre_reverse(eflag,vflag);
     timer->stamp(Timer::MODIFY);
   }
 
@@ -798,6 +822,7 @@ char *Min::stopstrings(int n)
                            "forces are zero",
                            "quadratic factors are zero",
                            "trust region too small",
-                           "HFTN minimizer error"};
+                           "HFTN minimizer error",
+                           "walltime limit reached"};
   return (char *) strings[n];
 }

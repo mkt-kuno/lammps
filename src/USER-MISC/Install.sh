@@ -3,6 +3,10 @@
 
 mode=$1
 
+# enforce using portable C locale
+LC_ALL=C
+export LC_ALL
+
 # arg1 = file, arg2 = file it depends on
 
 action () {
@@ -31,6 +35,6 @@ for file in *.cpp *.h; do
   elif (test $file = "pair_cdeam.h") then
     action pair_cdeam.h pair_eam_alloy.cpp
   else
-    action $file
+    test -f ${file} && action $file
   fi
 done

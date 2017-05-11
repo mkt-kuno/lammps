@@ -33,6 +33,9 @@ class RegSphere : public Region {
   int surface_interior(double *, double);
   int surface_exterior(double *, double);
   void shape_update();
+  void set_velocity_shape();
+  void velocity_contact_shape(double *, double *);
+
 
  private:
   double xc,yc,zc;
@@ -66,6 +69,6 @@ Self-explanatory.
 
 E: Variable for region sphere is invalid style
 
-Only equal-style varaibles are allowed.
+Only equal-style variables are allowed.
 
 */

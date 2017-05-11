@@ -44,7 +44,8 @@ using namespace MathConst;
 /* ---------------------------------------------------------------------- */
 
 ComputeHexOrderAtom::ComputeHexOrderAtom(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  distsq(NULL), nearest(NULL), qnarray(NULL)
 {
   if (narg < 3 ) error->all(FLERR,"Illegal compute hexorder/atom command");
 
@@ -87,10 +88,7 @@ ComputeHexOrderAtom::ComputeHexOrderAtom(LAMMPS *lmp, int narg, char **arg) :
   size_peratom_cols = ncol;
 
   nmax = 0;
-  qnarray = NULL;
   maxneigh = 0;
-  distsq = NULL;
-  nearest = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -148,7 +146,7 @@ void ComputeHexOrderAtom::compute_peratom()
 
   // grow order parameter array if necessary
 
-  if (atom->nlocal > nmax) {
+  if (atom->nmax > nmax) {
     memory->destroy(qnarray);
     nmax = atom->nmax;
     memory->create(qnarray,nmax,ncol,"hexorder/atom:qnarray");

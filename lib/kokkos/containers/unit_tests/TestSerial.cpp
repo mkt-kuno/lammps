@@ -45,7 +45,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#if ! defined(KOKKOS_HAVE_SERIAL)
+#if ! defined(KOKKOS_ENABLE_SERIAL)
 #  error "It doesn't make sense to build this file unless the Kokkos::Serial device is enabled.  If you see this message, it probably means that there is an error in Kokkos' CMake build infrastructure."
 #else
 
@@ -58,7 +58,6 @@
 #include <TestStaticCrsGraph.hpp>
 #include <TestVector.hpp>
 #include <TestDualView.hpp>
-#include <TestSegmentedView.hpp>
 #include <TestDynamicView.hpp>
 #include <TestComplex.hpp>
 
@@ -66,6 +65,9 @@
 
 #include <Kokkos_DynRankView.hpp>
 #include <TestDynViewAPI.hpp>
+
+#include <Kokkos_ErrorReporter.hpp>
+#include <TestErrorReporter.hpp>
 
 namespace Test {
 
@@ -89,6 +91,18 @@ TEST_F( serial , staticcrsgraph )
 {
   TestStaticCrsGraph::run_test_graph< Kokkos::Serial >();
   TestStaticCrsGraph::run_test_graph2< Kokkos::Serial >();
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(1, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(1, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(1, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(1, 100000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(3, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(3, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(3, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(3, 100000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(75, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(75, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(75, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Serial >(75, 100000);
 }
 
 TEST_F( serial, complex )
@@ -135,11 +149,6 @@ TEST_F( serial, bitset )
     test_dualview_combinations<int,Kokkos::Serial>(size);               \
   }
 
-#define SERIAL_SEGMENTEDVIEW_TEST( size )                               \
-  TEST_F( serial, segmentedview_##size##x) {                            \
-    test_segmented_view<double,Kokkos::Serial>(size);                   \
-  }
-
 SERIAL_INSERT_TEST(close, 100000, 90000, 100, 500, true)
 SERIAL_INSERT_TEST(far, 100000, 90000, 100, 500, false)
 SERIAL_FAILED_INSERT_TEST( 10000, 1000 )
@@ -148,7 +157,6 @@ SERIAL_DEEP_COPY( 10000, 1 )
 SERIAL_VECTOR_COMBINE_TEST( 10 )
 SERIAL_VECTOR_COMBINE_TEST( 3057 )
 SERIAL_DUALVIEW_COMBINE_TEST( 10 )
-SERIAL_SEGMENTEDVIEW_TEST( 10000 )
 
 #undef SERIAL_INSERT_TEST
 #undef SERIAL_FAILED_INSERT_TEST
@@ -156,7 +164,6 @@ SERIAL_SEGMENTEDVIEW_TEST( 10000 )
 #undef SERIAL_DEEP_COPY
 #undef SERIAL_VECTOR_COMBINE_TEST
 #undef SERIAL_DUALVIEW_COMBINE_TEST
-#undef SERIAL_SEGMENTEDVIEW_TEST
 
 TEST_F( serial , dynamic_view )
 {
@@ -168,8 +175,21 @@ TEST_F( serial , dynamic_view )
   }
 }
 
+#if defined(KOKKOS_CLASS_LAMBDA)
+TEST_F(serial, ErrorReporterViaLambda)
+{
+  TestErrorReporter<ErrorReporterDriverUseLambda<Kokkos::Serial>>();
+}
+#endif
+
+TEST_F(serial, ErrorReporter)
+{
+  TestErrorReporter<ErrorReporterDriver<Kokkos::Serial>>();
+}
+
+
 } // namespace Test
 
-#endif // KOKKOS_HAVE_SERIAL
+#endif // KOKKOS_ENABLE_SERIAL
 
 

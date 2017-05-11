@@ -43,7 +43,7 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 VerletSplit::VerletSplit(LAMMPS *lmp, int narg, char **arg) :
-  Verlet(lmp, narg, arg)
+  Verlet(lmp, narg, arg), qsize(NULL), qdisp(NULL), xsize(NULL), xdisp(NULL), f_kspace(NULL)
 {
   // error checks on partitions
 
@@ -444,7 +444,7 @@ void VerletSplit::rk_setup()
   // grow f_kspace array on master procs if necessary
 
   if (master) {
-    if (atom->nlocal > maxatom) {
+    if (atom->nmax > maxatom) {
       memory->destroy(f_kspace);
       maxatom = atom->nmax;
       memory->create(f_kspace,maxatom,3,"verlet/split:f_kspace");

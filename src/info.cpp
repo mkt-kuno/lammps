@@ -1,4 +1,5 @@
 /* ----------------------------------------------------------------------
+  fputs
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -12,12 +13,12 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   Contributing author:  Axel Kohlmeyer (Temple U)
+   Contributing authors:  Axel Kohlmeyer (Temple U),
+                          Richard Berger (Temple U)
 ------------------------------------------------------------------------- */
 
 #include <string.h>
 #include "info.h"
-#include "accelerator_cuda.h"
 #include "accelerator_kokkos.h"
 #include "atom.h"
 #include "comm.h"
@@ -40,6 +41,9 @@
 #include "error.h"
 
 #include <time.h>
+#include <vector>
+#include <string>
+#include <algorithm>
 
 #ifdef _WIN32
 #define PSAPI_VERSION=1
@@ -68,10 +72,31 @@ enum {COMPUTES=1<<0,
       REGIONS=1<<4,
       CONFIG=1<<5,
       TIME=1<<6,
-      VARIABLES=1<<7,
-      SYSTEM=1<<8,
-      COMM=1<<9,
+      MEMORY=1<<7,
+      VARIABLES=1<<8,
+      SYSTEM=1<<9,
+      COMM=1<<10,
+      ATOM_STYLES=1<<11,
+      INTEGRATE_STYLES=1<<12,
+      MINIMIZE_STYLES=1<<13,
+      PAIR_STYLES=1<<14,
+      BOND_STYLES=1<<15,
+      ANGLE_STYLES=1<<16,
+      DIHEDRAL_STYLES=1<<17,
+      IMPROPER_STYLES=1<<18,
+      KSPACE_STYLES=1<<19,
+      FIX_STYLES=1<<20,
+      COMPUTE_STYLES=1<<21,
+      REGION_STYLES=1<<22,
+      DUMP_STYLES=1<<23,
+      COMMAND_STYLES=1<<24,
       ALL=~0};
+
+static const int STYLES = ATOM_STYLES | INTEGRATE_STYLES | MINIMIZE_STYLES
+                        | PAIR_STYLES | BOND_STYLES | ANGLE_STYLES
+                        | DIHEDRAL_STYLES | IMPROPER_STYLES | KSPACE_STYLES
+                        | FIX_STYLES | COMPUTE_STYLES | REGION_STYLES
+                        | DUMP_STYLES | COMMAND_STYLES;
 }
 
 static const char *varstyles[] = {
@@ -86,6 +111,9 @@ static const char *commlayout[] = { "uniform", "nonuniform", "irregular" };
 static const char bstyles[] = "pfsm";
 
 using namespace LAMMPS_NS;
+using namespace std;
+
+static void print_columns(FILE* fp, vector<string> & styles);
 
 /* ---------------------------------------------------------------------- */
 
@@ -123,16 +151,16 @@ void Info::command(int narg, char **arg)
       if ((out != screen) && (out != logfile)) fclose(out);
       out = fopen(arg[idx+2],"w");
       idx += 3;
-    } else if (strncmp(arg[idx],"communication",4) == 0) {
+    } else if (strncmp(arg[idx],"communication",5) == 0) {
       flags |= COMM;
       ++idx;
-    } else if (strncmp(arg[idx],"computes",4) == 0) {
+    } else if (strncmp(arg[idx],"computes",5) == 0) {
       flags |= COMPUTES;
       ++idx;
-    } else if (strncmp(arg[idx],"dumps",3) == 0) {
+    } else if (strncmp(arg[idx],"dumps",5) == 0) {
       flags |= DUMPS;
       ++idx;
-    } else if (strncmp(arg[idx],"fixes",3) == 0) {
+    } else if (strncmp(arg[idx],"fixes",5) == 0) {
       flags |= FIXES;
       ++idx;
     } else if (strncmp(arg[idx],"groups",3) == 0) {
@@ -147,12 +175,70 @@ void Info::command(int narg, char **arg)
     } else if (strncmp(arg[idx],"time",3) == 0) {
       flags |= TIME;
       ++idx;
+    } else if (strncmp(arg[idx],"memory",3) == 0) {
+      flags |= MEMORY;
+      ++idx;
     } else if (strncmp(arg[idx],"variables",3) == 0) {
       flags |= VARIABLES;
       ++idx;
     } else if (strncmp(arg[idx],"system",3) == 0) {
       flags |= SYSTEM;
       ++idx;
+    } else if (strncmp(arg[idx],"styles",3) == 0) {
+      if (idx+1 < narg) {
+        ++idx;
+        if (strncmp(arg[idx],"all",3) == 0) {
+          flags |= STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"atom",3) == 0) {
+          flags |= ATOM_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"integrate",3) == 0) {
+          flags |= INTEGRATE_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"minimize",3) == 0) {
+          flags |= MINIMIZE_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"pair",3) == 0) {
+          flags |= PAIR_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"bond",3) == 0) {
+          flags |= BOND_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"angle",3) == 0) {
+          flags |= ANGLE_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"dihedral",3) == 0) {
+          flags |= DIHEDRAL_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"improper",3) == 0) {
+          flags |= IMPROPER_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"kspace",3) == 0) {
+          flags |= KSPACE_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"fix",3) == 0) {
+          flags |= FIX_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"compute",4) == 0) {
+          flags |= COMPUTE_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"region",3) == 0) {
+          flags |= REGION_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"dump",3) == 0) {
+          flags |= DUMP_STYLES;
+          ++idx;
+        } else if (strncmp(arg[idx],"command",4) == 0) {
+          flags |= COMMAND_STYLES;
+          ++idx;
+        } else {
+          flags |= STYLES;
+        }
+      } else {
+        flags |= STYLES;
+        ++idx;
+      }
     } else {
       error->warning(FLERR,"Ignoring unknown or incorrect info command flag");
       ++idx;
@@ -211,27 +297,42 @@ void Info::command(int narg, char **arg)
     fprintf(out,"\nOS information: %s %s on %s\n",
             ut.sysname, ut.release, ut.machine);
 #endif
+  }
+  
+  if (flags & MEMORY) {
 
-    fprintf(out,"\nMemory allocation information (MPI rank 0)\n");
+    fprintf(out,"\nMemory allocation information (MPI rank 0):\n\n");
+
+    bigint bytes = 0;
+    bytes += atom->memory_usage();
+    bytes += neighbor->memory_usage();
+    bytes += comm->memory_usage();
+    bytes += update->memory_usage();
+    bytes += force->memory_usage();
+    bytes += modify->memory_usage();
+    for (int i = 0; i < output->ndump; i++)
+      bytes += output->dump[i]->memory_usage();
+    double mbytes = bytes/1024.0/1024.0;
+    fprintf(out,"Total dynamically allocated memory: %.4g Mbyte\n",mbytes);
 
 #if defined(_WIN32)
     HANDLE phandle = GetCurrentProcess();
     PROCESS_MEMORY_COUNTERS_EX pmc;
     GetProcessMemoryInfo(phandle,(PROCESS_MEMORY_COUNTERS *)&pmc,sizeof(pmc));
-    fprintf(out,"Non-shared memory use: %.3g Mbyte\n",
+    fprintf(out,"Non-shared memory use: %.4g Mbyte\n",
             (double)pmc.PrivateUsage/1048576.0);
-    fprintf(out,"Maximum working set size: %.3g Mbyte\n",
+    fprintf(out,"Maximum working set size: %.4g Mbyte\n",
             (double)pmc.PeakWorkingSetSize/1048576.0);
 #else
 #if defined(__linux)
     struct mallinfo mi;
     mi = mallinfo();
-    fprintf(out,"Total dynamically allocated memory: %.3g Mbyte\n",
-            (double)mi.uordblks/1048576.0);
+    fprintf(out,"Current reserved memory pool size: %.4g Mbyte\n",
+            (double)mi.uordblks/1048576.0+(double)mi.hblkhd/1048576.0);
 #endif
     struct rusage ru;
     if (getrusage(RUSAGE_SELF, &ru) == 0) {
-      fprintf(out,"Maximum resident set size: %.3g Mbyte\n",
+      fprintf(out,"Maximum resident set size: %.4g Mbyte\n",
               (double)ru.ru_maxrss/1024.0);
     }
 #endif
@@ -263,9 +364,10 @@ void Info::command(int narg, char **arg)
         fprintf(out,"Communication cutoff for type %d = %g\n", i, cut);
       }
     }
-    fprintf(out,"Nprocs = %d    Nthreads = %d\n",
+    fprintf(out,"Nprocs = %d,   Nthreads = %d\n",
             comm->nprocs, comm->nthreads);
-    fprintf(out,"Processor grid = %d x %d x %d\n",comm->procgrid[0],
+    if (domain->box_exist)
+      fprintf(out,"Processor grid = %d x %d x %d\n",comm->procgrid[0],
             comm->procgrid[1], comm->procgrid[2]);
   }
 
@@ -328,9 +430,9 @@ void Info::command(int narg, char **arg)
               bstyles[domain->boundary[0][0]],bstyles[domain->boundary[0][1]],
               bstyles[domain->boundary[1][0]],bstyles[domain->boundary[1][1]],
               bstyles[domain->boundary[2][0]],bstyles[domain->boundary[2][1]]);
-      fprintf(out,"Xlo, zhi = %g, %g\n", domain->boxlo[0], domain->boxhi[0]);
-      fprintf(out,"Ylo, zhi = %g, %g\n", domain->boxlo[1], domain->boxhi[1]);
-      fprintf(out,"Zlo, zhi = %g, %g\n", domain->boxlo[2], domain->boxhi[2]);
+      fprintf(out,"xlo, xhi = %g, %g\n", domain->boxlo[0], domain->boxhi[0]);
+      fprintf(out,"ylo, yhi = %g, %g\n", domain->boxlo[1], domain->boxhi[1]);
+      fprintf(out,"zlo, zhi = %g, %g\n", domain->boxlo[2], domain->boxhi[2]);
       if (domain->triclinic)
           fprintf(out,"Xy, xz, yz = %g, %g, %g\n",
                   domain->xy, domain->xz, domain->yz);
@@ -412,7 +514,7 @@ void Info::command(int narg, char **arg)
     fprintf(out,"\nVariable information:\n");
     for (int i=0; i < nvar; ++i) {
       int ndata = 1;
-      fprintf(out,"Variable[%3d]: %-10s  style = %-10s  def =",
+      fprintf(out,"Variable[%3d]: %-10s,  style = %-10s,  def =",
               i,names[i],varstyles[style[i]]);
       if ((style[i] != LOOP) && (style[i] != ULOOP))
         ndata = input->variable->num[i];
@@ -457,12 +559,235 @@ void Info::command(int narg, char **arg)
             cpuh,cpum,cpus,wallh,wallm,walls);
   }
 
+  if (flags & STYLES) {
+    available_styles(out, flags);
+  }
+
   fputs("\nInfo-Info-Info-Info-Info-Info-Info-Info-Info-Info-Info\n\n",out);
 
   // close output file pointer if opened locally thus forcing a hard sync.
   if ((out != screen) && (out != logfile))
     fclose(out);
 }
+
+
+void Info::available_styles(FILE * out, int flags)
+{
+
+  fprintf(out,"\nStyles information:\n");
+
+  if(flags & ATOM_STYLES)      atom_styles(out);
+  if(flags & INTEGRATE_STYLES) integrate_styles(out);
+  if(flags & MINIMIZE_STYLES)  minimize_styles(out);
+  if(flags & PAIR_STYLES)      pair_styles(out);
+  if(flags & BOND_STYLES)      bond_styles(out);
+  if(flags & ANGLE_STYLES)     angle_styles(out);
+  if(flags & DIHEDRAL_STYLES)  dihedral_styles(out);
+  if(flags & IMPROPER_STYLES)  improper_styles(out);
+  if(flags & KSPACE_STYLES)    kspace_styles(out);
+  if(flags & FIX_STYLES)       fix_styles(out);
+  if(flags & COMPUTE_STYLES)   compute_styles(out);
+  if(flags & REGION_STYLES)    region_styles(out);
+  if(flags & DUMP_STYLES)      dump_styles(out);
+  if(flags & COMMAND_STYLES)   command_styles(out);
+}
+
+void Info::atom_styles(FILE * out)
+{
+  fprintf(out, "\nAtom styles:\n");
+
+  vector<string> styles;
+
+  for(Atom::AtomVecCreatorMap::iterator it = atom->avec_map->begin(); it != atom->avec_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::integrate_styles(FILE * out)
+{
+  fprintf(out, "\nIntegrate styles:\n");
+
+  vector<string> styles;
+
+  for(Update::IntegrateCreatorMap::iterator it = update->integrate_map->begin(); it != update->integrate_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::minimize_styles(FILE * out)
+{
+  fprintf(out, "\nMinimize styles:\n");
+
+  vector<string> styles;
+
+  for(Update::MinimizeCreatorMap::iterator it = update->minimize_map->begin(); it != update->minimize_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::pair_styles(FILE * out)
+{
+  fprintf(out, "\nPair styles:\n");
+
+  vector<string> styles;
+
+  for(Force::PairCreatorMap::iterator it = force->pair_map->begin(); it != force->pair_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::bond_styles(FILE * out)
+{
+  fprintf(out, "\nBond styles:\n");
+
+  vector<string> styles;
+
+  for(Force::BondCreatorMap::iterator it = force->bond_map->begin(); it != force->bond_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::angle_styles(FILE * out)
+{
+  fprintf(out, "\nAngle styles:\n");
+
+  vector<string> styles;
+
+  for(Force::AngleCreatorMap::iterator it = force->angle_map->begin(); it != force->angle_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::dihedral_styles(FILE * out)
+{
+  fprintf(out, "\nDihedral styles:\n");
+
+  vector<string> styles;
+
+  for(Force::DihedralCreatorMap::iterator it = force->dihedral_map->begin(); it != force->dihedral_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::improper_styles(FILE * out)
+{
+  fprintf(out, "\nImproper styles:\n");
+
+  vector<string> styles;
+
+  for(Force::ImproperCreatorMap::iterator it = force->improper_map->begin(); it != force->improper_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::kspace_styles(FILE * out)
+{
+  fprintf(out, "\nKSpace styles:\n");
+
+  vector<string> styles;
+
+  for(Force::KSpaceCreatorMap::iterator it = force->kspace_map->begin(); it != force->kspace_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::fix_styles(FILE * out)
+{
+  fprintf(out, "\nFix styles:\n");
+
+  vector<string> styles;
+
+  for(Modify::FixCreatorMap::iterator it = modify->fix_map->begin(); it != modify->fix_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::compute_styles(FILE * out)
+{
+  fprintf(out, "\nCompute styles:\n");
+
+  vector<string> styles;
+
+  for(Modify::ComputeCreatorMap::iterator it = modify->compute_map->begin(); it != modify->compute_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::region_styles(FILE * out)
+{
+  fprintf(out, "\nRegion styles:\n");
+
+  vector<string> styles;
+
+  for(Domain::RegionCreatorMap::iterator it = domain->region_map->begin(); it != domain->region_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::dump_styles(FILE * out)
+{
+  fprintf(out, "\nDump styles:\n");
+
+  vector<string> styles;
+
+  for(Output::DumpCreatorMap::iterator it = output->dump_map->begin(); it != output->dump_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
+void Info::command_styles(FILE * out)
+{
+  fprintf(out, "\nCommand styles (add-on input script commands):\n");
+
+  vector<string> styles;
+
+  for(Input::CommandCreatorMap::iterator it = input->command_map->begin(); it != input->command_map->end(); ++it) {
+    styles.push_back(it->first);
+  }
+
+  print_columns(out, styles);
+  fprintf(out, "\n\n\n");
+}
+
 
 /* ---------------------------------------------------------------------- */
 
@@ -476,9 +801,7 @@ bool Info::is_active(const char *category, const char *name)
   const int len = strlen(name);
 
   if (strcmp(category,"package") == 0) {
-    if (strcmp(name,"cuda") == 0) {
-      return (lmp->cuda && lmp->cuda->cuda_exists) ? true : false;
-    } else if (strcmp(name,"gpu") == 0) {
+    if (strcmp(name,"gpu") == 0) {
       return (modify->find_fix("package_gpu") >= 0) ? true : false;
     } else if (strcmp(name,"intel") == 0) {
       return (modify->find_fix("package_intel") >= 0) ? true : false;
@@ -621,6 +944,18 @@ bool Info::is_available(const char *category, const char *name)
         delete[] name_w_suffix;
       }
     }
+  } else if (strcmp(category,"feature") == 0) {
+    if (strcmp(name,"gzip") == 0) {
+      return has_gzip_support();
+    } else if (strcmp(name,"png") == 0) {
+      return has_png_support();
+    } else if (strcmp(name,"jpeg") == 0) {
+      return has_jpeg_support();
+    } else if (strcmp(name,"ffmpeg") == 0) {
+      return has_ffmpeg_support();
+    } else if (strcmp(name,"exceptions") == 0) {
+      return has_exceptions();
+    }
   } else error->all(FLERR,"Unknown category for info is_available()");
 
   return match ? true : false;
@@ -682,4 +1017,91 @@ bool Info::is_defined(const char *category, const char *name)
   } else error->all(FLERR,"Unknown category for info is_defined()");
 
   return false;
+}
+
+static void print_columns(FILE* fp, vector<string> & styles)
+{
+  if (styles.size() == 0) {
+    fprintf(fp, "\nNone");
+    return;
+  }
+
+  std::sort(styles.begin(), styles.end());
+
+  int pos = 80;
+  for (int i = 0; i < styles.size(); ++i) {
+
+    // skip "secret" styles
+    if (isupper(styles[i][0])) continue;
+
+    int len = styles[i].length();
+    if (pos + len > 80) {
+      fprintf(fp,"\n");
+      pos = 0;
+    }
+
+    if (len < 16) {
+      fprintf(fp,"%-16s",styles[i].c_str());
+      pos += 16;
+    } else if (len < 32) {
+      fprintf(fp,"%-32s",styles[i].c_str());
+      pos += 32;
+    } else if (len < 48) {
+      fprintf(fp,"%-48s",styles[i].c_str());
+      pos += 48;
+    } else if (len < 64) {
+      fprintf(fp,"%-64s",styles[i].c_str());
+      pos += 64;
+    } else {
+      fprintf(fp,"%-80s",styles[i].c_str());
+      pos += 80;
+    }
+  }
+}
+
+bool Info::has_gzip_support() const {
+#ifdef LAMMPS_GZIP
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool Info::has_png_support() const {
+#ifdef LAMMPS_PNG
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool Info::has_jpeg_support() const {
+#ifdef LAMMPS_JPEG
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool Info::has_ffmpeg_support() const {
+#ifdef LAMMPS_FFMPEG
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool Info::has_exceptions() const {
+#ifdef LAMMPS_EXCEPTIONS
+  return true;
+#else
+  return false;
+#endif
+}
+
+/* ---------------------------------------------------------------------- */
+
+char **Info::get_variable_names(int &num) {
+    num = input->variable->nvar;
+    return input->variable->names;
 }

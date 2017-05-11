@@ -23,6 +23,7 @@ namespace LAMMPS_NS {
 
 class Input : protected Pointers {
   friend class Info;
+  friend class Error;
  public:
   int narg;                    // # of command args
   char **arg;                  // parsed args for command
@@ -35,6 +36,7 @@ class Input : protected Pointers {
   char *one(const char *);       // process a single command
   void substitute(char *&, char *&, int &, int &, int);
                                  // substitute for variables in a string
+  int expand_args(int, char **, int, char **&);  // expand args due to wildcard
 
  private:
   int me;                      // proc ID
@@ -52,10 +54,12 @@ class Input : protected Pointers {
 
   FILE **infiles;              // list of open input files
 
- protected:
+ public:
   typedef void (*CommandCreator)(LAMMPS *, int, char **);
-  std::map<std::string,CommandCreator> *command_map;
+  typedef std::map<std::string,CommandCreator> CommandCreatorMap;
+  CommandCreatorMap *command_map;
 
+ protected:
   template <typename T> static void command_creator(LAMMPS *, int, char **);
 
  private:
@@ -324,12 +328,6 @@ E: Package command after simulation box is defined
 
 The package command cannot be used afer a read_data, read_restart, or
 create_box command.
-
-E: Package cuda command without USER-CUDA package enabled
-
-The USER-CUDA package must be installed via "make yes-user-cuda"
-before LAMMPS is built, and the "-c on" must be used to enable the
-package.
 
 E: Package gpu command without GPU package installed
 

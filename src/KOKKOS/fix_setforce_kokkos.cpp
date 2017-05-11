@@ -38,6 +38,7 @@ template<class DeviceType>
 FixSetForceKokkos<DeviceType>::FixSetForceKokkos(LAMMPS *lmp, int narg, char **arg) :
   FixSetForce(lmp, narg, arg)
 {
+  kokkosable = 1;
   atomKK = (AtomKokkos *) atom;
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = EMPTY_MASK;
@@ -94,7 +95,7 @@ void FixSetForceKokkos<DeviceType>::post_force(int vflag)
 
   // reallocate sforce array if necessary
 
-  if (varflag == ATOM && nlocal > maxatom) {
+  if (varflag == ATOM && atom->nmax > maxatom) {
     maxatom = atom->nmax;
     memory->destroy_kokkos(k_sforce,sforce);
     memory->create_kokkos(k_sforce,sforce,maxatom,3,"setforce:sforce");

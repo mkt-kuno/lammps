@@ -27,6 +27,7 @@
 #include "comm.h"
 #include "comm_brick.h"
 #include "comm_tiled.h"
+#include "accelerator_kokkos.h"
 #include "group.h"
 #include "domain.h"
 #include "output.h"
@@ -36,6 +37,7 @@
 #include "min.h"
 #include "modify.h"
 #include "compute.h"
+#include "fix.h"
 #include "bond.h"
 #include "angle.h"
 #include "dihedral.h"
@@ -46,7 +48,6 @@
 #include "special.h"
 #include "timer.h"
 #include "variable.h"
-#include "accelerator_cuda.h"
 #include "accelerator_kokkos.h"
 #include "error.h"
 #include "memory.h"
@@ -93,7 +94,7 @@ Input::Input(LAMMPS *lmp, int argc, char **argv) : Pointers(lmp)
 
   // fill map with commands listed in style_command.h
 
-  command_map = new std::map<std::string,CommandCreator>();
+  command_map = new CommandCreatorMap();
 
 #define COMMAND_CLASS
 #define CommandStyle(key,Class) \
@@ -278,7 +279,8 @@ void Input::file(const char *filename)
 }
 
 /* ----------------------------------------------------------------------
-   copy command in single to line, parse and execute it
+   invoke one command in single
+   first copy to line, then parse, then execute it
    return command name to caller
 ------------------------------------------------------------------------- */
 
@@ -348,15 +350,15 @@ void Input::parse()
     }
     if (quoteflag == 0) {
       if (strstr(ptr,"\"\"\"") == ptr) {
-	quoteflag = 3;
-	ptr += 2;
+        quoteflag = 3;
+        ptr += 2;
       }
       else if (*ptr == '"') quoteflag = 2;
       else if (*ptr == '\'') quoteflag = 1;
     } else {
       if (quoteflag == 3 && strstr(ptr,"\"\"\"") == ptr) {
-	quoteflag = 0;
-	ptr += 2;
+        quoteflag = 0;
+        ptr += 2;
       }
       else if (quoteflag == 2 && *ptr == '"') quoteflag = 0;
       else if (quoteflag == 1 && *ptr == '\'') quoteflag = 0;
@@ -582,6 +584,141 @@ void Input::substitute(char *&str, char *&str2, int &max, int &max2, int flag)
 
   if (max2 > max) reallocate(str,max,max2);
   strcpy(str,str2);
+}
+
+/* ----------------------------------------------------------------------
+   expand arg to earg, for arguments with syntax c_ID[*] or f_ID[*]
+   fields to consider in input arg range from iarg to narg
+   return new expanded # of values, and copy them w/out "*" into earg
+   if any expansion occurs, earg is new allocation, must be freed by caller
+   if no expansion occurs, earg just points to arg, caller need not free
+------------------------------------------------------------------------- */
+
+int Input::expand_args(int narg, char **arg, int mode, char **&earg)
+{
+  int n,iarg,index,nlo,nhi,nmax,expandflag,icompute,ifix;
+  char *ptr1,*ptr2,*str;
+
+  ptr1 = NULL;
+  for (iarg = 0; iarg < narg; iarg++) {
+    ptr1 = strchr(arg[iarg],'*');
+    if (ptr1) break;
+  }
+
+  if (!ptr1) {
+    earg = arg;
+    return narg;
+  }
+
+  // maxarg should always end up equal to newarg, so caller can free earg
+
+  int maxarg = narg-iarg;
+  earg = (char **) memory->smalloc(maxarg*sizeof(char *),"input:earg");
+
+  int newarg = 0;
+  for (iarg = 0; iarg < narg; iarg++) {
+    expandflag = 0;
+
+    if (strncmp(arg[iarg],"c_",2) == 0 ||
+        strncmp(arg[iarg],"f_",2) == 0) {
+
+      ptr1 = strchr(&arg[iarg][2],'[');
+      if (ptr1) {
+	ptr2 = strchr(ptr1,']');
+	if (ptr2) {
+	  *ptr2 = '\0';
+	  if (strchr(ptr1,'*')) {
+	    if (arg[iarg][0] == 'c') {
+	      *ptr1 = '\0';
+	      icompute = modify->find_compute(&arg[iarg][2]);
+	      *ptr1 = '[';
+
+              // check for global vector/array, peratom array, local array
+
+	      if (icompute >= 0) {
+		if (mode == 0 && modify->compute[icompute]->vector_flag) {
+		  nmax = modify->compute[icompute]->size_vector;
+		  expandflag = 1;
+		} else if (mode == 1 && modify->compute[icompute]->array_flag) {
+		  nmax = modify->compute[icompute]->size_array_cols;
+		  expandflag = 1;
+                } else if (modify->compute[icompute]->peratom_flag && 
+                           modify->compute[icompute]->size_peratom_cols) {
+		  nmax = modify->compute[icompute]->size_peratom_cols;
+		  expandflag = 1;
+                } else if (modify->compute[icompute]->local_flag && 
+                           modify->compute[icompute]->size_local_cols) {
+		  nmax = modify->compute[icompute]->size_local_cols;
+		  expandflag = 1;
+		}
+	      }	      
+	    } else if (arg[iarg][0] == 'f') {
+	      *ptr1 = '\0';
+	      ifix = modify->find_fix(&arg[iarg][2]);
+	      *ptr1 = '[';
+
+              // check for global vector/array, peratom array, local array
+
+	      if (ifix >= 0) {
+		if (mode == 0 && modify->fix[ifix]->vector_flag) {
+		  nmax = modify->fix[ifix]->size_vector;
+		  expandflag = 1;
+		} else if (mode == 1 && modify->fix[ifix]->array_flag) {
+		  nmax = modify->fix[ifix]->size_array_cols;
+		  expandflag = 1;
+                } else if (modify->fix[ifix]->peratom_flag && 
+                           modify->fix[ifix]->size_peratom_cols) {
+		  nmax = modify->fix[ifix]->size_peratom_cols;
+		  expandflag = 1;
+                } else if (modify->fix[ifix]->local_flag && 
+                           modify->fix[ifix]->size_local_cols) {
+		  nmax = modify->fix[ifix]->size_local_cols;
+		  expandflag = 1;
+		}
+	      }
+	    }
+	  }
+	  *ptr2 = ']';
+	}
+      }
+    }
+
+    if (expandflag) {
+      *ptr2 = '\0';
+      force->bounds(FLERR,ptr1+1,nmax,nlo,nhi);
+      *ptr2 = ']';
+      if (newarg+nhi-nlo+1 > maxarg) {
+	maxarg += nhi-nlo+1;
+	earg = (char **) 
+          memory->srealloc(earg,maxarg*sizeof(char *),"input:earg");
+      }
+      for (index = nlo; index <= nhi; index++) {
+	n = strlen(arg[iarg]) + 16;   // 16 = space for large inserted integer
+	str = earg[newarg] = new char[n];
+	strncpy(str,arg[iarg],ptr1+1-arg[iarg]);
+	sprintf(&str[ptr1+1-arg[iarg]],"%d",index);
+	strcat(str,ptr2);
+        newarg++;
+      }
+
+    } else {
+      if (newarg == maxarg) {
+	maxarg++;
+	earg = (char **) 
+          memory->srealloc(earg,maxarg*sizeof(char *),"input:earg");
+      }
+      n = strlen(arg[iarg]) + 1;
+      earg[newarg] = new char[n];
+      strcpy(earg[newarg],arg[iarg]);
+      newarg++;
+    }
+  }
+
+  //printf("NEWARG %d\n",newarg);
+  //for (int i = 0; i < newarg; i++)
+  //  printf("  arg %d: %s\n",i,earg[i]);
+
+  return newarg;
 }
 
 /* ----------------------------------------------------------------------
@@ -995,7 +1132,7 @@ void Input::partition()
   else error->all(FLERR,"Illegal partition command");
 
   int ilo,ihi;
-  force->bounds(arg[1],universe->nworlds,ilo,ihi);
+  force->bounds(FLERR,arg[1],universe->nworlds,ilo,ihi);
 
   // copy original line to copy, since will use strtok() on it
   // ptr = start of 4th word
@@ -1329,7 +1466,10 @@ void Input::comm_style()
   } else if (strcmp(arg[0],"tiled") == 0) {
     if (comm->style == 1) return;
     Comm *oldcomm = comm;
-    comm = new CommTiled(lmp,oldcomm);
+
+    if (lmp->kokkos) comm = new CommTiledKokkos(lmp,oldcomm);
+    else comm = new CommTiled(lmp,oldcomm);
+
     delete oldcomm;
   } else error->all(FLERR,"Illegal comm_style command");
 }
@@ -1487,7 +1627,7 @@ void Input::mass()
   if (narg != 2) error->all(FLERR,"Illegal mass command");
   if (domain->box_exist == 0)
     error->all(FLERR,"Mass command before simulation box is defined");
-  atom->set_mass(narg,arg);
+  atom->set_mass(FLERR,narg,arg);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1567,13 +1707,7 @@ void Input::package()
   // same checks for packages existing as in LAMMPS::post_create()
   // since can be invoked here by package command in input script
 
-  if (strcmp(arg[0],"cuda") == 0) {
-    if (lmp->cuda == NULL || lmp->cuda->cuda_exists == 0)
-      error->all(FLERR,
-                 "Package cuda command without USER-CUDA package enabled");
-    lmp->cuda->accelerator(narg-1,&arg[1]);
-
-  } else if (strcmp(arg[0],"gpu") == 0) {
+  if (strcmp(arg[0],"gpu") == 0) {
     if (!modify->check_package("GPU"))
       error->all(FLERR,"Package gpu command without GPU package installed");
 

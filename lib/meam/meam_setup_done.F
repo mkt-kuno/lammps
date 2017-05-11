@@ -183,6 +183,16 @@ c
       real*8, external :: zbl
       real*8, external :: compute_phi
 
+c check for previously allocated arrays and free them
+      if(allocated(phir)) deallocate(phir)
+      if(allocated(phirar)) deallocate(phirar)
+      if(allocated(phirar1)) deallocate(phirar1)
+      if(allocated(phirar2)) deallocate(phirar2)
+      if(allocated(phirar3)) deallocate(phirar3)
+      if(allocated(phirar4)) deallocate(phirar4)
+      if(allocated(phirar5)) deallocate(phirar5)
+      if(allocated(phirar6)) deallocate(phirar6)
+
 c allocate memory for array that defines the potential
       allocate(phir(nr,(neltypes*(neltypes+1))/2))
 
@@ -438,9 +448,17 @@ c     use precomputed values
           rho0_2 = rho0_meam(b)*Z2*G2
         endif
         Gam1 = (t11av*rho11+t21av*rho21+t31av*rho31)
-        Gam1 = Gam1/(rho01*rho01)
+        if (rho01 < 1.0d-14) then
+          Gam1 = 0.0d0
+        else
+          Gam1 = Gam1/(rho01*rho01)
+        endif
         Gam2 = (t12av*rho12+t22av*rho22+t32av*rho32)
-        Gam2 = Gam2/(rho02*rho02)
+        if (rho02 < 1.0d-14) then
+          Gam2 = 0.0d0
+        else
+          Gam2 = Gam2/(rho02*rho02)
+        endif
         call G_gam(Gam1,ibar_meam(a),gsmooth_factor,G1,errorflag)
         call G_gam(Gam2,ibar_meam(b),gsmooth_factor,G2,errorflag)
         if (mix_ref_t.eq.1) then

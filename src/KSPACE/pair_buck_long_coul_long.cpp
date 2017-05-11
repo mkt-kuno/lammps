@@ -134,6 +134,7 @@ PairBuckLongCoulLong::~PairBuckLongCoulLong()
     memory->destroy(offset);
   }
   if (ftable) free_tables();
+  if (fdisptable) free_disp_tables();
 }
 
 /* ----------------------------------------------------------------------
@@ -197,8 +198,8 @@ void PairBuckLongCoulLong::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
-  force->bounds(*(arg++),atom->ntypes,ilo,ihi);
-  force->bounds(*(arg++),atom->ntypes,jlo,jhi);
+  force->bounds(FLERR,*(arg++),atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,*(arg++),atom->ntypes,jlo,jhi);
 
   double buck_a_one = force->numeric(FLERR,*(arg++));
   double buck_rho_one = force->numeric(FLERR,*(arg++));
@@ -231,7 +232,27 @@ void PairBuckLongCoulLong::init_style()
   // require an atom style with charge defined
 
   if (!atom->q_flag && (ewald_order&(1<<1)))
-    error->all(FLERR,"Pair style buck/long/coul/long requires atom attribute q");
+    error->all(FLERR,
+        "Invoking coulombic in pair style buck/long/coul/long requires atom attribute q");
+
+  // ensure use of KSpace long-range solver, set two g_ewalds
+
+  if (force->kspace == NULL)
+    error->all(FLERR,"Pair style requires a KSpace style");
+  if (ewald_order&(1<<1)) g_ewald = force->kspace->g_ewald;
+  if (ewald_order&(1<<6)) g_ewald_6 = force->kspace->g_ewald_6;
+
+  // set rRESPA cutoffs
+
+  if (strstr(update->integrate_style,"respa") &&
+      ((Respa *) update->integrate)->level_inner >= 0)
+    cut_respa = ((Respa *) update->integrate)->cutoff;
+  else cut_respa = NULL;
+
+  // setup force tables
+
+  if (ncoultablebits && (ewald_order&(1<<1))) init_tables(cut_coul,cut_respa);
+  if (ndisptablebits && (ewald_order&(1<<6))) init_tables_disp(cut_buck_global);
 
   // request regular or rRESPA neighbor lists if neighrequest_flag != 0
 
@@ -247,24 +268,19 @@ void PairBuckLongCoulLong::init_style()
       else if (respa == 1) {
         irequest = neighbor->request(this,instance_me);
         neighbor->requests[irequest]->id = 1;
-        neighbor->requests[irequest]->half = 0;
         neighbor->requests[irequest]->respainner = 1;
         irequest = neighbor->request(this,instance_me);
         neighbor->requests[irequest]->id = 3;
-        neighbor->requests[irequest]->half = 0;
         neighbor->requests[irequest]->respaouter = 1;
       } else {
         irequest = neighbor->request(this,instance_me);
         neighbor->requests[irequest]->id = 1;
-        neighbor->requests[irequest]->half = 0;
         neighbor->requests[irequest]->respainner = 1;
         irequest = neighbor->request(this,instance_me);
         neighbor->requests[irequest]->id = 2;
-        neighbor->requests[irequest]->half = 0;
         neighbor->requests[irequest]->respamiddle = 1;
         irequest = neighbor->request(this,instance_me);
         neighbor->requests[irequest]->id = 3;
-        neighbor->requests[irequest]->half = 0;
         neighbor->requests[irequest]->respaouter = 1;
       }
 
@@ -272,24 +288,6 @@ void PairBuckLongCoulLong::init_style()
   }
 
   cut_coulsq = cut_coul * cut_coul;
-
-  // set rRESPA cutoffs
-
-  if (strstr(update->integrate_style,"respa") &&
-      ((Respa *) update->integrate)->level_inner >= 0)
-    cut_respa = ((Respa *) update->integrate)->cutoff;
-  else cut_respa = NULL;
-
-  // ensure use of KSpace long-range solver, set two g_ewalds
-
-  if (force->kspace == NULL)
-    error->all(FLERR,"Pair style requires a KSpace style");
-  if (ewald_order&(1<<1)) g_ewald = force->kspace->g_ewald;
-  if (ewald_order&(1<<6)) g_ewald_6 = force->kspace->g_ewald_6;
-  // setup force tables
-
-  if (ncoultablebits) init_tables(cut_coul,cut_respa);
-  if (ndisptablebits) init_tables_disp(cut_buck_global);
 }
 
 /* ----------------------------------------------------------------------

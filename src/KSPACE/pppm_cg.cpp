@@ -48,18 +48,16 @@ enum{FORWARD_IK,FORWARD_AD,FORWARD_IK_PERATOM,FORWARD_AD_PERATOM};
 
 /* ---------------------------------------------------------------------- */
 
-PPPMCG::PPPMCG(LAMMPS *lmp, int narg, char **arg) : PPPM(lmp, narg, arg)
+PPPMCG::PPPMCG(LAMMPS *lmp, int narg, char **arg) : PPPM(lmp, narg, arg), 
+  is_charged(NULL)
 {
   if ((narg < 1) || (narg > 2))
     error->all(FLERR,"Illegal kspace_style pppm/cg command");
-
-  triclinic_support = 0;
 
   if (narg == 2) smallq = fabs(force->numeric(FLERR,arg[1]));
   else smallq = SMALLQ;
 
   num_charged = -1;
-  is_charged = NULL;
   group_group_enable = 1;
 }
 
@@ -91,6 +89,17 @@ void PPPMCG::compute(int eflag, int vflag)
     cg_peratom->setup();
   }
 
+  // if atom count has changed, update qsum and qsqsum
+
+  if (atom->natoms != natoms_original) {
+    qsum_qsq();
+    natoms_original = atom->natoms;
+  }
+
+  // return if there are no charges
+
+  if (qsqsum == 0.0) return;
+
   // convert atoms from box to lamda coords
 
   if (triclinic == 0) boxlo = domain->boxlo;
@@ -101,7 +110,7 @@ void PPPMCG::compute(int eflag, int vflag)
 
   // extend size of per-atom arrays if necessary
 
-  if (atom->nlocal > nmax) {
+  if (atom->nmax > nmax) {
     memory->destroy(part2grid);
     memory->destroy(is_charged);
     nmax = atom->nmax;
@@ -206,13 +215,6 @@ void PPPMCG::compute(int eflag, int vflag)
   // extra per-atom energy/virial communication
 
   if (evflag_atom) fieldforce_peratom();
-
-  // update qsum and qsqsum, if atom count has changed and energy needed
-
-  if ((eflag_global || eflag_atom) && atom->natoms != natoms_original) {
-    qsum_qsq();
-    natoms_original = atom->natoms;
-  }
 
   // sum global energy across procs and add in volume-dependent term
 

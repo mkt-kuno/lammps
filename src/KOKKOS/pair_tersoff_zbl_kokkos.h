@@ -39,6 +39,8 @@ struct TagPairTersoffZBLComputeFullA{};
 template<int NEIGHFLAG, int EVFLAG>
 struct TagPairTersoffZBLComputeFullB{};
 
+struct TagPairTersoffZBLComputeShortNeigh{};
+
 template<class DeviceType>
 class PairTersoffZBLKokkos : public PairTersoffZBL {
  public:
@@ -77,6 +79,8 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairTersoffZBLComputeFullB<NEIGHFLAG,EVFLAG>, const int&) const;
 
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairTersoffZBLComputeShortNeigh, const int&) const;
   KOKKOS_INLINE_FUNCTION
   double ters_fc_k(const int &i, const int &j, const int &k, const F_FLOAT &r) const;
 
@@ -187,9 +191,10 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   Kokkos::DualView<params_ters***,Kokkos::LayoutRight,DeviceType> k_params;
   typename Kokkos::DualView<params_ters***,
     Kokkos::LayoutRight,DeviceType>::t_dev_const_um paramskk;
-  // hardwired to space for 15 atom types
+  // hardwired to space for 12 atom types
   //params_ters m_params[MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1][MAX_TYPES_STACKPARAMS+1];
 
+  int inum; 
   typename AT::t_x_array_randomread x;
   typename AT::t_f_array f;
   typename AT::t_int_1d_randomread type;
@@ -197,8 +202,8 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  DAT::t_efloat_1d d_eatom;
-  DAT::t_virial_array d_vatom;
+  typename ArrayTypes<DeviceType>::t_efloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
   typedef Kokkos::DualView<F_FLOAT**[7],Kokkos::LayoutRight,DeviceType> tdual_ffloat_2d_n7;
   typedef typename tdual_ffloat_2d_n7::t_dev_const_randomread t_ffloat_2d_n7_randomread;
@@ -209,9 +214,11 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
   typename ArrayTypes<DeviceType>::t_int_1d_randomread d_numneigh;
   //NeighListKokkos<DeviceType> k_list;
 
-  class AtomKokkos *atomKK;
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;
+
+  Kokkos::View<int**,DeviceType> d_neighbors_short;
+  Kokkos::View<int*,DeviceType> d_numneigh_short;
 
   // ZBL
   F_FLOAT global_a_0;                // Bohr radius for Coulomb repulsion
@@ -231,6 +238,10 @@ class PairTersoffZBLKokkos : public PairTersoffZBL {
 E: Pair tersoff/zbl/kk requires metal or real units
 
 This is a current restriction of this pair potential.
+
+E: Cannot (yet) use full neighbor list style with tersoff/zbl/kk
+
+Self-explanatory.
 
 E: Cannot use chosen neighbor list style with tersoff/zbl/kk
 

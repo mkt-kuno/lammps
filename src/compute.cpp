@@ -18,6 +18,7 @@
 #include "compute.h"
 #include "atom.h"
 #include "domain.h"
+#include "force.h"
 #include "comm.h"
 #include "group.h"
 #include "modify.h"
@@ -25,7 +26,6 @@
 #include "atom_masks.h"
 #include "memory.h"
 #include "error.h"
-#include "force.h"
 
 using namespace LAMMPS_NS;
 
@@ -38,10 +38,15 @@ int Compute::instance_total = 0;
 
 /* ---------------------------------------------------------------------- */
 
-Compute::Compute(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
+Compute::Compute(LAMMPS *lmp, int narg, char **arg) : 
+  Pointers(lmp),
+  id(NULL), style(NULL),
+  vector(NULL), array(NULL), vector_atom(NULL),
+  array_atom(NULL), vector_local(NULL), array_local(NULL), extlist(NULL),
+  tlist(NULL), vbiasall(NULL)
 {
   instance_me = instance_total++;
-
+  
   if (narg < 3) error->all(FLERR,"Illegal compute command");
 
   // compute ID, group, and style
@@ -79,7 +84,6 @@ Compute::Compute(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   comm_forward = comm_reverse = 0;
   dynamic = 0;
   dynamic_group_allow = 1;
-  cudable = 0;
 
   invoked_scalar = invoked_vector = invoked_array = -1;
   invoked_peratom = invoked_local = -1;
@@ -94,23 +98,14 @@ Compute::Compute(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   // setup list of timesteps
 
   ntime = maxtime = 0;
-  tlist = NULL;
-
+  
   // data masks
-
-  datamask = ALL_MASK;
-  datamask_ext = ALL_MASK;
 
   execution_space = Host;
   datamask_read = ALL_MASK;
   datamask_modify = ALL_MASK;
 
   copymode = 0;
-
-  // force init to zero in case these are used as logicals
-
-  vector = vector_atom = vector_local = NULL;
-  array = array_atom = array_local = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -132,20 +127,18 @@ void Compute::modify_params(int narg, char **arg)
 
   int iarg = 0;
   while (iarg < narg) {
-    if (strcmp(arg[iarg],"extra") == 0) {
+    // added more specific keywords in Mar17
+    // at some point, remove generic extra and dynamic
+    if (strcmp(arg[iarg],"extra") == 0 || 
+        strcmp(arg[iarg],"extra/dof") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal compute_modify command");
-      extra_dof = force->inumeric(FLERR,arg[iarg+1]);
+      extra_dof = force->numeric(FLERR,arg[iarg+1]);
       iarg += 2;
-    } else if (strcmp(arg[iarg],"dynamic") == 0) {
+    } else if (strcmp(arg[iarg],"dynamic") == 0 || 
+               strcmp(arg[iarg],"dynamic/dof") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal compute_modify command");
       if (strcmp(arg[iarg+1],"no") == 0) dynamic_user = 0;
       else if (strcmp(arg[iarg+1],"yes") == 0) dynamic_user = 1;
-      else error->all(FLERR,"Illegal compute_modify command");
-      iarg += 2;
-    } else if (strcmp(arg[iarg],"thermo") == 0) {
-      if (iarg+2 > narg) error->all(FLERR,"Illegal compute_modify command");
-      if (strcmp(arg[iarg+1],"no") == 0) thermoflag = 0;
-      else if (strcmp(arg[iarg+1],"yes") == 0) thermoflag = 1;
       else error->all(FLERR,"Illegal compute_modify command");
       iarg += 2;
     } else error->all(FLERR,"Illegal compute_modify command");

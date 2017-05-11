@@ -26,11 +26,11 @@ integrate the DPD equations of motion.  The SSA splits the integration
 into a stochastic and deterministic integration step.  The fix
 {shardlow} performs the stochastic integration step and must be used
 in conjunction with a deterministic integrator (e.g. "fix
-nve"_fix_nve.html or "fix nph"_fix_nph.html).  The stochastic
+nve"_fix_nve.html or "fix nph"_fix_nh.html).  The stochastic
 integration of the dissipative and random forces is performed prior to
 the deterministic integration of the conservative force. Further
 details regarding the method are provided in "(Lisal)"_#Lisal and
-"(Larentzos)"_#Larentzos.
+"(Larentzos1)"_#Larentzos1sh.
 
 The fix {shardlow} must be used with the "pair_style
 dpd/fdt"_pair_style.html or "pair_style
@@ -52,11 +52,11 @@ examples/USER/dpd directory.
 
 :line
 
-[Restrictions:] 
+[Restrictions:]
 
-This fix is only available if LAMMPS is built with the USER-DPD
-package.  See the "Making LAMMPS"_Section_start.html#start_3 section
-for more info.
+This command is part of the USER-DPD package.  It is only enabled if
+LAMMPS was built with that package.  See the "Making
+LAMMPS"_Section_start.html#start_3 section for more info.
 
 This fix is currently limited to orthogonal simulation cell
 geometries.
@@ -66,7 +66,7 @@ integration, e.g. "fix nve"_fix_nve.html or "fix nph"_fix_nh.html.
 
 The Shardlow splitting algorithm requires the sizes of the sub-domain
 lengths to be larger than twice the cutoff+skin.  Generally, the
-domain decomposition is dependant on the number of processors
+domain decomposition is dependent on the number of processors
 requested.
 
 [Related commands:]
@@ -83,14 +83,14 @@ particle dynamics as isothermal, isobaric, isoenergetic, and
 isoenthalpic conditions using Shardlow-like splitting algorithms.",
 J. Chem. Phys., 135, 204105 (2011).
 
-:link(Larentzos)
-[(Larentzos)] J.P. Larentzos, J.K. Brennan, J.D. Moore, M. Lisal and
+:link(Larentzos1sh)
+[(Larentzos1)] J.P. Larentzos, J.K. Brennan, J.D. Moore, M. Lisal and
 W.D. Mattson, "Parallel Implementation of Isothermal and Isoenergetic
 Dissipative Particle Dynamics Using Shardlow-Like Splitting
 Algorithms", Comput. Phys. Commun., 185, 1987-1998 (2014).
 
-:link(Larentzos)
-[(Larentzos)] J.P. Larentzos, J.K. Brennan, J.D. Moore, and
+:link(Larentzos2sh)
+[(Larentzos2)] J.P. Larentzos, J.K. Brennan, J.D. Moore, and
 W.D. Mattson, "LAMMPS Implementation of Constant Energy Dissipative
 Particle Dynamics (DPD-E)", ARL-TR-6863, U.S. Army Research
 Laboratory, Aberdeen Proving Ground, MD (2014).

@@ -17,7 +17,7 @@ eos/table = style name of this fix command
 style = {linear} = method of interpolation
 file = filename containing the tabulated equation of state
 N = use N values in {linear} tables
-keyword = name of table keyword correponding to table file :ul
+keyword = name of table keyword corresponding to table file :ul
 
 [Examples:]
 
@@ -71,7 +71,7 @@ initial text must match the argument specified in the fix command.
 The next line lists the number of table entries.  The parameter "N" is
 required and its value is the number of table entries that follow.
 Note that this may be different than the {N} specified in the "fix
-eos/table"_fix_style.html command.  Let Ntable = {N} in the fix
+eos/table"_fix_eos_table.html command.  Let Ntable = {N} in the fix
 command, and Nfile = "N" in the tabulated file.  What LAMMPS does is a
 preliminary interpolation by creating splines using the Nfile
 tabulated values as nodal points.  It uses these to interpolate as
@@ -87,7 +87,7 @@ On each line, the 1st value is the index from 1 to N, the 2nd value is
 the internal temperature (in temperature units), the 3rd value is the
 internal energy (in energy units).
 
-Note that the internal temperature and internal energy values must 
+Note that the internal temperature and internal energy values must
 increase from one line to the next.
 
 Note that one file can contain many sections, each with a tabulated
@@ -96,18 +96,22 @@ one that matches the specified keyword.
 
 :line
 
-[Restrictions:] 
+[Restrictions:]
 
-The fix {eos/table} is only available if LAMMPS is built with the 
-USER-DPD package.
+This command is part of the USER-DPD package.  It is only enabled if
+LAMMPS was built with that package.  See the "Making
+LAMMPS"_Section_start.html#start_3 section for more info.
+
+This command also requires use of the "atom_style dpd"_atom_style.html
+command.
 
 The equation of state must be a monotonically increasing function.
 
-An exit error will occur if the internal temperature or internal
-energies are not within the table cutoffs.
+An error will occur if the internal temperature or internal energies
+are not within the table cutoffs.
 
 [Related commands:]
 
-"fix shardlow"_fix_shardlow.html, "pair dpd/fdt"_dpd_fdt.html
+"fix shardlow"_fix_shardlow.html, "pair dpd/fdt"_pair_dpd_fdt.html
 
 [Default:] none

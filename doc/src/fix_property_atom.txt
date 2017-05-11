@@ -121,7 +121,7 @@ as described below.
 Per-atom properties that are defined by the "atom
 style"_atom_style.html are initialized when atoms are created, e.g. by
 the "read_data"_read_data.html or "create_atoms"_create_atoms.html
-commands.  The per-atom properaties defined by this fix are not.  So
+commands.  The per-atom properties defined by this fix are not.  So
 you need to initialize them explicitly.  This can be done by the
 "read_data"_read_data.html command, using its {fix} keyword and
 passing it the fix-ID of this fix.
@@ -177,7 +177,7 @@ their values.  This means that the values can be output via the "dump
 custom"_dump.html command, accessed by fixes like "fix
 ave/atom"_fix_ave_atom.html, accessed by other computes like "compute
 reduce"_compute_reduce.html, or used in "atom-style
-variables"_variables.
+variables"_variable.html.
 
 For example, these commands will output two new properties to a custom
 dump file:

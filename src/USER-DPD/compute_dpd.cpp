@@ -36,9 +36,9 @@ ComputeDpd::ComputeDpd(LAMMPS *lmp, int narg, char **arg) :
   vector_flag = 1;
   size_vector = 5;
   extvector = 0;
-  
+
   vector = new double[size_vector];
-  
+
   if (atom->dpd_flag != 1) error->all(FLERR,"compute dpd requires atom_style with internal temperature and energies (e.g. dpd)");
 }
 
@@ -59,6 +59,7 @@ void ComputeDpd::compute_vector()
 
   double *uCond = atom->uCond;
   double *uMech = atom->uMech;
+  double *uChem = atom->uChem;
   double *dpdTheta = atom->dpdTheta;
   int nlocal = atom->nlocal;
   int *mask = atom->mask;
@@ -66,18 +67,18 @@ void ComputeDpd::compute_vector()
 
   dpdU = new double[size_vector];
 
-  for (int i = 0; i < size_vector; i++) dpdU[i] = double(0.0);
+  for (int i = 0; i < size_vector; i++) dpdU[i] = 0.0;
 
   for (int i = 0; i < nlocal; i++){
     if (mask[i] & groupbit){
       dpdU[0] += uCond[i];
       dpdU[1] += uMech[i];
-      dpdU[2] += uCond[i] + uMech[i];
+      dpdU[2] += uChem[i];
       dpdU[3] += 1.0 / dpdTheta[i];
       dpdU[4]++;
     }
   }
-    
+
   MPI_Allreduce(dpdU,vector,size_vector,MPI_DOUBLE,MPI_SUM,world);
 
   natoms = vector[4];

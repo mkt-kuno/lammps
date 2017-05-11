@@ -17,7 +17,7 @@ smd  = style name of this fix command :l
 mode = {cvel} or {cfor} to select constant velocity or constant force SMD :l
   {cvel} values = K vel
     K = spring constant (force/distance units)
-    vel = velocity of pulling (distance/time units) 
+    vel = velocity of pulling (distance/time units)
   {cfor} values = force
     force = pulling force (force units) :pre
 keyword = {tether} or {couple} :l
@@ -87,9 +87,9 @@ For both the {tether} and {couple} styles, any of the x,y,z values can
 be specified as NULL which means do not include that dimension in the
 distance calculation or force application.
 
-For constant velocity pulling ({cvel} mode), the running integral 
+For constant velocity pulling ({cvel} mode), the running integral
 over the pulling force in direction of the spring is recorded and
-can then later be used to compute the potential of mean force (PMF) 
+can then later be used to compute the potential of mean force (PMF)
 by averaging over multiple independent trajectories along the same
 pulling path.
 
@@ -101,8 +101,9 @@ See the "read_restart"_read_restart.html command for info on how to
 re-specify a fix in an input script that reads a restart file, so that
 the operation of the fix continues in an uninterrupted fashion.
 
-None of the "fix_modify"_fix_modify.html options are relevant to this
-fix.
+The "fix_modify"_fix_modify.html {respa} option is supported by
+this fix. This allows to set at which level of the "r-RESPA"_run_style.html
+integrator the fix is adding its forces. Default is the outermost level.
 
 This fix computes a vector list of 7 quantities, which can be accessed
 by various "output commands"_Section_howto.html#howto_15.  The
@@ -129,22 +130,22 @@ LAMMPS"_Section_start.html#start_3 section for more info.
 
 [Related commands:]
 
-"fix drag"_fix_drag.html, "fix spring"_fix_spring.html, 
-"fix spring/self"_fix_spring_self.html, 
+"fix drag"_fix_drag.html, "fix spring"_fix_spring.html,
+"fix spring/self"_fix_spring_self.html,
 "fix spring/rg"_fix_spring_rg.html
 
 [Default:] none
 
 :line
 
-:link(Israilev)
+:link(Izrailev)
 [(Izrailev)] Izrailev, Stepaniants, Isralewitz, Kosztin, Lu, Molnar,
 Wriggers, Schulten. Computational Molecular Dynamics: Challenges,
 Methods, Ideas, volume 4 of Lecture Notes in Computational Science and
 Engineering, pp. 39-65. Springer-Verlag, Berlin, 1998.
 
-[(Park)]
-Park, Schulten, J. Chem. Phys. 120 (13), 5946 (2004)
+:link(Park)
+[(Park)] Park, Schulten, J. Chem. Phys. 120 (13), 5946 (2004)
 
-[(Jarzynski)]
-Jarzynski, Phys. Rev. Lett. 78, 2690 (1997)
+:link(Jarzynski)
+[(Jarzynski)] Jarzynski, Phys. Rev. Lett. 78, 2690 (1997)

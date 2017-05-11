@@ -25,7 +25,7 @@ Perform updates of position and orientation, but not velocity or
 angular momentum for atoms in the group each timestep.  In other
 words, the force and torque on the atoms is ignored and their velocity
 and angular momentum are not updated.  The atom velocities and
-angularm momenta are used to update their positions and orientation.
+angular momenta are used to update their positions and orientation.
 
 This is useful as an implicit time integrator for Fast Lubrication
 Dynamics, since the velocity and angular momentum are updated by the
@@ -43,13 +43,13 @@ commands"_Section_howto.html#howto_15.  No parameter of this fix can
 be used with the {start/stop} keywords of the "run"_run.html command.
 This fix is not invoked during "energy minimization"_minimize.html.
 
-[Restrictions:] 
+[Restrictions:]
 
 This fix is part of the ASPHERE package.  It is only enabled if LAMMPS
 was built with that package.  See the "Making
 LAMMPS"_Section_start.html#start_3 section for more info.
 
-This fix requires that atoms store torque and angular momementum and a
+This fix requires that atoms store torque and angular momentum and a
 quaternion as defined by the "atom_style ellipsoid"_atom_style.html
 command.
 

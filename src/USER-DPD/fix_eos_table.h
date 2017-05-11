@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -92,6 +92,10 @@ E: eos/table values are not increasing
 
 The EOS must be a monotonically, increasing function
 
+E:  FixEOStable requires atom_style with internal temperature and energies (e.g. dpd)
+
+Self-explanatory.
+
 E: Internal temperature < zero
 
 Self-explanatory.  EOS may not be valid under current simulation conditions.
@@ -99,7 +103,7 @@ Self-explanatory.  EOS may not be valid under current simulation conditions.
 E: Cannot open file %s
 
 The specified file cannot be opened.  Check that the path and name are
-correct. 
+correct.
 
 E: Did not find keyword in table file
 
@@ -115,12 +119,12 @@ List of fix eos/table parameters must include N setting.
 
 E: Temperature is not within table cutoffs
 
-The internal temperature does not lie with the minimum 
+The internal temperature does not lie with the minimum
 and maximum temperature cutoffs of the table
 
 E: Energy is not within table cutoffs
 
-The internal energy does not lie with the minimum 
+The internal energy does not lie with the minimum
 and maximum energy cutoffs of the table
 
 */

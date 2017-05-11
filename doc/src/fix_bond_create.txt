@@ -118,11 +118,11 @@ of new bonds, angles, etc.
 
 NOTE: One data structure that is not updated when a bond breaks are
 the molecule IDs stored by each atom.  Even though two molecules
-become one moleclue due to the created bond, all atoms in the new
-moleclue retain their original molecule IDs.
+become one molecule due to the created bond, all atoms in the new
+molecule retain their original molecule IDs.
 
 If the {atype} keyword is used and if an angle potential is defined
-via the "angle_style"_angle.html command, then any new 3-body
+via the "angle_style"_angle_style.html command, then any new 3-body
 interactions inferred by the creation of a bond will create new angles
 of type {angletype}, with parameters assigned by the corresponding
 "angle_coeff"_angle_coeff.html command.  Likewise, the {dtype} and
@@ -208,7 +208,7 @@ created bonds (and angles, dihedrals, impropers).
 
 No information about this fix is written to "binary restart
 files"_restart.html.  None of the "fix_modify"_fix_modify.html options
-are relevant to this fix. 
+are relevant to this fix.
 
 This fix computes two statistics which it stores in a global vector of
 length 2, which can be accessed by various "output
@@ -218,7 +218,7 @@ by this fix are "intensive".
 These are the 2 quantities:
 
 (1) # of bonds created on the most recent creation timestep
-(2) cummulative # of bonds created :ul
+(2) cumulative # of bonds created :ul
 
 No parameter of this fix can be used with the {start/stop} keywords of
 the "run"_run.html command.  This fix is not invoked during "energy

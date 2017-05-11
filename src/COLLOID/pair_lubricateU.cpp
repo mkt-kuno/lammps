@@ -153,7 +153,7 @@ void PairLubricateU::compute(int eflag, int vflag)
   }
 
   // Stage one of Midpoint method
-  // Solve for velocities based on intial positions
+  // Solve for velocities based on initial positions
 
   stage_one();
 
@@ -651,7 +651,7 @@ void PairLubricateU::compute_Fh(double **x)
     jnum = numneigh[i];
 
     // Find the contribution to stress from isotropic RS0
-    // Set psuedo force to obtain the required contribution
+    // Set pseudo force to obtain the required contribution
     // need to set delx and fy only
 
     fx = 0.0; delx = radi;
@@ -1739,8 +1739,8 @@ void PairLubricateU::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
-  force->bounds(arg[0],atom->ntypes,ilo,ihi);
-  force->bounds(arg[1],atom->ntypes,jlo,jhi);
+  force->bounds(FLERR,arg[0],atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,arg[1],atom->ntypes,jlo,jhi);
 
   double cut_inner_one = cut_inner_global;
   double cut_one = cut_global;

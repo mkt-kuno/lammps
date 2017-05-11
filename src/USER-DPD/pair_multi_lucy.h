@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -18,7 +18,7 @@ PairStyle(multi/lucy,PairMultiLucy)
 #else
 
 #ifndef LMP_PAIR_MULTI_LUCY_H
-#define LMP_PAIR_MUTLI_LUCY_H
+#define LMP_PAIR_MULTI_LUCY_H
 
 #include "pair.h"
 

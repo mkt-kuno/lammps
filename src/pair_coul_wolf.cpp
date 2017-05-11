@@ -36,7 +36,7 @@ using namespace MathConst;
 
 PairCoulWolf::PairCoulWolf(LAMMPS *lmp) : Pair(lmp)
 {
-  single_enable = 0;
+  single_enable = 0;        // NOTE: single() method below is not yet correct
 }
 
 /* ---------------------------------------------------------------------- */
@@ -187,8 +187,8 @@ void PairCoulWolf::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
-  force->bounds(arg[0],atom->ntypes,ilo,ihi);
-  force->bounds(arg[1],atom->ntypes,jlo,jhi);
+  force->bounds(FLERR,arg[0],atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,arg[1],atom->ntypes,jlo,jhi);
 
   int count = 0;
   for (int i = ilo; i <= ihi; i++) {

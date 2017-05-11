@@ -34,7 +34,8 @@ enum{COMPUTE,FIX,VARIABLE};
 /* ---------------------------------------------------------------------- */
 
 ComputeSlice::ComputeSlice(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  nvalues(0), which(NULL), argindex(NULL), value2index(NULL), ids(NULL)
 {
   if (narg < 7) error->all(FLERR,"Illegal compute slice command");
 
@@ -146,10 +147,6 @@ ComputeSlice::ComputeSlice(LAMMPS *lmp, int narg, char **arg) :
   // this compute produces either a vector or array
   // for vector, set intensive/extensive to mirror input values
   // for array, set intensive if all input values are intensive, else extensive
-
-  vector = NULL;
-  array = NULL;
-  extlist = NULL;
 
   if (nvalues == 1) {
     vector_flag = 1;

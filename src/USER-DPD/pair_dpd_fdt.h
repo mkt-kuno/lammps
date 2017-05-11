@@ -1,4 +1,4 @@
-/* ----------------------------------------------------------------------
+/* -*- c++ -*- ----------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -49,6 +49,8 @@ class PairDPDfdt : public Pair {
  protected:
   double cut_global;
   int seed;
+  bool splitFDT_flag;
+  bool a0_is_zero;
 
   void allocate();
 

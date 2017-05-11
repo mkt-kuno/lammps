@@ -3,6 +3,10 @@
 
 mode=$1
 
+# enforce using portable C locale
+LC_ALL=C
+export LC_ALL
+
 # arg1 = file, arg2 = file it depends on
 
 action () {
@@ -23,7 +27,7 @@ action () {
 }
 
 for file in *.cpp *.h; do
-  action $file
+  test -f ${file} && action $file
 done
 
 # edit 2 Makefile.package files to include/exclude package info

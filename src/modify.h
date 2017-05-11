@@ -24,15 +24,18 @@ namespace LAMMPS_NS {
 class Modify : protected Pointers {
   friend class Info;
   friend class FixSRP;
+  friend class Respa;
+  friend class RespaOMP;
+
  public:
   int nfix,maxfix;
   int n_initial_integrate,n_post_integrate,n_pre_exchange,n_pre_neighbor;
   int n_pre_force,n_pre_reverse,n_post_force;
-  int n_final_integrate,n_end_of_step,n_thermo_energy;
+  int n_final_integrate,n_end_of_step,n_thermo_energy,n_thermo_energy_atom;
   int n_initial_integrate_respa,n_post_integrate_respa;
   int n_pre_force_respa,n_post_force_respa,n_final_integrate_respa;
   int n_min_pre_exchange,n_min_pre_neighbor;
-  int n_min_pre_force,n_min_post_force,n_min_energy;
+  int n_min_pre_force,n_min_pre_reverse,n_min_post_force,n_min_energy;
 
   int restart_pbc_any;       // 1 if any fix sets restart_pbc
   int nfix_restart_global;   // stored fix global info from restart file
@@ -51,6 +54,7 @@ class Modify : protected Pointers {
   virtual void setup_pre_exchange();
   virtual void setup_pre_neighbor();
   virtual void setup_pre_force(int);
+  virtual void setup_pre_reverse(int, int);
   virtual void initial_integrate(int);
   virtual void post_integrate();
   virtual void pre_exchange();
@@ -61,6 +65,7 @@ class Modify : protected Pointers {
   virtual void final_integrate();
   virtual void end_of_step();
   virtual double thermo_energy();
+  virtual void thermo_energy_atom(int, double *);
   virtual void post_run();
   virtual void create_attribute(int);
 
@@ -74,6 +79,7 @@ class Modify : protected Pointers {
   virtual void min_pre_exchange();
   virtual void min_pre_neighbor();
   virtual void min_pre_force(int);
+  virtual void min_pre_reverse(int,int);
   virtual void min_post_force(int);
 
   virtual double min_energy(double *);
@@ -90,6 +96,7 @@ class Modify : protected Pointers {
   void modify_fix(int, char **);
   void delete_fix(const char *);
   int find_fix(const char *);
+  int find_fix_by_style(const char *);
   int check_package(const char *);
 
   void add_compute(int, char **, int trysuffix=0);
@@ -103,7 +110,7 @@ class Modify : protected Pointers {
 
   void write_restart(FILE *);
   int read_restart(FILE *);
-  void restart_deallocate();
+  void restart_deallocate(int);
 
   bigint memory_usage();
 
@@ -115,11 +122,12 @@ class Modify : protected Pointers {
   int *list_pre_exchange,*list_pre_neighbor;
   int *list_pre_force,*list_pre_reverse,*list_post_force;
   int *list_final_integrate,*list_end_of_step,*list_thermo_energy;
+  int *list_thermo_energy_atom;
   int *list_initial_integrate_respa,*list_post_integrate_respa;
   int *list_pre_force_respa,*list_post_force_respa;
   int *list_final_integrate_respa;
   int *list_min_pre_exchange,*list_min_pre_neighbor;
-  int *list_min_pre_force,*list_min_post_force;
+  int *list_min_pre_force,*list_min_pre_reverse,*list_min_post_force;
   int *list_min_energy;
 
   int *end_of_step_every;
@@ -130,26 +138,32 @@ class Modify : protected Pointers {
   char **id_restart_global;           // stored fix global info
   char **style_restart_global;        // from read-in restart file
   char **state_restart_global;
+  int *used_restart_global;
 
   char **id_restart_peratom;          // stored fix peratom info
   char **style_restart_peratom;       // from read-in restart file
   int *index_restart_peratom;
+  int *used_restart_peratom;
 
   int index_permanent;        // fix/compute index returned to library call
 
   void list_init(int, int &, int *&);
   void list_init_end_of_step(int, int &, int *&);
   void list_init_thermo_energy(int, int &, int *&);
+  void list_init_thermo_energy_atom(int &, int *&);
   void list_init_dofflag(int &, int *&);
   void list_init_compute();
 
- protected:
+ public:
   typedef Compute *(*ComputeCreator)(LAMMPS *, int, char **);
-  std::map<std::string,ComputeCreator> *compute_map;
+  typedef std::map<std::string,ComputeCreator> ComputeCreatorMap;
+  ComputeCreatorMap *compute_map;
 
   typedef Fix *(*FixCreator)(LAMMPS *, int, char **);
-  std::map<std::string,FixCreator> *fix_map;
+  typedef std::map<std::string,FixCreator> FixCreatorMap;
+  FixCreatorMap *fix_map;
 
+ protected:
   template <typename T> static Compute *compute_creator(LAMMPS *, int, char **);
   template <typename T> static Fix *fix_creator(LAMMPS *, int, char **);
 };

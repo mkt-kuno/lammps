@@ -29,7 +29,7 @@ class Verlet : public Integrate {
   Verlet(class LAMMPS *, int, char **);
   virtual ~Verlet() {}
   virtual void init();
-  virtual void setup();
+  virtual void setup(int flag=1);
   virtual void setup_minimal(int);
   virtual void run(int);
   void cleanup();
@@ -52,5 +52,10 @@ W: No fixes defined, atoms won't move
 
 If you are not using a fix like nve, nvt, npt then atom velocities and
 coordinates will not be updated during timestepping.
+
+E: KOKKOS package requires run_style verlet/kk
+
+The KOKKOS package requires the Kokkos version of run_style verlet; the
+regular version cannot be used.
 
 */

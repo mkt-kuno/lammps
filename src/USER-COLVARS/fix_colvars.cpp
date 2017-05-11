@@ -1,3 +1,12 @@
+// -*- c++ -*-
+
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 /* ----------------------------------------------------------------------
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
@@ -383,7 +392,7 @@ void FixColvars::init()
     error->all(FLERR,"Cannot use fix colvars without atom IDs");
 
   if (atom->map_style == 0)
-    error->all(FLERR,"Fix colvars requires an atom map");
+    error->all(FLERR,"Fix colvars requires an atom map, see atom_modify");
 
   if ((me == 0) && (update->whichflag == 2))
     error->warning(FLERR,"Using fix colvars with minimization");
@@ -766,7 +775,7 @@ void FixColvars::post_force(int vflag)
   // call our workhorse and retrieve additional information.
   if (me == 0) {
     energy = proxy->compute();
-    store_forces = proxy->need_system_forces();
+    store_forces = proxy->total_forces_enabled();
   }
   ////////////////////////////////////////////////////////////////////////
 

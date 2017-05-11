@@ -50,7 +50,12 @@ enum{ISO,ANISO,TRICLINIC};
    NVT,NPH,NPT integrators for improved Nose-Hoover equations of motion
  ---------------------------------------------------------------------- */
 
-FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : 
+  Fix(lmp, narg, arg),
+  rfix(NULL), id_dilate(NULL), irregular(NULL), id_temp(NULL), id_press(NULL),
+  eta(NULL), eta_dot(NULL), eta_dotdot(NULL),
+  eta_mass(NULL), etap(NULL), etap_dot(NULL), etap_dotdot(NULL),
+  etap_mass(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal fix nvt/npt/nph command");
 
@@ -79,6 +84,12 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   etap_mass_flag = 0;
   flipflag = 1;
   dipole_flag = 0;
+  dlm_flag = 0;
+
+  tcomputeflag = 0;
+  pcomputeflag = 0;
+  id_temp = NULL;
+  id_press = NULL;
 
   // turn on tilt factor scaling, whenever applicable
 
@@ -122,7 +133,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
       t_target = t_start;
       t_stop = force->numeric(FLERR,arg[iarg+2]);
       t_period = force->numeric(FLERR,arg[iarg+3]);
-      if (t_start < 0.0 || t_stop <= 0.0)
+      if (t_start <= 0.0 || t_stop <= 0.0)
         error->all(FLERR,
                    "Target temperature for fix nvt/npt/nph cannot be 0.0");
       iarg += 4;
@@ -325,7 +336,10 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     } else if (strcmp(arg[iarg],"update") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix nvt/npt/nph command");
       if (strcmp(arg[iarg+1],"dipole") == 0) dipole_flag = 1;
-      else error->all(FLERR,"Illegal fix nvt/npt/nph command");
+      else if (strcmp(arg[iarg+1],"dipole/dlm") == 0) {
+        dipole_flag = 1;
+        dlm_flag = 1;
+      } else error->all(FLERR,"Illegal fix nvt/npt/nph command");
       iarg += 2;
     } else if (strcmp(arg[iarg],"fixedpoint") == 0) {
       if (iarg+4 > narg) error->all(FLERR,"Illegal fix nvt/npt/nph command");
@@ -333,6 +347,12 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
       fixedpoint[1] = force->numeric(FLERR,arg[iarg+2]);
       fixedpoint[2] = force->numeric(FLERR,arg[iarg+3]);
       iarg += 4;
+
+    // disc keyword is also parsed in fix/nh/sphere  
+
+    } else if (strcmp(arg[iarg],"disc") == 0) {
+      iarg++;
+
     } else error->all(FLERR,"Illegal fix nvt/npt/nph command");
   }
 
@@ -464,8 +484,10 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
 
     // pre_exchange only required if flips can occur due to shape changes
 
-    if (flipflag && (p_flag[3] || p_flag[4] || p_flag[5])) pre_exchange_flag = 1;
-    if (flipflag && (domain->yz != 0.0 || domain->xz != 0.0 || domain->xy != 0.0))
+    if (flipflag && (p_flag[3] || p_flag[4] || p_flag[5]))
+      pre_exchange_flag = 1;
+    if (flipflag && (domain->yz != 0.0 || domain->xz != 0.0 ||
+                     domain->xy != 0.0))
       pre_exchange_flag = 1;
   }
 
@@ -558,7 +580,7 @@ FixNH::~FixNH()
 
   // delete temperature and pressure if fix created them
 
-  if (tflag) modify->delete_compute(id_temp);
+  if (tcomputeflag) modify->delete_compute(id_temp);
   delete [] id_temp;
 
   if (tstat_flag) {
@@ -569,7 +591,7 @@ FixNH::~FixNH()
   }
 
   if (pstat_flag) {
-    if (pflag) modify->delete_compute(id_press);
+    if (pcomputeflag) modify->delete_compute(id_press);
     delete [] id_press;
     if (mpchain) {
       delete [] etap;
@@ -717,7 +739,7 @@ void FixNH::setup(int vflag)
 
   t_current = temperature->compute_scalar();
   tdof = temperature->dof;
-  
+
   // t_target is needed by NVT and NPT in compute_scalar()
   // If no thermostat or using fix nphug,
   // t_target must be defined by other means.
@@ -789,7 +811,6 @@ void FixNH::setup(int vflag)
           (etap_mass[ich-1]*etap_dot[ich-1]*etap_dot[ich-1] -
            boltz * t_target) / etap_mass[ich];
     }
-
   }
 }
 
@@ -1004,12 +1025,18 @@ void FixNH::couple()
     p_current[2] = tensor[2];
   }
 
+  if (!ISFINITE(p_current[0]) || !ISFINITE(p_current[1]) || !ISFINITE(p_current[2]))
+    error->all(FLERR,"Non-numeric pressure - simulation unstable");
+
   // switch order from xy-xz-yz to Voigt
 
   if (pstyle == TRICLINIC) {
     p_current[3] = tensor[5];
     p_current[4] = tensor[4];
     p_current[5] = tensor[3];
+
+    if (!ISFINITE(p_current[3]) || !ISFINITE(p_current[4]) || !ISFINITE(p_current[5]))
+      error->all(FLERR,"Non-numeric pressure - simulation unstable");
   }
 }
 
@@ -1347,9 +1374,9 @@ int FixNH::modify_param(int narg, char **arg)
 {
   if (strcmp(arg[0],"temp") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal fix_modify command");
-    if (tflag) {
+    if (tcomputeflag) {
       modify->delete_compute(id_temp);
-      tflag = 0;
+      tcomputeflag = 0;
     }
     delete [] id_temp;
     int n = strlen(arg[1]) + 1;
@@ -1381,9 +1408,9 @@ int FixNH::modify_param(int narg, char **arg)
   } else if (strcmp(arg[0],"press") == 0) {
     if (narg < 2) error->all(FLERR,"Illegal fix_modify command");
     if (!pstat_flag) error->all(FLERR,"Illegal fix_modify command");
-    if (pflag) {
+    if (pcomputeflag) {
       modify->delete_compute(id_press);
-      pflag = 0;
+      pcomputeflag = 0;
     }
     delete [] id_press;
     int n = strlen(arg[1]) + 1;
@@ -1677,14 +1704,30 @@ void FixNH::reset_dt()
 void *FixNH::extract(const char *str, int &dim)
 {
   dim=0;
-  if (strcmp(str,"t_target") == 0) {
+  if (tstat_flag && strcmp(str,"t_target") == 0) {
     return &t_target;
-  } else if (strcmp(str,"mtchain") == 0) {
+  } else if (tstat_flag && strcmp(str,"t_start") == 0) {
+    return &t_start;
+  } else if (tstat_flag && strcmp(str,"t_stop") == 0) {
+    return &t_stop;
+  } else if (tstat_flag && strcmp(str,"mtchain") == 0) {
+    return &mtchain;
+  } else if (pstat_flag && strcmp(str,"mpchain") == 0) {
     return &mtchain;
   }
   dim=1;
-  if (strcmp(str,"eta") == 0) {
+  if (tstat_flag && strcmp(str,"eta") == 0) {
     return &eta;
+  } else if (pstat_flag && strcmp(str,"etap") == 0) {
+    return &eta;
+  } else if (pstat_flag && strcmp(str,"p_flag") == 0) {
+    return &p_flag;
+  } else if (pstat_flag && strcmp(str,"p_start") == 0) {
+    return &p_start;
+  } else if (pstat_flag && strcmp(str,"p_stop") == 0) {
+    return &p_stop;
+  } else if (pstat_flag && strcmp(str,"p_target") == 0) {
+    return &p_target;
   }
   return NULL;
 }
@@ -2158,7 +2201,7 @@ void FixNH::compute_press_target()
       p_target[i] = p_start[i] + delta * (p_stop[i]-p_start[i]);
       p_hydro += p_target[i];
     }
-  p_hydro /= pdim;
+  if (pdim > 0) p_hydro /= pdim;
 
   if (pstyle == TRICLINIC)
     for (int i = 3; i < 6; i++)
@@ -2210,7 +2253,7 @@ void FixNH::nh_omega_dot()
     for (int i = 0; i < 3; i++)
       if (p_flag[i])
         mtk_term2 += omega_dot[i];
-    mtk_term2 /= pdim * atom->natoms;
+    if (pdim > 0) mtk_term2 /= pdim * atom->natoms;
   }
 
   if (pstyle == TRICLINIC) {

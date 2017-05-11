@@ -60,7 +60,7 @@ it also allows for mixing pair coefficients instead of listing them all.
 The {lj/cut/thole/long} pair style is also a bit faster because it avoids an
 overlay and can benefit from OMP acceleration. Moreover, it uses a more
 precise approximation of the direct Coulomb interaction at short range similar
-to "coul/long/cs"_pair_coul_long_cs.html, which stabilizes the temperature of
+to "coul/long/cs"_pair_cs.html, which stabilizes the temperature of
 Drude particles.
 
 The {thole} pair styles compute the Coulomb interaction damped at
@@ -71,8 +71,8 @@ short distances by a function
 \exp \left( - s_\{ij\} r_\{ij\} \right) \end\{equation\}
 
 This function results from an adaptation to point charges
-"(Noskov)"_#Noskov of the dipole screening scheme originally proposed
-by "Thole"_#Thole. The scaling coefficient \(s_\{ij\} \) is determined
+"(Noskov)"_#Noskov1 of the dipole screening scheme originally proposed
+by "Thole"_#Thole1. The scaling coefficient \(s_\{ij\} \) is determined
 by the polarizability of the atoms, \( \alpha_i \), and by a Thole
 damping parameter \( a \).  This Thole damping parameter usually takes
 a value of 2.6, but in certain force fields the value can depend upon
@@ -100,7 +100,7 @@ Drude particles inherit the 1-2, 1-3 and 1-4 neighbor relations from
 their respective cores.
 
 For pair_style {thole}, the following coefficients must be defined for
-each pair of atoms types via the "pair_coeff"_pair_coeff.html command 
+each pair of atoms types via the "pair_coeff"_pair_coeff.html command
 as in the example above.
 
 alpha (distance units^3)
@@ -127,17 +127,17 @@ the {pair_style} command line.
 
 :line
 
-Styles with a {cuda}, {gpu}, {intel}, {kk}, {omp}, or {opt} suffix are
+Styles with a {gpu}, {intel}, {kk}, {omp}, or {opt} suffix are
 functionally the same as the corresponding style without the suffix.
 They have been optimized to run faster, depending on your available
-hardware, as discussed in "Section_accelerate"_Section_accelerate.html
+hardware, as discussed in "Section 5"_Section_accelerate.html
 of the manual.  The accelerated styles take the same arguments and
 should produce the same results, except for round-off and precision
 issues.
 
-These accelerated styles are part of the USER-CUDA, GPU, USER-INTEL,
-KOKKOS, USER-OMP and OPT packages, respectively.  They are only
-enabled if LAMMPS was built with those packages.  See the "Making
+These accelerated styles are part of the GPU, USER-INTEL, KOKKOS,
+USER-OMP and OPT packages, respectively.  They are only enabled if
+LAMMPS was built with those packages.  See the "Making
 LAMMPS"_Section_start.html#start_3 section for more info.
 
 You can specify the accelerated styles explicitly in your input script
@@ -145,7 +145,7 @@ by including their suffix, or you can use the "-suffix command-line
 switch"_Section_start.html#start_7 when you invoke LAMMPS, or you can
 use the "suffix"_suffix.html command in your input script.
 
-See "Section_accelerate"_Section_accelerate.html of the manual for
+See "Section 5"_Section_accelerate.html of the manual for
 more instructions on how to use the accelerated styles effectively.
 
 [Mixing]:
@@ -180,14 +180,14 @@ package.
 langevin/drude"_fix_langevin_drude.html, "fix
 drude/transform"_fix_drude_transform.html, "compute
 temp/drude"_compute_temp_drude.html
-"pair_style lj/cut/coul/long"_pair_lj_cut_coul_long
+"pair_style lj/cut/coul/long"_pair_lj.html
 
 [Default:] none
 
 :line
 
-:link(Noskov)
+:link(Noskov1)
 [(Noskov)] Noskov, Lamoureux and Roux, J Phys Chem B, 109, 6705 (2005).
 
-:link(Thole)
+:link(Thole1)
 [(Thole)] Chem Phys, 59, 341 (1981).

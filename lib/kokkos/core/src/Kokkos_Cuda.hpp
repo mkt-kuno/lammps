@@ -1,13 +1,13 @@
 /*
 //@HEADER
 // ************************************************************************
-// 
+//
 //                        Kokkos v. 2.0
 //              Copyright (2014) Sandia Corporation
-// 
+//
 // Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 // the U.S. Government retains certain rights in this software.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -36,7 +36,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // Questions? Contact  H. Carter Edwards (hcedwar@sandia.gov)
-// 
+//
 // ************************************************************************
 //@HEADER
 */
@@ -48,7 +48,7 @@
 
 // If CUDA execution space is enabled then use this header file.
 
-#if defined( KOKKOS_HAVE_CUDA )
+#if defined( KOKKOS_ENABLE_CUDA )
 
 #include <iosfwd>
 #include <vector>
@@ -56,10 +56,12 @@
 #include <Kokkos_CudaSpace.hpp>
 
 #include <Kokkos_Parallel.hpp>
+#include <Kokkos_TaskScheduler.hpp>
 #include <Kokkos_Layout.hpp>
 #include <Kokkos_ScratchSpace.hpp>
 #include <Kokkos_MemoryTraits.hpp>
 #include <impl/Kokkos_Tags.hpp>
+
 
 /*--------------------------------------------------------------------------*/
 
@@ -91,7 +93,7 @@ public:
   //! Tag this class as a kokkos execution space
   typedef Cuda                  execution_space ;
 
-#if defined( KOKKOS_USE_CUDA_UVM )
+#if defined( KOKKOS_ENABLE_CUDA_UVM )
   //! This execution space's preferred memory space.
   typedef CudaUVMSpace          memory_space ;
 #else
@@ -108,7 +110,7 @@ public:
   //! This execution space's preferred array layout.
   typedef LayoutLeft            array_layout ;
 
-  //! 
+  //!
   typedef ScratchMemorySpace< Cuda >  scratch_memory_space ;
 
   //@}
@@ -227,6 +229,39 @@ namespace Kokkos {
 namespace Impl {
 
 template<>
+struct MemorySpaceAccess
+  < Kokkos::CudaSpace
+  , Kokkos::Cuda::scratch_memory_space
+  >
+{
+  enum { assignable = false };
+  enum { accessible = true };
+  enum { deepcopy   = false };
+};
+
+#if defined( KOKKOS_ENABLE_CUDA_UVM )
+
+// If forcing use of UVM everywhere
+// then must assume that CudaUVMSpace
+// can be a stand-in for CudaSpace.
+// This will fail when a strange host-side execution space
+// that defines CudaUVMSpace as its preferredmemory space.
+
+template<>
+struct MemorySpaceAccess
+  < Kokkos::CudaUVMSpace
+  , Kokkos::Cuda::scratch_memory_space
+  >
+{
+  enum { assignable = false };
+  enum { accessible = true };
+  enum { deepcopy   = false };
+};
+
+#endif
+
+
+template<>
 struct VerifyExecutionCanAccessMemorySpace
   < Kokkos::CudaSpace
   , Kokkos::Cuda::scratch_memory_space
@@ -256,15 +291,13 @@ struct VerifyExecutionCanAccessMemorySpace
 
 #include <Cuda/Kokkos_CudaExec.hpp>
 #include <Cuda/Kokkos_Cuda_View.hpp>
-
-#include <KokkosExp_View.hpp>
-#include <Cuda/KokkosExp_Cuda_View.hpp>
-
 #include <Cuda/Kokkos_Cuda_Parallel.hpp>
+#include <Cuda/Kokkos_Cuda_Task.hpp>
 
+#include <KokkosExp_MDRangePolicy.hpp>
 //----------------------------------------------------------------------------
 
-#endif /* #if defined( KOKKOS_HAVE_CUDA ) */
+#endif /* #if defined( KOKKOS_ENABLE_CUDA ) */
 #endif /* #ifndef KOKKOS_CUDA_HPP */
 
 

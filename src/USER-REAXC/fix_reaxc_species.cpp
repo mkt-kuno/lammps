@@ -24,7 +24,7 @@
 #include "fix_reaxc_species.h"
 #include "domain.h"
 #include "update.h"
-#include "pair_reax_c.h"
+#include "pair_reaxc.h"
 #include "modify.h"
 #include "neighbor.h"
 #include "neigh_list.h"
@@ -285,6 +285,9 @@ void FixReaxCSpecies::init()
     error->all(FLERR,"Cannot use fix reax/c/species unless atoms have IDs");
 
   reaxc = (PairReaxC *) force->pair_match("reax/c",1);
+  if (reaxc == NULL)
+    reaxc = (PairReaxC *) force->pair_match("reax/c/kk",1);
+
   if (reaxc == NULL) error->all(FLERR,"Cannot use fix reax/c/species without "
 		  "pair_style reax/c");
 
@@ -481,7 +484,7 @@ void FixReaxCSpecies::Output_ReaxC_Bonds(bigint ntimestep, FILE *fp)
 
 /* ---------------------------------------------------------------------- */
 
-AtomCoord chAnchor(AtomCoord in1, AtomCoord in2)
+AtomCoord FixReaxCSpecies::chAnchor(AtomCoord in1, AtomCoord in2)
 {
   if (in1.x < in2.x)
     return in1;

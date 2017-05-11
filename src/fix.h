@@ -38,6 +38,7 @@ class Fix : protected Pointers {
   int thermo_energy;             // 1 if fix_modify enabled ThEng, 0 if not
   int nevery;                    // how often to call an end_of_step fix
   int rigid_flag;                // 1 if Fix integrates rigid bodies, 0 if not
+  int peatom_flag;               // 1 if Fix contributes per-atom eng, 0 if not
   int virial_flag;               // 1 if Fix contributes to virial, 0 if not
   int no_change_box;             // 1 if cannot swap ortho <-> triclinic
   int time_integrate;            // 1 if fix performs time integration, 0 if no
@@ -51,7 +52,9 @@ class Fix : protected Pointers {
   int dynamic_group_allow;       // 1 if can be used with dynamic group, else 0
   int dof_flag;                  // 1 if has dof() method (not min_dof())
   int special_alter_flag;        // 1 if has special_alter() meth for spec lists
-  int cudable_comm;              // 1 if fix has CUDA-enabled communication
+  int enforce2d_flag;            // 1 if has enforce2d method
+  int respa_level_support;       // 1 if fix supports fix_modify respa
+  int respa_level;               // which respa level to apply fix (1-Nrespa)
 
   int scalar_flag;               // 0/1 if compute_scalar() function exists
   int vector_flag;               // 0/1 if compute_vector() function exists
@@ -86,20 +89,16 @@ class Fix : protected Pointers {
   int comm_reverse;              // size of reverse communication (0 if none)
   int comm_border;               // size of border communication (0 if none)
 
-  double virial[6];              // accumlated virial
-  double **vatom;                // accumulated per-atom virial
+  double virial[6];              // accumulated virial
+  double *eatom,**vatom;         // accumulated per-atom energy/virial
 
   int restart_reset;             // 1 if restart just re-initialized fix
 
   // KOKKOS host/device flag and data masks
 
+  int kokkosable;                // 1 if Kokkos fix
   ExecutionSpace execution_space;
   unsigned int datamask_read,datamask_modify;
-
-  // USER-CUDA per-fix data masks
-
-  unsigned int datamask;
-  unsigned int datamask_ext;
 
   Fix(class LAMMPS *, int, char **);
   virtual ~Fix();
@@ -114,6 +113,7 @@ class Fix : protected Pointers {
   virtual void setup_pre_exchange() {}
   virtual void setup_pre_neighbor() {}
   virtual void setup_pre_force(int) {}
+  virtual void setup_pre_reverse(int, int) {}
   virtual void min_setup(int) {}
   virtual void initial_integrate(int) {}
   virtual void post_integrate() {}
@@ -134,6 +134,7 @@ class Fix : protected Pointers {
   virtual void set_arrays(int) {}
   virtual void update_arrays(int, int) {}
   virtual void set_molecule(int, tagint, int, double *, double *, double *) {}
+  virtual void clear_bonus() {}
 
   virtual int pack_border(int, int *, double *) {return 0;}
   virtual int unpack_border(int, int, double *) {return 0;}
@@ -151,12 +152,10 @@ class Fix : protected Pointers {
   virtual void post_force_respa(int, int, int) {}
   virtual void final_integrate_respa(int, int) {}
 
-  virtual void min_setup_pre_exchange() {}
-  virtual void min_setup_pre_neighbor() {}
-  virtual void min_setup_pre_force(int) {}
   virtual void min_pre_exchange() {}
   virtual void min_pre_neighbor() {}
   virtual void min_pre_force(int) {}
+  virtual void min_pre_reverse(int,int) {}
   virtual void min_post_force(int) {}
 
   virtual double min_energy(double *) {return 0.0;}
@@ -171,6 +170,7 @@ class Fix : protected Pointers {
 
   virtual int pack_forward_comm(int, int *, double *, int, int *) {return 0;}
   virtual void unpack_forward_comm(int, int, double *) {}
+  virtual int pack_reverse_comm_size(int, int) {return 0;}
   virtual int pack_reverse_comm(int, int, double *) {return 0;}
   virtual void unpack_reverse_comm(int, int *, double *) {}
 
@@ -182,6 +182,7 @@ class Fix : protected Pointers {
   virtual void deform(int) {}
   virtual void reset_target(double) {}
   virtual void reset_dt() {}
+  virtual void enforce2d() {}
 
   virtual void read_data_header(char *) {}
   virtual void read_data_section(char *, int, char *, tagint) {}
@@ -198,24 +199,28 @@ class Fix : protected Pointers {
 
   virtual void rebuild_special() {}
 
+  virtual int image(int *&, double **&) {return 0;}
+
   virtual int modify_param(int, char **) {return 0;}
   virtual void *extract(const char *, int &) {return NULL;}
 
   virtual double memory_usage() {return 0.0;}
 
-  virtual unsigned int data_mask() {return datamask;}
-  virtual unsigned int data_mask_ext() {return datamask_ext;}
-
  protected:
   int instance_me;        // which Fix class instantiation I am
 
   int evflag;
-  int vflag_global,vflag_atom;
-  int maxvatom;
+  int eflag_either,eflag_global,eflag_atom;
+  int vflag_either,vflag_global,vflag_atom;
+  int maxeatom,maxvatom;
 
   int copymode;   // if set, do not deallocate during destruction
                   // required when classes are used as functors by Kokkos
 
+  int dynamic;    // recount atoms for temperature computes
+
+  void ev_setup(int, int);
+  void ev_tally(int, int *, double, double, double *);
   void v_setup(int);
   void v_tally(int, int *, double, double *);
 
@@ -237,23 +242,24 @@ namespace FixConst {
   static const int PRE_EXCHANGE =            1<<2;
   static const int PRE_NEIGHBOR =            1<<3;
   static const int PRE_FORCE =               1<<4;
-  static const int POST_FORCE =              1<<5;
-  static const int FINAL_INTEGRATE =         1<<6;
-  static const int END_OF_STEP =             1<<7;
-  static const int THERMO_ENERGY =           1<<8;
-  static const int INITIAL_INTEGRATE_RESPA = 1<<9;
-  static const int POST_INTEGRATE_RESPA =    1<<10;
-  static const int PRE_FORCE_RESPA =         1<<11;
-  static const int POST_FORCE_RESPA =        1<<12;
-  static const int FINAL_INTEGRATE_RESPA =   1<<13;
-  static const int MIN_PRE_EXCHANGE =        1<<14;
-  static const int MIN_PRE_NEIGHBOR =        1<<15;
-  static const int MIN_PRE_FORCE =           1<<16;
-  static const int MIN_POST_FORCE =          1<<17;
-  static const int MIN_ENERGY =              1<<18;
-  static const int POST_RUN =                1<<19;
-  static const int PRE_REVERSE =             1<<20;
-  static const int FIX_CONST_LAST =          1<<21;
+  static const int PRE_REVERSE =             1<<5;
+  static const int POST_FORCE =              1<<6;
+  static const int FINAL_INTEGRATE =         1<<7;
+  static const int END_OF_STEP =             1<<8;
+  static const int POST_RUN =                1<<9;
+  static const int THERMO_ENERGY =           1<<10;
+  static const int INITIAL_INTEGRATE_RESPA = 1<<11;
+  static const int POST_INTEGRATE_RESPA =    1<<12;
+  static const int PRE_FORCE_RESPA =         1<<13;
+  static const int POST_FORCE_RESPA =        1<<14;
+  static const int FINAL_INTEGRATE_RESPA =   1<<15;
+  static const int MIN_PRE_EXCHANGE =        1<<16;
+  static const int MIN_PRE_NEIGHBOR =        1<<17;
+  static const int MIN_PRE_FORCE =           1<<18;
+  static const int MIN_PRE_REVERSE =         1<<19;
+  static const int MIN_POST_FORCE =          1<<20;
+  static const int MIN_ENERGY =              1<<21;
+  static const int FIX_CONST_LAST =          1<<22;
 }
 
 }

@@ -37,21 +37,17 @@ class Variable : protected Pointers {
   int atomstyle(int);
   int vectorstyle(int);
   char *pythonstyle(char *, char *);
+  int internalstyle(int);
 
   char *retrieve(char *);
   double compute_equal(int);
   double compute_equal(char *);
   void compute_atom(int, int, double *, int, int);
   int compute_vector(int, double **);
+  void internal_set(int, double);
+
   tagint int_between_brackets(char *&, int);
   double evaluate_boolean(char *);
-
-  void equal_save(int, char *&);
-  void equal_restore(int, char *);
-  void equal_override(int, double);
-
-  unsigned int data_mask(int ivar);
-  unsigned int data_mask(char *str);
 
  private:
   int me;
@@ -64,6 +60,7 @@ class Variable : protected Pointers {
   int *pad;                // 1 = pad loop/uloop variables with 0s, 0 = no pad
   class VarReader **reader;   // variable that reads from file
   char ***data;            // str value of each variable's values
+  double *dvalue;          // single numeric value for internal variables
 
   struct VecVar {
     int n,nmax;
@@ -78,12 +75,10 @@ class Variable : protected Pointers {
   class RanMars *randomequal;   // random number generator for equal-style vars
   class RanMars *randomatom;    // random number generator for atom-style vars
 
-  int precedence[17];      // precedence level of math operators
-                           // set length to include up to OR in enum
+  int precedence[18];      // precedence level of math operators
+                           // set length to include up to XOR in enum
 
-  class Python *python;    // ptr to embedded Python interpreter
-
-  struct Tree {            // parse tree for atom-style or vector-style variables
+  struct Tree {            // parse tree for atom-style or vector-style vars
     double value;          // single scalar
     double *array;         // per-atom or per-type list of doubles
     int *iarray;           // per-atom list of ints
@@ -213,7 +208,7 @@ This is to insure they stay in sync.
 E: Variable has circular dependency
 
 A circular dependency is when variable "a" in used by variable "b" and
-variable "b" is also used by varaible "a".  Circular dependencies with
+variable "b" is also used by variable "a".  Circular dependencies with
 longer chains of dependence are also not allowed.
 
 E: Python variable does not match Python function
@@ -358,7 +353,7 @@ Self-explanatory.
 
 E: Non digit character between brackets in variable
 
-Self-explantory.
+Self-explanatory.
 
 E: Mismatched brackets in variable
 

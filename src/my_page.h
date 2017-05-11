@@ -48,15 +48,19 @@ methods:
 #ifndef LAMMPS_MY_PAGE_H
 #define LAMMPS_MY_PAGE_H
 
+#if defined(LMP_USER_INTEL) && !defined(LAMMPS_MEMALIGN)
+#define LAMMPS_MEMALIGN 64
+#endif
+
 #include <stdlib.h>
 namespace LAMMPS_NS {
 
 template<class T>
 class MyPage {
+ public:
   int ndatum;      // total # of stored datums
   int nchunk;      // total # of stored chunks
 
- public:
   MyPage() {
     ndatum = nchunk = 0;
     pages = NULL;

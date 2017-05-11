@@ -6,13 +6,13 @@ SHELL = /bin/sh
 # compiler/linker settings
 # specify flags and libraries needed for your compiler
 
-CC =		mpiicpc
+CC =		mpicxx
 CCFLAGS =	-g -O3
 SHFLAGS =	-fPIC
 DEPFLAGS =	-M
 
-LINK =		mpiicpc
-LINKFLAGS =	-g -O
+LINK =		mpicxx
+LINKFLAGS =	-g -O3
 LIB = 
 SIZE =		size
 
@@ -20,7 +20,7 @@ ARCHIVE =	ar
 ARFLAGS =	-rc
 SHLIBFLAGS =	-shared
 KOKKOS_DEVICES = OpenMP
-KOKKOS_ARCH = KNC
+KOKKOS_ARCH = KNL
 
 # ---------------------------------------------------------------------
 # LAMMPS-specific settings, all OPTIONAL
@@ -113,10 +113,13 @@ shlib:	$(OBJ) $(EXTRA_LINK_DEPENDS)
 
 # Individual dependencies
 
-depend : fastdep.exe $(SRC)
-	@./fastdep.exe $(EXTRA_INC) -- $^ > .depend || exit 1
+#depend : fastdep.exe $(SRC)
+#	@./fastdep.exe $(EXTRA_INC) -- $^ > .depend || exit 1
 
-fastdep.exe: ../DEPEND/fastdep.c
-	cc -O -o $@ $<
+#fastdep.exe: ../DEPEND/fastdep.c
+#	cc -O -o $@ $<
 
-sinclude .depend
+#sinclude .depend
+
+DEPENDS = $(OBJ:.o=.d)
+sinclude $(DEPENDS)

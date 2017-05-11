@@ -47,10 +47,9 @@
 #include <Kokkos_Macros.hpp>
 
 /* only compile this file if CUDA is enabled for Kokkos */
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef KOKKOS_ENABLE_CUDA
 
 #include <impl/Kokkos_Traits.hpp>
-#include <impl/Kokkos_AllocationTracker.hpp> // AllocatorAttributeBase
 
 namespace Kokkos {
 namespace Impl {
@@ -177,7 +176,7 @@ public:
 
 }} // namespace Kokkos::Impl
 
-#endif //KOKKOS_HAVE_CUDA
+#endif //KOKKOS_ENABLE_CUDA
 
 #endif // #ifndef KOKKOS_CUDA_ALLOCATION_TRACKING_HPP
 

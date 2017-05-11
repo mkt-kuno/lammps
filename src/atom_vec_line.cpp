@@ -83,7 +83,7 @@ void AtomVecLine::grow(int n)
   if (n == 0) grow_nmax();
   else nmax = n;
   atom->nmax = nmax;
-  if (nmax < 0)
+  if (nmax < 0 || nmax > MAXSMALLINT)
     error->one(FLERR,"Per-processor system is too big");
 
   tag = memory->grow(atom->tag,nmax,"atom:tag");
@@ -178,7 +178,7 @@ void AtomVecLine::copy(int i, int j, int delflag)
 
 /* ----------------------------------------------------------------------
    copy bonus data from I to J, effectively deleting the J entry
-   also reset ine that points to I to now point to J
+   also reset line that points to I to now point to J
 ------------------------------------------------------------------------- */
 
 void AtomVecLine::copy_bonus(int i, int j)
@@ -195,6 +195,10 @@ void AtomVecLine::copy_bonus(int i, int j)
 void AtomVecLine::clear_bonus()
 {
   nghost_bonus = 0;
+
+  if (atom->nextra_grow)
+    for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
+      modify->fix[atom->extra_grow[iextra]]->clear_bonus();
 }
 
 /* ----------------------------------------------------------------------

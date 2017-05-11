@@ -26,6 +26,7 @@
 #include "modify.h"
 #include "compute.h"
 #include "fix.h"
+#include "fix_store.h"
 #include "memory.h"
 #include "error.h"
 
@@ -43,7 +44,7 @@ enum{ID,MOL,PROC,PROCP1,TYPE,ELEMENT,MASS,
      OMEGAX,OMEGAY,OMEGAZ,ANGMOMX,ANGMOMY,ANGMOMZ,
      TQX,TQY,TQZ,
      COMPUTE,FIX,VARIABLE,INAME,DNAME};
-enum{LT,LE,GT,GE,EQ,NEQ};
+enum{LT,LE,GT,GE,EQ,NEQ,XOR};
 enum{INT,DOUBLE,STRING,BIGINT};    // same as in DumpCFG
 
 #define INVOKED_PERATOM 8
@@ -53,7 +54,13 @@ enum{INT,DOUBLE,STRING,BIGINT};    // same as in DumpCFG
 /* ---------------------------------------------------------------------- */
 
 DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
-  Dump(lmp, narg, arg)
+  Dump(lmp, narg, arg),
+  idregion(NULL), thresh_array(NULL), thresh_op(NULL), thresh_value(NULL),
+  thresh_last(NULL), thresh_fix(NULL), thresh_fixID(NULL), thresh_first(NULL),
+  earg(NULL), vtype(NULL), vformat(NULL), columns(NULL), choose(NULL),
+  dchoose(NULL), clist(NULL), field2index(NULL), argindex(NULL), id_compute(NULL),
+  compute(NULL), id_fix(NULL), fix(NULL), id_variable(NULL), variable(NULL),
+  vbuf(NULL), id_custom(NULL), flag_custom(NULL), typenames(NULL), pack_choice(NULL)
 {
   if (narg == 5) error->all(FLERR,"No dump custom arguments specified");
 
@@ -62,25 +69,39 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
   nevery = force->inumeric(FLERR,arg[3]);
   if (nevery <= 0) error->all(FLERR,"Illegal dump custom command");
 
-  // size_one may be shrunk below if additional optional args exist
+  // expand args if any have wildcard character "*"
+  // ok to include trailing optional args,
+  //   so long as they do not have "*" between square brackets
+  // nfield may be shrunk below if extra optional args exist
 
-  size_one = nfield = narg - 5;
+  expand = 0;
+  nfield = nargnew = input->expand_args(narg-5,&arg[5],1,earg);
+  if (earg != &arg[5]) expand = 1;
+
+  // allocate field vectors
+
   pack_choice = new FnPtrPack[nfield];
   vtype = new int[nfield];
+  field2index = new int[nfield];
+  argindex = new int[nfield];
 
   buffer_allow = 1;
   buffer_flag = 1;
   iregion = -1;
   idregion = NULL;
+
   nthresh = 0;
   thresh_array = NULL;
   thresh_op = NULL;
   thresh_value = NULL;
+  thresh_last = NULL;
+
+  nthreshlast = 0;
+  thresh_fix = NULL;
+  thresh_fixID = NULL;
+  thresh_first = NULL;
 
   // computes, fixes, variables which the dump accesses
-
-  memory->create(field2index,nfield,"dump:field2index");
-  memory->create(argindex,nfield,"dump:argindex");
 
   ncompute = 0;
   id_compute = NULL;
@@ -100,15 +121,24 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
   flag_custom = NULL;
 
   // process attributes
-  // ioptional = start of additional optional args
-  // only dump image and dump movie styles process optional args
+  // ioptional = start of additional optional args in expanded args
 
-  ioptional = parse_fields(narg,arg);
+  ioptional = parse_fields(nfield,earg);
 
-  if (ioptional < narg &&
+  if (ioptional < nfield &&
       strcmp(style,"image") != 0 && strcmp(style,"movie") != 0)
     error->all(FLERR,"Invalid attribute in dump custom command");
-  size_one = nfield = ioptional - 5;
+
+  // noptional = # of optional args
+  // reset nfield to subtract off optional args
+  // reset ioptional to what it would be in original arg list
+  // only dump image and dump movie styles process optional args,
+  //   they do not use expanded earg list
+
+  int noptional = nfield - ioptional;
+  nfield -= noptional;
+  size_one = nfield;
+  ioptional = narg - noptional;
 
   // atom selection arrays
 
@@ -117,10 +147,14 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
   dchoose = NULL;
   clist = NULL;
 
-  // element names
+  // default element name for all types = C
 
   ntypes = atom->ntypes;
-  typenames = NULL;
+  typenames = new char*[ntypes+1];
+  for (int itype = 1; itype <= ntypes; itype++) {
+    typenames[itype] = new char[2];
+    strcpy(typenames[itype],"C");
+  }
 
   // setup format strings
 
@@ -137,14 +171,17 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
     vformat[i] = NULL;
   }
 
+  format_column_user = new char*[size_one];
+  for (int i = 0; i < size_one; i++) format_column_user[i] = NULL;
+
   // setup column string
 
   int n = 0;
-  for (int iarg = 5; iarg < narg; iarg++) n += strlen(arg[iarg]) + 2;
+  for (int iarg = 0; iarg < nfield; iarg++) n += strlen(earg[iarg]) + 2;
   columns = new char[n];
   columns[0] = '\0';
-  for (int iarg = 5; iarg < narg; iarg++) {
-    strcat(columns,arg[iarg]);
+  for (int iarg = 0; iarg < nfield; iarg++) {
+    strcat(columns,earg[iarg]);
     strcat(columns," ");
   }
 }
@@ -153,15 +190,34 @@ DumpCustom::DumpCustom(LAMMPS *lmp, int narg, char **arg) :
 
 DumpCustom::~DumpCustom()
 {
+  // if wildcard expansion occurred, free earg memory from expand_args()
+  // could not do in constructor, b/c some derived classes process earg
+
+  if (expand) {
+    for (int i = 0; i < nargnew; i++) delete [] earg[i];
+    memory->sfree(earg);
+  }
+
   delete [] pack_choice;
   delete [] vtype;
-  memory->destroy(field2index);
-  memory->destroy(argindex);
+  delete [] field2index;
+  delete [] argindex;
 
   delete [] idregion;
   memory->destroy(thresh_array);
   memory->destroy(thresh_op);
   memory->destroy(thresh_value);
+  memory->destroy(thresh_last);
+
+  // check nfix in case all fixes have already been deleted
+
+  for (int i = 0; i < nthreshlast; i++) {
+    if (modify->nfix) modify->delete_fix(thresh_fixID[i]);
+    delete [] thresh_fixID[i];
+  }
+  memory->sfree(thresh_fix);
+  memory->sfree(thresh_fixID);
+  memory->destroy(thresh_first);
 
   for (int i = 0; i < ncompute; i++) delete [] id_compute[i];
   memory->sfree(id_compute);
@@ -185,13 +241,14 @@ DumpCustom::~DumpCustom()
   memory->destroy(dchoose);
   memory->destroy(clist);
 
-  if (typenames) {
-    for (int i = 1; i <= ntypes; i++) delete [] typenames[i];
-    delete [] typenames;
-  }
+  for (int i = 1; i <= ntypes; i++) delete [] typenames[i];
+  delete [] typenames;
 
   for (int i = 0; i < size_one; i++) delete [] vformat[i];
   delete [] vformat;
+
+  for (int i = 0; i < size_one; i++) delete [] format_column_user[i];
+  delete [] format_column_user;
 
   delete [] columns;
 }
@@ -200,35 +257,46 @@ DumpCustom::~DumpCustom()
 
 void DumpCustom::init_style()
 {
+  // format = copy of default or user-specified line format
+
   delete [] format;
   char *str;
-  if (format_user) str = format_user;
+  if (format_line_user) str = format_line_user;
   else str = format_default;
 
   int n = strlen(str) + 1;
   format = new char[n];
   strcpy(format,str);
 
-  // default for element names = C
-
-  if (typenames == NULL) {
-    typenames = new char*[ntypes+1];
-    for (int itype = 1; itype <= ntypes; itype++) {
-      typenames[itype] = new char[2];
-      strcpy(typenames[itype],"C");
-    }
-  }
-
   // tokenize the format string and add space at end of each format element
+  // if user-specified int/float format exists, use it instead
+  // if user-specified column format exists, use it instead
+  // lo priority = line, medium priority = int/float, hi priority = column
 
   char *ptr;
   for (int i = 0; i < size_one; i++) {
     if (i == 0) ptr = strtok(format," \0");
     else ptr = strtok(NULL," \0");
-    if (ptr == NULL) error->all(FLERR,"Dump_modify format string is too short");
+    if (ptr == NULL) error->all(FLERR,"Dump_modify format line is too short");
     delete [] vformat[i];
-    vformat[i] = new char[strlen(ptr) + 2];
-    strcpy(vformat[i],ptr);
+
+    if (format_column_user[i]) {
+      vformat[i] = new char[strlen(format_column_user[i]) + 2];
+      strcpy(vformat[i],format_column_user[i]);
+    } else if (vtype[i] == INT && format_int_user) {
+      vformat[i] = new char[strlen(format_int_user) + 2];
+      strcpy(vformat[i],format_int_user);
+    } else if (vtype[i] == DOUBLE && format_float_user) {
+      vformat[i] = new char[strlen(format_float_user) + 2];
+      strcpy(vformat[i],format_float_user);
+    } else if (vtype[i] == BIGINT && format_bigint_user) {
+      vformat[i] = new char[strlen(format_bigint_user) + 2];
+      strcpy(vformat[i],format_bigint_user);
+    } else {
+      vformat[i] = new char[strlen(ptr) + 2];
+      strcpy(vformat[i],ptr);
+    }
+
     vformat[i] = strcat(vformat[i]," ");
   }
 
@@ -356,9 +424,9 @@ void DumpCustom::header_item(bigint ndump)
   fprintf(fp,"ITEM: NUMBER OF ATOMS\n");
   fprintf(fp,BIGINT_FORMAT "\n",ndump);
   fprintf(fp,"ITEM: BOX BOUNDS %s\n",boundstr);
-  fprintf(fp,"%g %g\n",boxxlo,boxxhi);
-  fprintf(fp,"%g %g\n",boxylo,boxyhi);
-  fprintf(fp,"%g %g\n",boxzlo,boxzhi);
+  fprintf(fp,"%-1.16e %-1.16e\n",boxxlo,boxxhi);
+  fprintf(fp,"%-1.16e %-1.16e\n",boxylo,boxyhi);
+  fprintf(fp,"%-1.16e %-1.16e\n",boxzlo,boxzhi);
   fprintf(fp,"ITEM: ATOMS %s\n",columns);
 }
 
@@ -371,9 +439,9 @@ void DumpCustom::header_item_triclinic(bigint ndump)
   fprintf(fp,"ITEM: NUMBER OF ATOMS\n");
   fprintf(fp,BIGINT_FORMAT "\n",ndump);
   fprintf(fp,"ITEM: BOX BOUNDS xy xz yz %s\n",boundstr);
-  fprintf(fp,"%g %g %g\n",boxxlo,boxxhi,boxxy);
-  fprintf(fp,"%g %g %g\n",boxylo,boxyhi,boxxz);
-  fprintf(fp,"%g %g %g\n",boxzlo,boxzhi,boxyz);
+  fprintf(fp,"%-1.16e %-1.16e %-1.16e\n",boxxlo,boxxhi,boxxy);
+  fprintf(fp,"%-1.16e %-1.16e %-1.16e\n",boxylo,boxyhi,boxxz);
+  fprintf(fp,"%-1.16e %-1.16e %-1.16e\n",boxzlo,boxzhi,boxyz);
   fprintf(fp,"ITEM: ATOMS %s\n",columns);
 }
 
@@ -386,7 +454,7 @@ int DumpCustom::count()
   // grow choose and variable vbuf arrays if needed
 
   int nlocal = atom->nlocal;
-  if (nlocal > maxlocal) {
+  if (atom->nmax > maxlocal) {
     maxlocal = atom->nmax;
 
     memory->destroy(choose);
@@ -455,9 +523,10 @@ int DumpCustom::count()
   // un-choose if any threshold criterion isn't met
 
   if (nthresh) {
-    double *ptr;
+    double *ptr,*ptrhold;
+    double *values;
     double value;
-    int nstride;
+    int nstride,lastflag;
     int nlocal = atom->nlocal;
 
     for (int ithresh = 0; ithresh < nthresh; ithresh++) {
@@ -883,27 +952,91 @@ int DumpCustom::count()
       }
 
       // unselect atoms that don't meet threshold criterion
+      // compare to single value or values stored in threshfix
+      // copy ptr attribute into thresh_fix if this is first comparison
 
-      value = thresh_value[ithresh];
+      if (thresh_last[ithresh] < 0) {
+	lastflag = 0;
+	value = thresh_value[ithresh];
+      } else {
+	lastflag = 1;
+	int ilast = thresh_last[ithresh];
+	values = thresh_fix[ilast]->vstore;
+	ptrhold = ptr;
+	if (thresh_first[ilast]) {
+	  thresh_first[ilast] = 0;
+	  for (i = 0; i < nlocal; i++, ptr += nstride) values[i] = *ptr;
+	  ptr = ptrhold;
+	}
+      }
 
       if (thresh_op[ithresh] == LT) {
-        for (i = 0; i < nlocal; i++, ptr += nstride)
-          if (choose[i] && *ptr >= value) choose[i] = 0;
+	if (lastflag) {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr >= values[i]) choose[i] = 0;
+	} else {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr >= value) choose[i] = 0;
+	}
       } else if (thresh_op[ithresh] == LE) {
-        for (i = 0; i < nlocal; i++, ptr += nstride)
-          if (choose[i] && *ptr > value) choose[i] = 0;
+	if (lastflag) {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr > values[i]) choose[i] = 0;
+	} else {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr > value) choose[i] = 0;
+	}
       } else if (thresh_op[ithresh] == GT) {
-        for (i = 0; i < nlocal; i++, ptr += nstride)
-          if (choose[i] && *ptr <= value) choose[i] = 0;
+	if (lastflag) {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr <= values[i]) choose[i] = 0;
+	} else {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr <= value) choose[i] = 0;
+	}
       } else if (thresh_op[ithresh] == GE) {
-        for (i = 0; i < nlocal; i++, ptr += nstride)
-          if (choose[i] && *ptr < value) choose[i] = 0;
+	if (lastflag) {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr < values[i]) choose[i] = 0;
+	} else {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr < value) choose[i] = 0;
+	}
       } else if (thresh_op[ithresh] == EQ) {
-        for (i = 0; i < nlocal; i++, ptr += nstride)
-          if (choose[i] && *ptr != value) choose[i] = 0;
+	if (lastflag) {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr != values[i]) choose[i] = 0;
+	} else {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr != value) choose[i] = 0;
+	}
       } else if (thresh_op[ithresh] == NEQ) {
-        for (i = 0; i < nlocal; i++, ptr += nstride)
-          if (choose[i] && *ptr == value) choose[i] = 0;
+	if (lastflag) {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr == values[i]) choose[i] = 0;
+	} else {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && *ptr == value) choose[i] = 0;
+	}
+      } else if (thresh_op[ithresh] == XOR) {
+	if (lastflag) {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && (*ptr == 0.0 && values[i] == 0.0) || 
+		(*ptr != 0.0 && values[i] != 0.0))
+	      choose[i] = 0;
+	} else {
+	  for (i = 0; i < nlocal; i++, ptr += nstride)
+	    if (choose[i] && (*ptr == 0.0 && value == 0.0) || 
+		(*ptr != 0.0 && value != 0.0))
+	      choose[i] = 0;
+	}
+      }
+
+      // update values stored in threshfix
+
+      if (lastflag) {
+	ptr = ptrhold;
+	for (i = 0; i < nlocal; i++, ptr += nstride) values[i] = *ptr;
       }
     }
   }
@@ -1018,8 +1151,8 @@ int DumpCustom::parse_fields(int narg, char **arg)
   // customize by adding to if statement
 
   int i;
-  for (int iarg = 5; iarg < narg; iarg++) {
-    i = iarg-5;
+  for (int iarg = 0; iarg < narg; iarg++) {
+    i = iarg;
 
     if (strcmp(arg[iarg],"id") == 0) {
       pack_choice[i] = &DumpCustom::pack_id;
@@ -1029,7 +1162,8 @@ int DumpCustom::parse_fields(int narg, char **arg)
       if (!atom->molecule_flag)
         error->all(FLERR,"Dumping an atom property that isn't allocated");
       pack_choice[i] = &DumpCustom::pack_molecule;
-      vtype[i] = INT;
+      if (sizeof(tagint) == sizeof(smallint)) vtype[i] = INT;
+      else vtype[i] = BIGINT;
     } else if (strcmp(arg[iarg],"proc") == 0) {
       pack_choice[i] = &DumpCustom::pack_proc;
       vtype[i] = INT;
@@ -1468,16 +1602,64 @@ int DumpCustom::modify_param(int narg, char **arg)
     return 2;
   }
 
-  if (strcmp(arg[0],"element") == 0) {
-    if (narg < ntypes+1)
-      error->all(FLERR,"Dump modify element names do not match atom types");
+  if (strcmp(arg[0],"format") == 0) {
+    if (narg < 2) error->all(FLERR,"Illegal dump_modify command");
 
-    if (typenames) {
-      for (int i = 1; i <= ntypes; i++) delete [] typenames[i];
-      delete [] typenames;
-      typenames = NULL;
+    if (strcmp(arg[1],"none") == 0) {
+      // just clear format_column_user allocated by this dump child class
+      for (int i = 0; i < size_one; i++) {
+        delete [] format_column_user[i];
+        format_column_user[i] = NULL;
+      }
+      return 2;
     }
 
+    if (narg < 3) error->all(FLERR,"Illegal dump_modify command");
+
+    if (strcmp(arg[1],"int") == 0) {
+      delete [] format_int_user;
+      int n = strlen(arg[2]) + 1;
+      format_int_user = new char[n];
+      strcpy(format_int_user,arg[2]);
+      delete [] format_bigint_user;
+      n = strlen(format_int_user) + 8;
+      format_bigint_user = new char[n];
+      // replace "d" in format_int_user with bigint format specifier
+      // use of &str[1] removes leading '%' from BIGINT_FORMAT string
+      char *ptr = strchr(format_int_user,'d');
+      if (ptr == NULL)
+        error->all(FLERR,
+                   "Dump_modify int format does not contain d character");
+      char str[8];
+      sprintf(str,"%s",BIGINT_FORMAT);
+      *ptr = '\0';
+      sprintf(format_bigint_user,"%s%s%s",format_int_user,&str[1],ptr+1);
+      *ptr = 'd';
+
+    } else if (strcmp(arg[1],"float") == 0) {
+      delete [] format_float_user;
+      int n = strlen(arg[2]) + 1;
+      format_float_user = new char[n];
+      strcpy(format_float_user,arg[2]);
+
+    } else {
+      int i = force->inumeric(FLERR,arg[1]) - 1;
+      if (i < 0 || i >= size_one)
+        error->all(FLERR,"Illegal dump_modify command");
+      if (format_column_user[i]) delete [] format_column_user[i];
+      int n = strlen(arg[2]) + 1;
+      format_column_user[i] = new char[n];
+      strcpy(format_column_user[i],arg[2]);
+    }
+    return 3;
+  }
+
+  if (strcmp(arg[0],"element") == 0) {
+    if (narg < ntypes+1)
+      error->all(FLERR,"Dump_modify element names do not match atom types");
+
+    for (int i = 1; i <= ntypes; i++) delete [] typenames[i];
+    delete [] typenames;
     typenames = new char*[ntypes+1];
     for (int itype = 1; itype <= ntypes; itype++) {
       int n = strlen(arg[itype]) + 1;
@@ -1497,8 +1679,16 @@ int DumpCustom::modify_param(int narg, char **arg)
         thresh_array = NULL;
         thresh_op = NULL;
         thresh_value = NULL;
+        thresh_last = NULL;
+	for (int i = 0; i < nthreshlast; i++) {
+	  modify->delete_fix(thresh_fixID[i]);
+	  delete [] thresh_fixID[i];
+	}
+	thresh_fix = NULL;
+	thresh_fixID = NULL;
+        thresh_first = NULL;
       }
-      nthresh = 0;
+      nthresh = nthreshlast = 0;
       return 2;
     }
 
@@ -1509,7 +1699,8 @@ int DumpCustom::modify_param(int narg, char **arg)
     memory->grow(thresh_array,nthresh+1,"dump:thresh_array");
     memory->grow(thresh_op,(nthresh+1),"dump:thresh_op");
     memory->grow(thresh_value,(nthresh+1),"dump:thresh_value");
-
+    memory->grow(thresh_last,(nthresh+1),"dump:thresh_last");
+    
     // set attribute type of threshold
     // customize by adding to if statement
 
@@ -1733,7 +1924,7 @@ int DumpCustom::modify_param(int narg, char **arg)
       field2index[nfield+nthresh] = add_custom(suffix,0);
       delete [] suffix;
 
-    } else error->all(FLERR,"Invalid dump_modify threshhold operator");
+    } else error->all(FLERR,"Invalid dump_modify thresh attribute");
 
     // set operation type of threshold
 
@@ -1743,11 +1934,46 @@ int DumpCustom::modify_param(int narg, char **arg)
     else if (strcmp(arg[2],">=") == 0) thresh_op[nthresh] = GE;
     else if (strcmp(arg[2],"==") == 0) thresh_op[nthresh] = EQ;
     else if (strcmp(arg[2],"!=") == 0) thresh_op[nthresh] = NEQ;
-    else error->all(FLERR,"Invalid dump_modify threshold operator");
+    else if (strcmp(arg[2],"|^") == 0) thresh_op[nthresh] = XOR;
+    else error->all(FLERR,"Invalid dump_modify thresh operator");
 
-    // set threshold value
+    // set threshold value as number or special LAST keyword
+    // create FixStore to hold LAST values, should work with restart
+    // id = dump-ID + nthreshlast + DUMP_STORE, fix group = dump group
 
-    thresh_value[nthresh] = force->numeric(FLERR,arg[3]);
+    if (strcmp(arg[3],"LAST") != 0) {
+      thresh_value[nthresh] = force->numeric(FLERR,arg[3]);
+      thresh_last[nthresh] = -1;
+    } else {
+      thresh_fix = (FixStore **) 
+	memory->srealloc(thresh_fix,(nthreshlast+1)*sizeof(FixStore *),
+			 "dump:thresh_fix");
+      thresh_fixID = (char **)
+	memory->srealloc(thresh_fixID,(nthreshlast+1)*sizeof(char *),
+			 "dump:thresh_fixID");
+      memory->grow(thresh_first,(nthreshlast+1),"dump:thresh_first");
+
+      int n = strlen(id) + strlen("_DUMP_STORE") + 8;
+      thresh_fixID[nthreshlast] = new char[n];
+      strcpy(thresh_fixID[nthreshlast],id);
+      sprintf(&thresh_fixID[nthreshlast][strlen(id)],"%d",nthreshlast);
+      strcat(thresh_fixID[nthreshlast],"_DUMP_STORE");
+
+      char **newarg = new char*[6];
+      newarg[0] = thresh_fixID[nthreshlast];
+      newarg[1] = group->names[igroup];
+      newarg[2] = (char *) "STORE";
+      newarg[3] = (char *) "peratom";
+      newarg[4] = (char *) "1";
+      newarg[5] = (char *) "1";
+      modify->add_fix(6,newarg);
+      thresh_fix[nthreshlast] = (FixStore *) modify->fix[modify->nfix-1];
+      delete [] newarg;
+
+      thresh_last[nthreshlast] = nthreshlast;
+      thresh_first[nthreshlast] = 1;
+      nthreshlast++;
+    }
 
     nthresh++;
     return 4;

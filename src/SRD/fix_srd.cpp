@@ -79,7 +79,13 @@ static const char cite_fix_srd[] =
 
 /* ---------------------------------------------------------------------- */
 
-FixSRD::FixSRD(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+FixSRD::FixSRD(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg),
+  wallfix(NULL), wallwhich(NULL), xwall(NULL), xwallhold(NULL), 
+  vwall(NULL), fwall(NULL), avec_ellipsoid(NULL), avec_line(NULL), 
+  avec_tri(NULL), random(NULL), randomshift(NULL), flocal(NULL), 
+  tlocal(NULL), biglist(NULL), binhead(NULL), binnext(NULL), sbuf1(NULL), 
+  sbuf2(NULL), rbuf1(NULL), rbuf2(NULL), nbinbig(NULL), binbig(NULL), 
+  binsrd(NULL), stencil(NULL)
 {
   if (lmp->citeme) lmp->citeme->add(cite_fix_srd);
 
@@ -471,7 +477,7 @@ void FixSRD::pre_neighbor()
 
   // grow SRD per-atom bin arrays if necessary
 
-  if (atom->nlocal > nmax) {
+  if (atom->nmax > nmax) {
     nmax = atom->nmax;
     memory->destroy(binsrd);
     memory->destroy(binnext);
@@ -805,7 +811,7 @@ void FixSRD::post_force(int vflag)
   }
 
   // if wall has moved too far, trigger reneigh on next step
-  // analagous to neighbor check for big particle moving 1/2 of skin distance
+  // analogous to neighbor check for big particle moving 1/2 of skin distance
 
   if (wallexist) {
     for (m = 0; m < nwall; m++)

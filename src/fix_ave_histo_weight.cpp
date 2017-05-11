@@ -126,7 +126,7 @@ void FixAveHistoWeight::end_of_step()
 
   modify->clearstep_compute();
 
-  // calcualte weight factors which are 2nd value (i = 1)
+  // calculate weight factors which are 2nd value (i = 1)
 
   double weight = 0.0;
   double *weights = NULL;
@@ -153,7 +153,9 @@ void FixAveHistoWeight::end_of_step()
   // invoke compute if not previously invoked
 
   if (which[i] == COMPUTE) {
+
     Compute *compute = modify->compute[m];
+
     if (kind == GLOBAL && mode == SCALAR) {
       if (j == 0) {
         if (!(compute->invoked_flag & INVOKED_SCALAR)) {
@@ -219,11 +221,9 @@ void FixAveHistoWeight::end_of_step()
     if (kind == GLOBAL && mode == SCALAR) {
       if (j == 0) weight = fix->compute_scalar();
       else weight = fix->compute_vector(j-1);
-
     } else if (kind == GLOBAL && mode == VECTOR) {
-
-      error->all(FLERR,"Illegal fix ave/spatial command");
-
+      error->all(FLERR,"Fix ave/histo/weight option not yet supported");
+      // NOTE: need to allocate local storage
       if (j == 0) {
         int n = fix->size_vector;
         for (i = 0; i < n; i++) weights[n] = fix->compute_vector(i);
@@ -231,7 +231,6 @@ void FixAveHistoWeight::end_of_step()
         int n = fix->size_vector;
         for (i = 0; i < n; i++) weights[n] = fix->compute_array(i,j-1);
       }
-
     } else if (kind == PERATOM) {
       if (j == 0) {
         weights = fix->vector_atom;
@@ -256,7 +255,7 @@ void FixAveHistoWeight::end_of_step()
     weight = input->variable->compute_equal(m);
 
   } else if (which[i] == VARIABLE && kind == PERATOM) {
-    if (atom->nlocal > maxatom) {
+    if (atom->nmax > maxatom) {
       memory->destroy(vector);
       maxatom = atom->nmax;
       memory->create(vector,maxatom,"ave/histo/weight:vector");
@@ -385,7 +384,7 @@ void FixAveHistoWeight::end_of_step()
     bin_one_weights(input->variable->compute_equal(m),weight);
 
   } else if (which[i] == VARIABLE && kind == PERATOM) {
-    if (atom->nlocal > maxatom) {
+    if (atom->nmax > maxatom) {
       memory->destroy(vector);
       maxatom = atom->nmax;
       memory->create(vector,maxatom,"ave/histo/weight:vector");

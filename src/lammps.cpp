@@ -42,15 +42,17 @@
 #include "group.h"
 #include "output.h"
 #include "citeme.h"
-#include "accelerator_cuda.h"
 #include "accelerator_kokkos.h"
 #include "accelerator_omp.h"
-#include "accelerator_intel.h"
 #include "timer.h"
+#include "python.h"
 #include "memory.h"
+#include "version.h"
 #include "error.h"
 
 using namespace LAMMPS_NS;
+
+static void print_style(FILE *fp, const char *str, int &pos);
 
 /* ----------------------------------------------------------------------
    start up LAMMPS
@@ -66,6 +68,7 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
   error = new Error(this);
   universe = new Universe(this,communicator);
   output = NULL;
+  python = NULL;
 
   screen = NULL;
   logfile = NULL;
@@ -80,7 +83,6 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
   int logflag = 0;
   int partscreenflag = 0;
   int partlogflag = 0;
-  int cudaflag = 0;
   int kokkosflag = 0;
   int restartflag = 0;
   int restartremapflag = 0;
@@ -89,6 +91,8 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
 
   suffix = suffix2 = NULL;
   suffix_enable = 0;
+  if (arg) exename = arg[0];
+  else exename = NULL;
   packargs = NULL;
   num_package = 0;
   char *rfile = NULL;
@@ -152,14 +156,6 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
       if (iarg+2 > narg)
        error->universe_all(FLERR,"Invalid command-line argument");
       partlogflag = iarg + 1;
-      iarg += 2;
-    } else if (strcmp(arg[iarg],"-cuda") == 0 ||
-               strcmp(arg[iarg],"-c") == 0) {
-      if (iarg+2 > narg)
-        error->universe_all(FLERR,"Invalid command-line argument");
-      if (strcmp(arg[iarg+1],"on") == 0) cudaflag = 1;
-      else if (strcmp(arg[iarg+1],"off") == 0) cudaflag = 0;
-      else error->universe_all(FLERR,"Invalid command-line argument");
       iarg += 2;
     } else if (strcmp(arg[iarg],"-kokkos") == 0 ||
                strcmp(arg[iarg],"-k") == 0) {
@@ -470,25 +466,6 @@ LAMMPS::LAMMPS(int narg, char **arg, MPI_Comm communicator)
     error->all(FLERR,"Small to big integers are not sized correctly");
 #endif
 
-  // error check on accelerator packages
-
-  if (cudaflag == 1 && kokkosflag == 1)
-    error->all(FLERR,"Cannot use -cuda on and -kokkos on together");
-
-  // create Cuda class if USER-CUDA installed, unless explicitly switched off
-  // instantiation creates dummy Cuda class if USER-CUDA is not installed
-
-  cuda = NULL;
-  if (cudaflag == 1) {
-    cuda = new Cuda(this);
-    if (!cuda->cuda_exists)
-      error->all(FLERR,"Cannot use -cuda on without USER-CUDA installed");
-  }
-
-  int me;
-  MPI_Comm_rank(world,&me);
-  if (cuda && me == 0) error->message(FLERR,"USER-CUDA mode is enabled");
-
   // create Kokkos class if KOKKOS installed, unless explicitly switched off
   // instantiation creates dummy Kokkos class if KOKKOS is not installed
   // add args between kkfirst and kklast to Kokkos instantiation
@@ -610,7 +587,7 @@ LAMMPS::~LAMMPS()
 
   if (world != universe->uworld) MPI_Comm_free(&world);
 
-  delete cuda;
+  delete python;
   delete kokkos;
   delete [] suffix;
   delete [] suffix2;
@@ -629,19 +606,18 @@ LAMMPS::~LAMMPS()
 
 void LAMMPS::create()
 {
+  force = NULL;         // Domain->Lattice checks if Force exists
+
   // Comm class must be created before Atom class
   // so that nthreads is defined when create_avec invokes grow()
 
-  if (cuda) comm = new CommCuda(this);
-  else if (kokkos) comm = new CommKokkos(this);
+  if (kokkos) comm = new CommKokkos(this);
   else comm = new CommBrick(this);
 
-  if (cuda) neighbor = new NeighborCuda(this);
-  else if (kokkos) neighbor = new NeighborKokkos(this);
+  if (kokkos) neighbor = new NeighborKokkos(this);
   else neighbor = new Neighbor(this);
 
-  if (cuda) domain = new DomainCuda(this);
-  else if (kokkos) domain = new DomainKokkos(this);
+  if (kokkos) domain = new DomainKokkos(this);
 #ifdef LMP_USER_OMP
   else domain = new DomainOMP(this);
 #else
@@ -659,14 +635,15 @@ void LAMMPS::create()
   group = new Group(this);
   force = new Force(this);    // must be after group, to create temperature
 
-  if (cuda) modify = new ModifyCuda(this);
-  else if (kokkos) modify = new ModifyKokkos(this);
+  if (kokkos) modify = new ModifyKokkos(this);
   else modify = new Modify(this);
 
   output = new Output(this);  // must be after group, so "all" exists
                               // must be after modify so can create Computes
   update = new Update(this);  // must be after output, force, neighbor
   timer = new Timer(this);
+
+  python = new Python(this);
 }
 
 /* ----------------------------------------------------------------------
@@ -680,19 +657,16 @@ void LAMMPS::create()
 
 void LAMMPS::post_create()
 {
-  // default package commands triggered by "-c on" and "-k on"
+  // default package command triggered by "-k on"
 
-  if (cuda && cuda->cuda_exists) input->one("package cuda 1");
   if (kokkos && kokkos->kokkos_exists) input->one("package kokkos");
 
   // suffix will always be set if suffix_enable = 1
-  // check that USER-CUDA and KOKKOS package classes were instantiated
+  // check that KOKKOS package classes were instantiated
   // check that GPU, INTEL, USER-OMP fixes were compiled with LAMMPS
 
   if (!suffix_enable) return;
 
-  if (strcmp(suffix,"cuda") == 0 && (cuda == NULL || cuda->cuda_exists == 0))
-    error->all(FLERR,"Using suffix cuda without USER-CUDA package enabled");
   if (strcmp(suffix,"gpu") == 0 && !modify->check_package("GPU"))
     error->all(FLERR,"Using suffix gpu without GPU package installed");
   if (strcmp(suffix,"intel") == 0 && !modify->check_package("INTEL"))
@@ -743,7 +717,7 @@ void LAMMPS::init()
   atom->init();          // atom must come after force and domain
                          //   atom deletes extra array
                          //   used by fix shear_history::unpack_restart()
-                         //   when force->pair->gran_history creates fix ??
+                         //     when force->pair->gran_history creates fix
                          //   atom_vec init uses deform_vremap
   modify->init();        // modify must come after update, force, atom, domain
   neighbor->init();      // neighbor must come after force, modify
@@ -790,6 +764,9 @@ void LAMMPS::destroy()
 
   delete timer;
   timer = NULL;
+
+  delete python;
+  python = NULL;
 }
 
 /* ----------------------------------------------------------------------
@@ -798,9 +775,37 @@ void LAMMPS::destroy()
 
 void LAMMPS::help()
 {
-  fprintf(screen,
-          "\nCommand line options:\n\n"
-          "-cuda on/off                : turn CUDA mode on or off (-c)\n"
+  FILE *fp = screen;
+  const char *pager = NULL;
+
+  // if output is "stdout", use a pipe to a pager for paged output.
+  // this will avoid the most important help text to rush past the
+  // user. scrollback buffers are often not large enough. this is most
+  // beneficial to windows users, who are not used to command line.
+
+  if (fp == stdout) {
+    pager = getenv("PAGER");
+    if (pager == NULL) pager = "more";
+#if defined(_WIN32)
+    fp = _popen(pager,"w");
+#else
+    fp = popen(pager,"w");
+#endif
+
+    // reset to original state, if pipe command failed
+    if (fp == NULL) {
+      fp = stdout;
+      pager = NULL;
+    }
+  }
+
+  // general help message about command line and flags
+
+  fprintf(fp,
+          "\nLarge-scale Atomic/Molecular Massively Parallel Simulator - "
+          LAMMPS_VERSION "\n\n"
+          "Usage example: %s -var t 300 -echo screen -in in.alloy\n\n"
+          "List of command line options supported by this LAMMPS executable:\n\n"
           "-echo none/screen/log/both  : echoing of input script (-e)\n"
           "-help                       : print this help message (-h)\n"
           "-in filename                : read input from file, not stdin (-i)\n"
@@ -814,122 +819,127 @@ void LAMMPS::help()
           "-restart rfile dfile ...    : convert restart to data file (-r)\n"
           "-reorder topology-specs     : processor reordering (-r)\n"
           "-screen none/filename       : where to send screen output (-sc)\n"
-          "-suffix cuda/gpu/opt/omp    : style suffix to apply (-sf)\n"
-          "-var varname value          : set index style variable (-v)\n\n");
+          "-suffix gpu/intel/opt/omp   : style suffix to apply (-sf)\n"
+          "-var varname value          : set index style variable (-v)\n\n",
+          exename);
 
-  fprintf(screen,"Style options compiled with this executable\n\n");
+  fprintf(fp,"List of style options included in this LAMMPS executable\n\n");
 
   int pos = 80;
-  fprintf(screen,"* Atom styles:\n");
+  fprintf(fp,"* Atom styles:\n");
 #define ATOM_CLASS
-#define AtomStyle(key,Class) print_style(#key,pos);
+#define AtomStyle(key,Class) print_style(fp,#key,pos);
 #include "style_atom.h"
 #undef ATOM_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Integrate styles:\n");
+  fprintf(fp,"* Integrate styles:\n");
 #define INTEGRATE_CLASS
-#define IntegrateStyle(key,Class) print_style(#key,pos);
+#define IntegrateStyle(key,Class) print_style(fp,#key,pos);
 #include "style_integrate.h"
 #undef INTEGRATE_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Minimize styles:\n");
+  fprintf(fp,"* Minimize styles:\n");
 #define MINIMIZE_CLASS
-#define MinimizeStyle(key,Class) print_style(#key,pos);
+#define MinimizeStyle(key,Class) print_style(fp,#key,pos);
 #include "style_minimize.h"
 #undef MINIMIZE_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Pair styles:\n");
+  fprintf(fp,"* Pair styles:\n");
 #define PAIR_CLASS
-#define PairStyle(key,Class) print_style(#key,pos);
+#define PairStyle(key,Class) print_style(fp,#key,pos);
 #include "style_pair.h"
 #undef PAIR_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Bond styles:\n");
+  fprintf(fp,"* Bond styles:\n");
 #define BOND_CLASS
-#define BondStyle(key,Class) print_style(#key,pos);
+#define BondStyle(key,Class) print_style(fp,#key,pos);
 #include "style_bond.h"
 #undef BOND_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Angle styles:\n");
+  fprintf(fp,"* Angle styles:\n");
 #define ANGLE_CLASS
-#define AngleStyle(key,Class) print_style(#key,pos);
+#define AngleStyle(key,Class) print_style(fp,#key,pos);
 #include "style_angle.h"
 #undef ANGLE_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Dihedral styles:\n");
+  fprintf(fp,"* Dihedral styles:\n");
 #define DIHEDRAL_CLASS
-#define DihedralStyle(key,Class) print_style(#key,pos);
+#define DihedralStyle(key,Class) print_style(fp,#key,pos);
 #include "style_dihedral.h"
 #undef DIHEDRAL_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Improper styles:\n");
+  fprintf(fp,"* Improper styles:\n");
 #define IMPROPER_CLASS
-#define ImproperStyle(key,Class) print_style(#key,pos);
+#define ImproperStyle(key,Class) print_style(fp,#key,pos);
 #include "style_improper.h"
 #undef IMPROPER_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* KSpace styles:\n");
+  fprintf(fp,"* KSpace styles:\n");
 #define KSPACE_CLASS
-#define KSpaceStyle(key,Class) print_style(#key,pos);
+#define KSpaceStyle(key,Class) print_style(fp,#key,pos);
 #include "style_kspace.h"
 #undef KSPACE_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Fix styles\n");
+  fprintf(fp,"* Fix styles\n");
 #define FIX_CLASS
-#define FixStyle(key,Class) print_style(#key,pos);
+#define FixStyle(key,Class) print_style(fp,#key,pos);
 #include "style_fix.h"
 #undef FIX_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Compute styles:\n");
+  fprintf(fp,"* Compute styles:\n");
 #define COMPUTE_CLASS
-#define ComputeStyle(key,Class) print_style(#key,pos);
+#define ComputeStyle(key,Class) print_style(fp,#key,pos);
 #include "style_compute.h"
 #undef COMPUTE_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Region styles:\n");
+  fprintf(fp,"* Region styles:\n");
 #define REGION_CLASS
-#define RegionStyle(key,Class) print_style(#key,pos);
+#define RegionStyle(key,Class) print_style(fp,#key,pos);
 #include "style_region.h"
 #undef REGION_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Dump styles:\n");
+  fprintf(fp,"* Dump styles:\n");
 #define DUMP_CLASS
-#define DumpStyle(key,Class) print_style(#key,pos);
+#define DumpStyle(key,Class) print_style(fp,#key,pos);
 #include "style_dump.h"
 #undef DUMP_CLASS
-  fprintf(screen,"\n\n");
+  fprintf(fp,"\n\n");
 
   pos = 80;
-  fprintf(screen,"* Command styles\n");
+  fprintf(fp,"* Command styles\n");
 #define COMMAND_CLASS
-#define CommandStyle(key,Class) print_style(#key,pos);
+#define CommandStyle(key,Class) print_style(fp,#key,pos);
 #include "style_command.h"
 #undef COMMAND_CLASS
-  fprintf(screen,"\n");
+  fprintf(fp,"\n\n");
+
+  // close pipe to pager, if active
+
+  if (pager != NULL) pclose(fp);
 }
 
 /* ----------------------------------------------------------------------
@@ -937,30 +947,30 @@ void LAMMPS::help()
    skip any style that starts with upper-case letter, since internal
 ------------------------------------------------------------------------- */
 
-void LAMMPS::print_style(const char *str, int &pos)
+void print_style(FILE *fp, const char *str, int &pos)
 {
   if (isupper(str[0])) return;
 
   int len = strlen(str);
   if (pos+len > 80) {
-    fprintf(screen,"\n");
+    fprintf(fp,"\n");
     pos = 0;
   }
 
   if (len < 16) {
-    fprintf(screen,"%-16s",str);
+    fprintf(fp,"%-16s",str);
     pos += 16;
   } else if (len < 32) {
-    fprintf(screen,"%-32s",str);
+    fprintf(fp,"%-32s",str);
     pos += 32;
   } else if (len < 48) {
-    fprintf(screen,"%-48s",str);
+    fprintf(fp,"%-48s",str);
     pos += 48;
   } else if (len < 64) {
-    fprintf(screen,"%-64s",str);
+    fprintf(fp,"%-64s",str);
     pos += 64;
   } else {
-    fprintf(screen,"%-80s",str);
+    fprintf(fp,"%-80s",str);
     pos += 80;
   }
 }

@@ -20,7 +20,7 @@ stress-ID = ID of a compute that calculates per-atom stress :ul
 
 [Examples:]
 
-compute myFlux all heat/flux myKE myPE myStress :pre 
+compute myFlux all heat/flux myKE myPE myStress :pre
 
 [Description:]
 
@@ -38,9 +38,13 @@ subtracted to a group of atoms.
 The compute takes three arguments which are IDs of other
 "computes"_compute.html.  One calculates per-atom kinetic energy
 ({ke-ID}), one calculates per-atom potential energy ({pe-ID)}, and the
-third calcualtes per-atom stress ({stress-ID}).  These should be
-defined for the same group used by compute heat/flux, though LAMMPS
-does not check for this.
+third calculates per-atom stress ({stress-ID}).
+
+NOTE: These other computes should provide values for all the atoms in
+the group this compute specifies.  That means the other computes could
+use the same group as this compute, or they can just use group "all"
+(or any group whose atoms are superset of the atoms in this compute's
+group).  LAMMPS does not check for this.
 
 The Green-Kubo formulas relate the ensemble average of the
 auto-correlation of the heat flux J to the thermal conductivity kappa:
@@ -79,7 +83,7 @@ The heat flux can be output every so many timesteps (e.g. via the
 post-processing operation, an autocorrelation can be performed, its
 integral estimated, and the Green-Kubo formula above evaluated.
 
-The "fix ave/correlate"_fix_ave_correlate.html command can calclate
+The "fix ave/correlate"_fix_ave_correlate.html command can calculate
 the autocorrelation.  The trap() function in the
 "variable"_variable.html command can calculate the integral.
 
@@ -148,11 +152,11 @@ lattice      fcc 5.376 orient x 1 0 0 orient y 0 1 0 orient z 0 0 1
 region       box block 0 4 0 4 0 4
 create_box   1 box
 create_atoms 1 box
-mass	     1 39.948
+mass         1 39.948
 pair_style   lj/cut 13.0
 pair_coeff   * * 0.2381 3.405
 timestep     $\{dt\}
-thermo	     $d :pre
+thermo       $d :pre
 
 # equilibration and thermalization :pre
 

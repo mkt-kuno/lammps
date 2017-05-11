@@ -26,7 +26,8 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixStoreForce::FixStoreForce(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  foriginal(NULL)
 {
   if (narg < 3) error->all(FLERR,"Illegal fix store/coord command");
 
@@ -96,7 +97,7 @@ void FixStoreForce::min_setup(int vflag)
 
 void FixStoreForce::post_force(int vflag)
 {
-  if (atom->nlocal > nmax) {
+  if (atom->nmax > nmax) {
     nmax = atom->nmax;
     memory->destroy(foriginal);
     memory->create(foriginal,nmax,3,"store/force:foriginal");

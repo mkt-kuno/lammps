@@ -7,8 +7,6 @@
 :line
 
 fix temp/rescale command :h3
-fix temp/rescale/cuda command :h3
-fix temp/rescale/limit/cuda command :h3
 
 [Syntax:]
 
@@ -20,7 +18,8 @@ N = perform rescaling every N steps  :l
 Tstart,Tstop = desired temperature at start/end of run (temperature units) :l
   Tstart can be a variable (see below) :pre
 window = only rescale if temperature is outside this window (temperature units) :l
-fraction = rescale to target temperature by this fraction :l,ule
+fraction = rescale to target temperature by this fraction :l
+:ule
 
 [Examples:]
 
@@ -43,6 +42,10 @@ takes place; see the description below.
 Rescaling is performed every N timesteps.  The target temperature is a
 ramped value between the {Tstart} and {Tstop} temperatures at the
 beginning and end of the run.
+
+NOTE: This thermostat will generate an error if the current
+temperature is zero at the end of a timestep it is invoked on.  It
+cannot rescale a zero temperature.
 
 {Tstart} can be specified as an equal-style "variable"_variable.html.
 In this case, the {Tstop} setting is ignored.  If the value is a
@@ -113,27 +116,6 @@ thermal degrees of freedom, and the bias is added back in.
 
 :line
 
-Styles with a {cuda} suffix are functionally the same as the
-corresponding style without the suffix.  They have been optimized to
-run faster, depending on your available hardware, as discussed in
-"Section_accelerate"_Section_accelerate.html of the manual.  The
-accelerated styles take the same arguments and should produce the same
-results, except for round-off and precision issues.
-
-These accelerated styles are part of the USER-CUDA package.  They are
-only enabled if LAMMPS was built with that package.  See the "Making
-LAMMPS"_Section_start.html#start_3 section for more info.
-
-You can specify the accelerated styles explicitly in your input script
-by including their suffix, or you can use the "-suffix command-line
-switch"_Section_start.html#start_7 when you invoke LAMMPS, or you can
-use the "suffix"_suffix.html command in your input script.
-
-See "Section_accelerate"_Section_accelerate.html of the manual for
-more instructions on how to use the accelerated styles effectively.
-
-:line
-
 [Restart, fix_modify, output, run start/stop, minimize info:]
 
 No information about this fix is written to "binary restart
@@ -152,7 +134,7 @@ output"_thermo_style.html.
 
 This fix computes a global scalar which can be accessed by various
 "output commands"_Section_howto.html#howto_15.  The scalar is the
-cummulative energy change due to this fix.  The scalar value
+cumulative energy change due to this fix.  The scalar value
 calculated by this fix is "extensive".
 
 This fix can ramp its target temperature over multiple runs, using the

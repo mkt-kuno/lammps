@@ -15,7 +15,7 @@ pair_style mgpt :pre
 [Examples:]
 
 pair_style mgpt
-pair_coeff * * Ta6.8x.mgpt.parmin Ta6.8x.mgpt.potin Omega 
+pair_coeff * * Ta6.8x.mgpt.parmin Ta6.8x.mgpt.potin Omega
 cp ~/lammps/potentials/Ta6.8x.mgpt.parmin parmin
 cp ~/lammps/potentials/Ta6.8x.mgpt.potin potin
 pair_coeff * * parmin potin Omega volpress yes nbody 1234 precision double
@@ -75,7 +75,7 @@ proceeds.  After each time step, the atomic volume should be updated
 by the code as Omega = V/N.  In addition, the volume term E_vol and
 the potentials v_2, v_3 and v_4 have to be removed at the end of the
 time step, and then respecified at the new value of Omega.  In all
-smulations, Omega must remain within the defined volume range for
+simulations, Omega must remain within the defined volume range for
 E_vol and the potentials for the given material.
 
 The default option volpress yes in the "pair_coeff"_pair_coeff.html
@@ -100,15 +100,15 @@ compiler and compiler switches (-msse3 on x86, and using the IBM XL
 compiler on BG/Q), these optimized routines are used automatically.
 For BG/Q machines, building with the default Makefile for that
 architecture (e.g., "make bgq") should enable the optimized algebra
-routines.  For x-86 machines, the here provided Makefile.mpi_fastmgpt
-(build with "make mpi_fastmgpt") enables the fast algebra routines.
-The user will be informed in the output files of the matrix kernels in
-use. To further improve speed, on x86 the option precision single can
-be added to the "pair_coeff"_pair_coeff.html command line, which
-improves speed (up to a factor of two) at the cost of doing matrix
-calculations with 7 digit precision instead of the default 16. For
-consistency the default option can be specified explicitly by the
-option precision double.
+routines.  For x-86 machines, there is a provided Makefile.mgptfast
+which enables the fast algebra routines, i.e. build LAMMPS with "make
+mgptfast".  The user will be informed in the output files of the
+matrix kernels in use. To further improve speed, on x86 the option
+precision single can be added to the "pair_coeff"_pair_coeff.html
+command line, which improves speed (up to a factor of two) at the cost
+of doing matrix calculations with 7 digit precision instead of the
+default 16. For consistency the default option can be specified
+explicitly by the option precision double.
 
 All remaining potential and control data are contained with the parmin
 and potin files, including cutoffs, atomic mass, and other basic MGPT
@@ -133,9 +133,9 @@ before proceeding to more complex simulations.
 
 NOTE: For good performance, LAMMPS should be built with the compiler
 flags "-O3 -msse3 -funroll-loops" when including this pair style.  The
-src/MAKE/OPTIONS/Makefile.mpi_fastmgpt is an example machine Makefile
-with these options included as part of a standard MPI build.  Note
-that as-is it will build with whatever low-level compiler (g++, icc,
+src/MAKE/OPTIONS/Makefile.mgptfast is an example machine Makefile with
+these options included as part of a standard MPI build.  Note that it
+as provided, it will build with whatever low-level compiler (g++, icc,
 etc) is the default for your MPI installation.
 
 :line
@@ -203,15 +203,15 @@ volpress yes, nbody 1234, and precision double.
 
 :link(Moriarty2)
 [(Moriarty2)] Moriarty, Physical Review B, 42, 1609 (1990).
-Moriarty, Physical Review B 49, 12431 (1994). 
+Moriarty, Physical Review B 49, 12431 (1994).
 
 :link(Moriarty3)
-[(Moriarty3)] Moriarty, Benedict, Glosli, Hood, Orlikowski, Patel, Soderlind, Streitz, Tang, and Yang, 
+[(Moriarty3)] Moriarty, Benedict, Glosli, Hood, Orlikowski, Patel, Soderlind, Streitz, Tang, and Yang,
 Journal of Materials Research, 21, 563 (2006).
 
 :link(Glosli)
 [(Glosli)] Glosli, unpublished, 2005.
-Streitz, Glosli, Patel, Chan, Yates, de Supinski, Sexton and Gunnels, Journal of Physics: Conference 
+Streitz, Glosli, Patel, Chan, Yates, de Supinski, Sexton and Gunnels, Journal of Physics: Conference
 Series, 46, 254 (2006).
 
 :link(Oppelstrup)

@@ -37,8 +37,8 @@ void PairHybridOverlay::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
-  force->bounds(arg[0],atom->ntypes,ilo,ihi);
-  force->bounds(arg[1],atom->ntypes,jlo,jhi);
+  force->bounds(FLERR,arg[0],atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,arg[1],atom->ntypes,jlo,jhi);
 
   // 3rd arg = pair sub-style name
   // 4th arg = pair sub-style index if name used multiple times
@@ -104,39 +104,4 @@ void PairHybridOverlay::coeff(int narg, char **arg)
   }
 
   if (count == 0) error->all(FLERR,"Incorrect args for pair coefficients");
-}
-
-/* ----------------------------------------------------------------------
-   combine sub-style neigh list requests and create new ones if needed
-------------------------------------------------------------------------- */
-
-void PairHybridOverlay::modify_requests()
-{
-  int i,j;
-  NeighRequest *irq,*jrq;
-
-  // loop over pair requests only
-  // if a previous list is same kind with same skip attributes
-  // then make this one a copy list of that one
-  // works whether both lists are no-skip or yes-skip
-  // will not point a list at a copy list, but at copy list's parent
-
-  for (i = 0; i < neighbor->nrequest; i++) {
-    if (!neighbor->requests[i]->pair) continue;
-
-    irq = neighbor->requests[i];
-    for (j = 0; j < i; j++) {
-      if (!neighbor->requests[j]->pair) continue;
-      jrq = neighbor->requests[j];
-      if (irq->same_kind(jrq) && irq->same_skip(jrq)) {
-        irq->copy = 1;
-        irq->otherlist = j;
-        break;
-      }
-    }
-  }
-
-  // perform same operations on skip lists as pair style = hybrid
-
-  PairHybrid::modify_requests();
 }

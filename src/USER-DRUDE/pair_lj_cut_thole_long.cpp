@@ -314,8 +314,8 @@ void PairLJCutTholeLong::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
-  force->bounds(arg[0],atom->ntypes,ilo,ihi);
-  force->bounds(arg[1],atom->ntypes,jlo,jhi);
+  force->bounds(FLERR,arg[0],atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,arg[1],atom->ntypes,jlo,jhi);
 
   double epsilon_one = force->numeric(FLERR,arg[2]);
   double sigma_one = force->numeric(FLERR,arg[3]);
@@ -640,10 +640,12 @@ double PairLJCutTholeLong::single(int i, int j, int itype, int jtype,
       if (j != di_closest){
         if (drudetype[i] == CORE_TYPE) dqi = -atom->q[di];
         else if (drudetype[i] == DRUDE_TYPE) dqi = atom->q[i];
+        else dqi = 0.0;
         if (drudetype[j] == CORE_TYPE) {
           dj = atom->map(drudeid[j]);
           dqj = -atom->q[dj];
         } else if (drudetype[j] == DRUDE_TYPE) dqj = atom->q[j];
+        else dqj = 0.0;
         asr = ascreen[itype][jtype] * r;
         exp_asr = exp(-asr);
         dcoul = force->qqrd2e * dqi * dqj / r;

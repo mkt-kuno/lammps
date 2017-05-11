@@ -2,6 +2,9 @@
 *
 *  msi2lmp.exe
 *
+*   v3.9.8 AK- Improved whitespace handling in parsing topology and force
+*              field files to avoid bogus warnings about type name truncation
+*
 *   v3.9.7 AK- Add check to enforce that Class1/OPLS-AA use A-B parameter
 *              conventions in force field file and Class2 us r-eps conventions
 *
@@ -138,9 +141,6 @@
 * (the original  code for deriving atom numbers was quadratic in time)
 * and to make the program fully dynamic. The second version used
 * fixed dimension arrays for the internal coordinates.
-*
-* John Carpenter can be contacted by sending email to
-* jec374@earthlink.net
 *
 * November 2000
 */
@@ -353,7 +353,7 @@ int main (int argc, char *argv[])
     if (centerflag) puts(" Output is recentered around geometrical center");
     if (hintflag) puts(" Output contains style flag hints");
     else puts(" Style flag hints disabled");
-    printf(" System translated by: %g %g %g\n",shift[0],shift[1],shift[2]); 
+    printf(" System translated by: %g %g %g\n",shift[0],shift[1],shift[2]);
   }
 
   n = 0;
@@ -371,7 +371,7 @@ int main (int argc, char *argv[])
   if (n == 0) {
     if (iflag > 0) fputs(" WARNING",stderr);
     else           fputs(" Error  ",stderr);
-    
+
     fputs("- forcefield name and class appear to be inconsistent\n\n",stderr);
     if (iflag == 0) return 7;
   }

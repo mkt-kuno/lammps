@@ -60,7 +60,7 @@ void Velocity::command(int narg, char **arg)
 
   // atom masses must all be set
 
-  atom->check_mass();
+  atom->check_mass(FLERR);
 
   // identify group
 
@@ -151,6 +151,7 @@ void Velocity::init_external(const char *extgroup)
   rotation_flag = 0;
   loop_flag = ALL;
   scale_flag = 1;
+  bias_flag = 0;
 }
 
 /* ---------------------------------------------------------------------- */

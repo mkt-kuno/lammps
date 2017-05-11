@@ -27,18 +27,20 @@ enum{UNKNOWN,GLOBAL,PERATOM};
 
 /* ---------------------------------------------------------------------- */
 
-FixStore::FixStore(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+FixStore::FixStore(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg),
+vstore(NULL), astore(NULL), rbuf(NULL)
 {
   if (narg != 6) error->all(FLERR,"Illegal fix store command");
 
   // 4th arg determines GLOBAL vs PERATOM values
   // syntax: id group style global nrow ncol
   //   Nrow by Ncol array of global values
-  //   Ncol = 1 is vector, Nrow > 1 is array
+  //   Ncol = 1 is vector, Ncol > 1 is array
   // syntax: id group style peratom 0/1 nvalues
   //   0/1 flag = not-store or store peratom values in restart file
   //   nvalues = # of peratom values, N = 1 is vector, N > 1 is array
 
+  disable = 0;
   nvalues = vecflag = 0;
   flavor = UNKNOWN; 
 
@@ -152,6 +154,9 @@ void FixStore::reset_global(int nrow_caller, int ncol_caller)
   if (vecflag) memory->create(vstore,nrow,"fix/store:vstore");
   else memory->create(astore,nrow,ncol,"fix/store:astore");
   memory->create(rbuf,nrow*ncol+2,"fix/store:rbuf");
+
+
+  printf("AAA HOW GET HERE\n");
 }
 
 /* ----------------------------------------------------------------------
@@ -229,6 +234,8 @@ void FixStore::grow_arrays(int nmax)
 
 void FixStore::copy_arrays(int i, int j, int delflag)
 {
+  if (disable) return;
+
   if (vecflag) vstore[j] = vstore[i];
   else
     for (int m = 0; m < nvalues; m++)
@@ -241,6 +248,8 @@ void FixStore::copy_arrays(int i, int j, int delflag)
 
 int FixStore::pack_exchange(int i, double *buf)
 {
+  if (disable) return 0;
+
   if (vecflag) buf[0] = vstore[i];
   else
     for (int m = 0; m < nvalues; m++)
@@ -254,6 +263,8 @@ int FixStore::pack_exchange(int i, double *buf)
 
 int FixStore::unpack_exchange(int nlocal, double *buf)
 {
+  if (disable) return 0;
+
   if (vecflag) vstore[nlocal] = buf[0];
   else
     for (int m = 0; m < nvalues; m++)
@@ -267,6 +278,11 @@ int FixStore::unpack_exchange(int nlocal, double *buf)
 
 int FixStore::pack_restart(int i, double *buf)
 {
+  if (disable) {
+    buf[0] = 0;
+    return 1;
+  }
+
   buf[0] = nvalues+1;
   if (vecflag) buf[1] = vstore[i];
   else
@@ -281,6 +297,8 @@ int FixStore::pack_restart(int i, double *buf)
 
 void FixStore::unpack_restart(int nlocal, int nth)
 {
+  if (disable) return;
+
   double **extra = atom->extra;
 
   // skip to Nth set of extra values
@@ -301,6 +319,7 @@ void FixStore::unpack_restart(int nlocal, int nth)
 
 int FixStore::maxsize_restart()
 {
+  if (disable) return 1;
   return nvalues+1;
 }
 
@@ -310,6 +329,7 @@ int FixStore::maxsize_restart()
 
 int FixStore::size_restart(int nlocal)
 {
+  if (disable) return 1;
   return nvalues+1;
 }
 

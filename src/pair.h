@@ -92,13 +92,10 @@ class Pair : protected Pointers {
   class NeighList *list;         // standard neighbor list used by most pairs
   class NeighList *listhalf;     // half list used by some pairs
   class NeighList *listfull;     // full list used by some pairs
-  class NeighList *listgranhistory;  // granular history list used by some pairs
+  class NeighList *listhistory;  // neighbor history list used by some pairs
   class NeighList *listinner;    // rRESPA lists used by some pairs
   class NeighList *listmiddle;
   class NeighList *listouter;
-
-  unsigned int datamask;
-  unsigned int datamask_ext;
 
   int allocated;                 // 0/1 = whether arrays are allocated
                                  //       public so external driver can check
@@ -172,13 +169,15 @@ class Pair : protected Pointers {
 
   virtual int pack_forward_comm(int, int *, double *, int, int *) {return 0;}
   virtual void unpack_forward_comm(int, int, double *) {}
-  virtual int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, int, DAT::tdual_xfloat_1d&, int, int *) {return 0;};
-  virtual void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d&) {}
+  virtual int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, 
+                                       int, DAT::tdual_xfloat_1d &, 
+                                       int, int *) {return 0;};
+  virtual void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d &) {}
   virtual int pack_reverse_comm(int, int, double *) {return 0;}
   virtual void unpack_reverse_comm(int, int *, double *) {}
   virtual double memory_usage();
 
-  void set_copymode(int value) { copymode = value; }
+  void set_copymode(int value) {copymode = value;}
 
   // specific child-class methods for certain Pair styles
 
@@ -189,17 +188,14 @@ class Pair : protected Pointers {
   virtual void min_xf_get(int) {}
   virtual void min_x_set(int) {}
 
-  virtual unsigned int data_mask() {return datamask;}
-  virtual unsigned int data_mask_ext() {return datamask_ext;}
-
   // management of callbacks to be run from ev_tally()
 
  protected:
   int num_tally_compute;
   class Compute **list_tally_compute;
  public:
-  void add_tally_callback(class Compute *);
-  void del_tally_callback(class Compute *);
+  virtual void add_tally_callback(class Compute *);
+  virtual void del_tally_callback(class Compute *);
 
  protected:
   int instance_me;        // which Pair class instantiation I am
@@ -225,7 +221,7 @@ class Pair : protected Pointers {
   int copymode;   // if set, do not deallocate during destruction
                   // required when classes are used as functors by Kokkos
 
-  virtual void ev_setup(int, int);
+  virtual void ev_setup(int, int, int alloc = 1);
   void ev_unset();
   void ev_tally_full(int, double, double, double, double, double, double);
   void ev_tally_xyz_full(int, double, double,

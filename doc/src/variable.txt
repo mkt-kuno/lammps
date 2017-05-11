@@ -13,7 +13,7 @@ variable command :h3
 variable name style args ... :pre
 
 name = name of variable to define :ulb,l
-style = {delete} or {index} or {loop} or {world} or {universe} or {uloop} or {string} or {format} or {getenv} or {file} or {atomfile} or {python} or {equal} or {vector} or {atom} :l
+style = {delete} or {index} or {loop} or {world} or {universe} or {uloop} or {string} or {format} or {getenv} or {file} or {atomfile} or {python} or {internal} or {equal} or {vector} or {atom} :l
   {delete} = no args
   {index} args = one or more strings
   {loop} args = N
@@ -41,28 +41,29 @@ style = {delete} or {index} or {loop} or {world} or {universe} or {uloop} or {st
   {file} arg = filename
   {atomfile} arg = filename
   {python} arg = function
+  {internal} arg = numeric value
   {equal} or {vector} or {atom} args = one formula containing numbers, thermo keywords, math operations, group functions, atom values and vectors, compute/fix/variable references
     numbers = 0.0, 100, -5.4, 2.8e-4, etc
     constants = PI, version, on, off, true, false, yes, no
     thermo keywords = vol, ke, press, etc from "thermo_style"_thermo_style.html
     math operators = (), -x, x+y, x-y, x*y, x/y, x^y, x%y,
-                     x == y, x != y, x &lt y, x &lt= y, x &gt y, x &gt= y, x && y, x || y, !x
+                     x == y, x != y, x < y, x <= y, x > y, x >= y, x && y, x || y, x |^ y, !x
     math functions = sqrt(x), exp(x), ln(x), log(x), abs(x),
                      sin(x), cos(x), tan(x), asin(x), acos(x), atan(x), atan2(y,x),
                      random(x,y,z), normal(x,y,z), ceil(x), floor(x), round(x)
-                     ramp(x,y), stagger(x,y), logfreq(x,y,z), logfreq2(x,y,z), 
-		     stride(x,y,z), stride2(x,y,z,a,b,c), 
-		     vdisplace(x,y), swiggle(x,y,z), cwiggle(x,y,z)
+                     ramp(x,y), stagger(x,y), logfreq(x,y,z), logfreq2(x,y,z),
+                     stride(x,y,z), stride2(x,y,z,a,b,c),
+                     vdisplace(x,y), swiggle(x,y,z), cwiggle(x,y,z)
     group functions = count(group), mass(group), charge(group),
-		      xcm(group,dim), vcm(group,dim), fcm(group,dim),
-		      bound(group,dir), gyration(group), ke(group),
-		      angmom(group,dim), torque(group,dim),
+                      xcm(group,dim), vcm(group,dim), fcm(group,dim),
+                      bound(group,dir), gyration(group), ke(group),
+                      angmom(group,dim), torque(group,dim),
                       inertia(group,dimdim), omega(group,dim)
     region functions = count(group,region), mass(group,region), charge(group,region),
-		      xcm(group,dim,region), vcm(group,dim,region), fcm(group,dim,region),
-		      bound(group,dir,region), gyration(group,region), ke(group,reigon),
-		      angmom(group,dim,region), torque(group,dim,region), 
-		      inertia(group,dimdim,region), omega(group,dim,region)
+                      xcm(group,dim,region), vcm(group,dim,region), fcm(group,dim,region),
+                      bound(group,dir,region), gyration(group,region), ke(group,reigon),
+                      angmom(group,dim,region), torque(group,dim,region),
+                      inertia(group,dimdim,region), omega(group,dim,region)
     special functions = sum(x), min(x), max(x), ave(x), trap(x), slope(x), gmask(x), rmask(x), grmask(x,y), next(x)
     feature functions = is_active(category,feature,exact), is_defined(category,id,exact)
     atom value = id\[i\], mass\[i\], type\[i\], mol\[i\], x\[i\], y\[i\], z\[i\], vx\[i\], vy\[i\], vz\[i\], fx\[i\], fy\[i\], fz\[i\], q\[i\]
@@ -83,6 +84,7 @@ variable b equal xcm(mol1,x)/2.0
 variable b equal c_myTemp
 variable b atom x*y/vol
 variable foo string myfile
+variable foo internal 3.5
 variable myPy python increase
 variable f file values.txt
 variable temp world 300.0 310.0 320.0 $\{Tfinal\}
@@ -119,7 +121,8 @@ input script that atom-style variables are used; they get their
 per-atom values from a file rather than from a formula.  Variables of
 style {python} can be hooked to Python functions using code you
 provide, so that the variable gets its value from the evaluation of
-the Python code.
+the Python code.  Variables of style {internal} are used by a few
+commands which set their value directly.
 
 NOTE: As discussed in "Section 3.2"_Section_commands.html#cmd_2 of the
 manual, an input script can use "immediate" variables, specified as
@@ -140,26 +143,34 @@ evaluation of the string.  Note that the same string can generate
 different values when it is evaluated at different times during a
 simulation.
 
-NOTE: When the input script line is encountered that defines a
-variable of style {equal} or {vector} or {atom} or {python} that
-contains a formula or Python code, the formula is NOT immediately
-evaluated.  It will be evaluated every time when the variable is
-[used] instead.  If you simply want to evaluate a formula in place you
-can use as so-called. See the section below about "Immediate
-Evaluation of Variables" for more details on the topic.  This is also
-true of a {format} style variable since it evaluates another variable
-when it is invoked.
+NOTE: When an input script line is encountered that defines a variable
+of style {equal} or {vector} or {atom} or {python} that contains a
+formula or Python code, the formula is NOT immediately evaluated.  It
+will be evaluated every time when the variable is [used] instead.  If
+you simply want to evaluate a formula in place you can use as
+so-called. See the section below about "Immediate Evaluation of
+Variables" for more details on the topic.  This is also true of a
+{format} style variable since it evaluates another variable when it is
+invoked.
 
-NOTE: Variables of style {equal} and {vector} and {atom} can be used
-as inputs to various other LAMMPS commands which evaluate their
-formulas as needed, e.g. at different timesteps during a
-"run"_run.html.  Variables of style {python} can be used in place of
-an equal-style variable so long as the associated Python function, as
-defined by the "python"_python.html command, returns a numeric value.
-Thus any command that states it can use an equal-style variable as an
-argument, can also use such a python-style variable.  This means that
-when the LAMMPS command evaluates the variable, the Python function
-will be executed.
+Variables of style {equal} and {vector} and {atom} can be used as
+inputs to various other commands which evaluate their formulas as
+needed, e.g. at different timesteps during a "run"_run.html.
+
+Variables of style {internal} can be used in place of an equal-style
+variable, except by commands that set the value stored by the
+internal-style variable.  Thus any command that states it can use an
+equal-style variable as an argument, can also use an internal-style
+variable.  This means that when the command evaluates the variable, it
+will use the value set (internally) by another command.
+
+Variables of style {python} can be used in place of an equal-style
+variable so long as the associated Python function, as defined by the
+"python"_python.html command, returns a numeric value.  Thus any
+command that states it can use an equal-style variable as an argument,
+can also use such a python-style variable.  This means that when the
+LAMMPS command evaluates the variable, the Python function will be
+executed.
 
 NOTE: When a variable command is encountered in the input script and
 the variable name has already been specified, the command is ignored.
@@ -172,12 +183,12 @@ will override a corresponding index variable setting in the input
 script.
 
 There are two exceptions to this rule.  First, variables of style
-{string}, {getenv}, {equal}, {vector}, {atom}, and {python} ARE
-redefined each time the command is encountered.  This allows these
-style of variables to be redefined multiple times in an input script.
-In a loop, this means the formula associated with an {equal} or {atom}
-style variable can change if it contains a substitution for another
-variable, e.g. $x or v_x.
+{string}, {getenv}, {internal}, {equal}, {vector}, {atom}, and
+{python} ARE redefined each time the command is encountered.  This
+allows these style of variables to be redefined multiple times in an
+input script.  In a loop, this means the formula associated with an
+{equal} or {atom} style variable can change if it contains a
+substitution for another variable, e.g. $x or v_x.
 
 Second, as described below, if a variable is iterated on to the end of
 its list of strings via the "next"_next.html command, it is removed
@@ -208,13 +219,13 @@ script or when the input script is looped over.  This can be useful
 when breaking out of a loop via the "if"_if.html and "jump"_jump.html
 commands before the variable would become exhausted.  For example,
 
-label	    loop
+label       loop
 variable    a loop 5
-print	    "A = $a"
-if	    "$a > 2" then "jump in.script break"
-next	    a
-jump	    in.script loop
-label	    break
+print       "A = $a"
+if          "$a > 2" then "jump in.script break"
+next        a
+jump        in.script loop
+label       break
 variable    a delete :pre
 
 :line
@@ -360,7 +371,7 @@ appear in the set, will remain 0.0.
 For the {python} style a Python function name is provided.  This needs
 to match a function name specified in a "python"_python.html command
 which returns a value to this variable as defined by its {return}
-keyword.  For exampe these two commands would be self-consistent:
+keyword.  For example these two commands would be self-consistent:
 
 variable foo python myMultiply
 python myMultiply return v_foo format f file funcs.py :pre
@@ -381,6 +392,16 @@ it is a numeric value (integer or floating point), then the
 python-style variable can be used in place of an equal-style variable
 anywhere in an input script, e.g. as an argument to another command
 that allows for equal-style variables.
+
+For the {internal} style a numeric value is provided.  This value will
+be assigned to the variable until a LAMMPS command sets it to a new
+value.  There are currently only two LAMMPS commands that require
+{internal} variables as inputs, because they reset them:
+"create_atoms"_create_atoms.html and "fix
+controller"_fix_controller.html.  As mentioned above, an
+internal-style variable can be used in place of an equal-style
+variable anywhere else in an input script, e.g. as an argument to
+another command that allows for equal-style variables.
 
 :line
 
@@ -428,9 +449,8 @@ references, and references to other variables.
 Number: 0.2, 100, 1.0e20, -15.4, etc
 Constant: PI, version, on, off, true, false, yes, no
 Thermo keywords: vol, pe, ebond, etc
-Math operators: (), -x, x+y, x-y, x*y, x/y, x^y, x%y, 
 Math operators: (), -x, x+y, x-y, x*y, x/y, x^y, x%y, \
-     x == y, x != y, x &lt y, x &lt= y, x &gt y, x &gt= y, x && y, x || y, !x
+     x == y, x != y, x < y, x <= y, x > y, x >= y, x && y, x || y, x |^ y, !x
 Math functions: sqrt(x), exp(x), ln(x), log(x), abs(x), \
      sin(x), cos(x), tan(x), asin(x), acos(x), atan(x), atan2(y,x), \
      random(x,y,z), normal(x,y,z), ceil(x), floor(x), round(x), \
@@ -481,7 +501,7 @@ the group.
 
 :line
 
-Numers, constants, and thermo keywords :h4
+Numbers, constants, and thermo keywords :h4
 
 Numbers can contain digits, scientific notation
 (3.0e20,3.0e-20,3.0E20,3.0E-20), and leading minus signs.
@@ -531,9 +551,10 @@ division and the modulo operator "%" are next; addition and
 subtraction are next; the 4 relational operators "<", "<=", ">", and
 ">=" are next; the two remaining relational operators "==" and "!="
 are next; then the logical AND operator "&&"; and finally the logical
-OR operator "||" has the lowest precedence.  Parenthesis can be used
-to group one or more portions of a formula and/or enforce a different
-order of evaluation than what would occur with the default precedence.
+OR operator "||" and logical XOR (exclusive or) operator "|^" have the
+lowest precedence.  Parenthesis can be used to group one or more
+portions of a formula and/or enforce a different order of evaluation
+than what would occur with the default precedence.
 
 NOTE: Because a unary minus is higher precedence than exponentiation,
 the formula "-2^2" will evaluate to 4, not -4.  This convention is
@@ -548,12 +569,14 @@ return 1.0 for all atoms whose x-coordinate is less than 10.0, and 0.0
 for the others.  The logical AND operator will return 1.0 if both its
 arguments are non-zero, else it returns 0.0.  The logical OR operator
 will return 1.0 if either of its arguments is non-zero, else it
-returns 0.0.  The logical NOT operator returns 1.0 if its argument is
-0.0, else it returns 0.0.
+returns 0.0.  The logical XOR operator will return 1.0 if one of its
+arguments is zero and the other non-zero, else it returns 0.0.  The
+logical NOT operator returns 1.0 if its argument is 0.0, else it
+returns 0.0.
 
 These relational and logical operators can be used as a masking or
 selection operation in a formula.  For example, the number of atoms
-whose properties satifsy one or more criteria could be calculated by
+whose properties satisfy one or more criteria could be calculated by
 taking the returned per-atom vector of ones and zeroes and passing it
 to the "compute reduce"_compute_reduce.html command.
 
@@ -571,7 +594,7 @@ vector.  For example, "sqrt(natoms)" is the sqrt() of a scalar, where
 sqrt() of the product of one atom's y and z coordinates.
 
 Most of the math functions perform obvious operations.  The ln() is
-the natural log; log() is the base 10 log. 
+the natural log; log() is the base 10 log.
 
 The random(x,y,z) function takes 3 arguments: x = lo, y = hi, and z =
 seed.  It generates a uniform random number between lo and hi.  The
@@ -600,7 +623,7 @@ Floor() if the largest integer not greater than its argument.  Round()
 is the nearest integer to its argument.
 
 The ramp(x,y) function uses the current timestep to generate a value
-linearly intepolated between the specified x,y values over the course
+linearly interpolated between the specified x,y values over the course
 of a run, according to this formula:
 
 value = x + (y-x) * (timestep-startstep) / (stopstep-startstep) :pre
@@ -646,7 +669,7 @@ sequence of output timesteps:
 The stride(x,y,z) function uses the current timestep to generate a new
 timestep.  X,y >= 0 and z > 0 and x <= y are required.  The generated
 timesteps increase in increments of z, from x to y, i.e. it generates
-the sequece x,x+z,x+2z,...,y.  If y-x is not a multiple of z, then
+the sequence x,x+z,x+2z,...,y.  If y-x is not a multiple of z, then
 similar to the way a for loop operates, the last value will be one
 that does not exceed y.  For any current timestep, the next timestep
 in the sequence is returned.  Thus if stride(1000,2000,100) is used
@@ -758,7 +781,7 @@ is for a vector-style variable where "name" is replaced by the name of
 the variable.
 
 These functions operate on a global vector of inputs and reduce it to
-a single scalar value.  This is analagous to the operation of the
+a single scalar value.  This is analogous to the operation of the
 "compute reduce"_compute_reduce.html command, which performs similar
 operations on per-atom and local vectors.
 
@@ -874,11 +897,25 @@ The {is_defined()} function allows to query categories like {compute},
 {dump}, {fix}, {group}, {region}, and {variable} whether an entry
 with the provided name or id is defined.
 
-The {is_available()} function allows to query whether a specific
-optional feature is available, i.e. compiled in. This currently
-works for the following categories: {command}, {compute}, {fix},
-and {pair_style}. For all categories except {command} also appending
-active suffixes is tried before reporting failure.
+The {is_available(category,name)} function allows to query whether
+a specific optional feature is available, i.e. compiled in.
+This currently works for the following categories: {command},
+{compute}, {fix}, {pair_style} and {feature}. For all categories
+except {command} and {feature} also appending active suffixes is
+tried before reporting failure.
+
+The {feature} category is used to check the availability of compiled in
+features such as GZIP support, PNG support, JPEG support, FFMPEG support,
+and C++ exceptions for error handling. Corresponding values for name are
+{gzip}, {png}, {jpeg}, {ffmpeg} and {exceptions}.
+
+This enables writing input scripts which only dump using a given format if
+the compiled binary supports it.
+
+if "$(is_available(feature,png))" then "print 'PNG supported'" else "print 'PNG not supported'" :pre
+
+if "$(is_available(feature,ffmpeg)" then "dump 3 all movie 25 movie.mp4 type type zoom 1.6 adiam 1.0" :pre
+
 
 :line
 
@@ -1028,10 +1065,10 @@ Variable References :h4
 Variable references access quantities stored or calculated by other
 variables, which will cause those variables to be evaluated.  The name
 in the reference should be replaced by the name of a variable defined
-elsewhere in the input script. 
+elsewhere in the input script.
 
 As discussed on this doc page, equal-style variables generate a single
-global numeric value, vector-style variables gerarate a vector of
+global numeric value, vector-style variables generate a vector of
 global numeric values, and atom-style and atomfile-style variables
 generate a per-atom vector of numeric values.  All other variables
 store one or more strings.
@@ -1087,8 +1124,8 @@ with a leading $ sign (e.g. $x or $\{abc\}) versus with a leading "v_"
 (e.g. v_x or v_abc).  The former can be used in any input script
 command, including a variable command.  The input script parser
 evaluates the reference variable immediately and substitutes its value
-into the command.  As explained in "Section commands
-3.2"_Section_commands.html#3_2 for "Parsing rules", you can also use
+into the command.  As explained in "Section
+3.2"_Section_commands.html#cmd_2 for "Parsing rules", you can also use
 un-named "immediate" variables for this purpose.  For example, a
 string like this $((xlo+xhi)/2+sqrt(v_area)) in an input script
 command evaluates the string between the parenthesis as an equal-style
@@ -1096,7 +1133,7 @@ variable formula.
 
 Referencing a variable with a leading "v_" is an optional or required
 kind of argument for some commands (e.g. the "fix
-ave/spatial"_fix_ave_spatial.html or "dump custom"_dump.html or
+ave/chunk"_fix_ave_chunk.html or "dump custom"_dump.html or
 "thermo_style"_thermo_style.html commands) if you wish it to evaluate
 a variable periodically during a run.  It can also be used in a
 variable formula if you wish to reference a second variable.  The
@@ -1132,7 +1169,7 @@ would print out both the current and initial volume periodically
 during the run.
 
 Note that it is a mistake to enclose a variable formula in double
-quotes if it contains variables preceeded by $ signs.  For example,
+quotes if it contains variables preceded by $ signs.  For example,
 
 variable vratio equal "$\{vfinal\}/$\{v0\}" :pre
 
@@ -1177,7 +1214,7 @@ three kinds of behavior:
 
 (1) The variable may be evaluated accurately.  If it contains
 references to a compute or fix, and these values were calculated on
-the last timestep of a preceeding run, then they will be accessed and
+the last timestep of a preceding run, then they will be accessed and
 used by the variable and the result will be accurate.
 
 (2) LAMMPS may not be able to evaluate the variable and will generate

@@ -37,7 +37,8 @@ enum{CONSTANT,EQUAL};
 /* ---------------------------------------------------------------------- */
 
 FixTempRescale::FixTempRescale(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  tstr(NULL), id_temp(NULL), tflag(0)
 {
   if (narg < 8) error->all(FLERR,"Illegal fix temp/rescale command");
 
@@ -138,7 +139,7 @@ void FixTempRescale::end_of_step()
 
   if (temperature->dof < 1) return;
 
-  // protect against division by zero.
+  // protect against division by zero
 
   if (t_current == 0.0)
     error->all(FLERR,"Computed temperature for fix temp/rescale cannot be 0.0");

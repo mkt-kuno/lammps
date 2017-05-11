@@ -33,10 +33,10 @@ template<class DeviceType>
 class RegBlockKokkos : public RegBlock {
   friend class FixPour;
 
+ public:
   typedef DeviceType device_type;
   typedef ArrayTypes<DeviceType> AT;
 
- public:
   RegBlockKokkos(class LAMMPS *, int, char **);
   ~RegBlockKokkos();
   void match_all_kokkos(int, DAT::t_int_1d);
@@ -52,7 +52,7 @@ class RegBlockKokkos : public RegBlock {
   typename AT::t_int_1d_randomread mask;
 
   KOKKOS_INLINE_FUNCTION
-  int inside(double, double, double) const;
+  int k_inside(double, double, double) const;
   KOKKOS_INLINE_FUNCTION
   int match(double, double, double) const;
   KOKKOS_INLINE_FUNCTION

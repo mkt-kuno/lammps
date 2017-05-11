@@ -1,10 +1,18 @@
 // -*- c++ -*-
 
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 #include <cstdlib>
 #include <stdlib.h>
 #include <string.h>
 
 #include "colvarscript.h"
+#include "colvardeps.h"
 
 
 colvarscript::colvarscript(colvarproxy *p)
@@ -13,6 +21,36 @@ colvarscript::colvarscript(colvarproxy *p)
    proxy_error(0)
 {
 }
+
+
+extern "C" {
+
+  // Generic hooks; NAMD and VMD have Tcl-specific versions in the respective proxies
+
+  int run_colvarscript_command(int argc, const char **argv)
+  {
+    colvarproxy *cvp = cvm::proxy;
+    if (!cvp) {
+      return -1;
+    }
+    if (!cvp->script) {
+      cvm::error("Called run_colvarscript_command without a script object initialized.\n");
+      return -1;
+    }
+    return cvp->script->run(argc, argv);
+  }
+
+  const char * get_colvarscript_result()
+  {
+    colvarproxy *cvp = cvm::proxy;
+    if (!cvp->script) {
+      cvm::error("Called run_colvarscript_command without a script object initialized.\n");
+      return "";
+    }
+    return cvp->script->result.c_str();
+  }
+}
+
 
 /// Run method based on given arguments
 int colvarscript::run(int argc, char const *argv[]) {
@@ -55,14 +93,14 @@ int colvarscript::run(int argc, char const *argv[]) {
   if (cmd == "delete") {
     // Note: the delete bit may be ignored by some backends
     // it is mostly useful in VMD
-    colvars->set_error_bit(DELETE_COLVARS);
+    colvars->set_error_bits(DELETE_COLVARS);
     return COLVARS_OK;
   }
 
   if (cmd == "update") {
-    cvm::combine_errors(error_code, proxy->update_input());
-    cvm::combine_errors(error_code, colvars->calc());
-    cvm::combine_errors(error_code, proxy->update_output());
+    error_code |= proxy->update_input();
+    error_code |= colvars->calc();
+    error_code |= proxy->update_output();
     if (error_code) {
       result += "Error updating the colvars module.\n";
     }
@@ -125,7 +163,7 @@ int colvarscript::run(int argc, char const *argv[]) {
       result = "Missing arguments\n" + help_string();
       return COLVARSCRIPT_ERROR;
     }
-    proxy->input_prefix_str = argv[2];
+    proxy->input_prefix() = argv[2];
     if (colvars->setup_input() == COLVARS_OK) {
       return COLVARS_OK;
     } else {
@@ -142,8 +180,8 @@ int colvarscript::run(int argc, char const *argv[]) {
     }
     proxy->output_prefix_str = argv[2];
     int error = 0;
-    cvm::combine_errors(error, colvars->setup_output());
-    cvm::combine_errors(error, colvars->write_output_files());
+    error |= colvars->setup_output();
+    error |= colvars->write_output_files();
     return error ? COLVARSCRIPT_ERROR : COLVARS_OK;
   }
 
@@ -163,8 +201,9 @@ int colvarscript::run(int argc, char const *argv[]) {
 
   if (cmd == "frame") {
     if (argc == 2) {
-      int f = proxy->frame();
-      if (f >= 0) {
+      long int f;
+      int error = proxy->get_frame(f);
+      if (error == COLVARS_OK) {
         result = cvm::to_str(f);
         return COLVARS_OK;
       } else {
@@ -173,13 +212,22 @@ int colvarscript::run(int argc, char const *argv[]) {
       }
     } else if (argc == 3) {
       // Failure of this function does not trigger an error, but
-      // returns the plain result to let scripts detect available frames
-      long int f = proxy->frame(strtol(argv[2], NULL, 10));
-      colvars->it = proxy->frame();
-      result = cvm::to_str(f);
+      // returns nonzero, to let scripts detect available frames
+      int error = proxy->set_frame(strtol(argv[2], NULL, 10));
+      result = cvm::to_str(error == COLVARS_OK ? 0 : -1);
       return COLVARS_OK;
     } else {
       result = "Wrong arguments to command \"frame\"\n" + help_string();
+      return COLVARSCRIPT_ERROR;
+    }
+  }
+
+  if (cmd == "addenergy") {
+    if (argc == 3) {
+      colvars->total_bias_energy += strtod(argv[2], NULL);
+      return COLVARS_OK;
+    } else {
+      result = "Wrong arguments to command \"addenergy\"\n" + help_string();
       return COLVARSCRIPT_ERROR;
     }
   }
@@ -226,10 +274,11 @@ int colvarscript::proc_colvar(int argc, char const *argv[]) {
   }
 
   if (subcmd == "delete") {
-    if (cv->biases.size() > 0) {
-      result = "Cannot delete a colvar currently used by biases, delete those biases first";
-      return COLVARSCRIPT_ERROR;
+    size_t i;
+    for (i = 0; i < cv->biases.size(); i++) {
+      delete cv->biases[i];
     }
+    cv->biases.resize(0);
     // colvar destructor is tasked with the cleanup
     delete cv;
     // TODO this could be done by the destructors
@@ -243,12 +292,18 @@ int colvarscript::proc_colvar(int argc, char const *argv[]) {
   }
 
   if (subcmd == "getappliedforce") {
-    result = (cv->bias_force()).to_simple_string();
+    result = (cv->applied_force()).to_simple_string();
     return COLVARS_OK;
   }
 
   if (subcmd == "getsystemforce") {
-    result = (cv->system_force()).to_simple_string();
+    // TODO warning here
+    result = (cv->total_force()).to_simple_string();
+    return COLVARS_OK;
+  }
+
+  if (subcmd == "gettotalforce") {
+    result = (cv->total_force()).to_simple_string();
     return COLVARS_OK;
   }
 
@@ -293,6 +348,10 @@ int colvarscript::proc_colvar(int argc, char const *argv[]) {
     }
     result = "0";
     return COLVARS_OK;
+  }
+
+  if ((subcmd == "get") || (subcmd == "set") || (subcmd == "state")) {
+    return proc_features(cv, argc, argv);
   }
 
   result = "Syntax error\n" + help_string();
@@ -367,6 +426,10 @@ int colvarscript::proc_bias(int argc, char const *argv[]) {
     return COLVARS_OK;
   }
 
+  if ((subcmd == "get") || (subcmd == "set") || (subcmd == "state")) {
+    return proc_features(b, argc, argv);
+  }
+
   if (argc >= 4) {
     std::string param = argv[3];
     if (subcmd == "count") {
@@ -381,6 +444,83 @@ int colvarscript::proc_bias(int argc, char const *argv[]) {
 
     result = "Syntax error\n" + help_string();
     return COLVARSCRIPT_ERROR;
+  }
+
+  result = "Syntax error\n" + help_string();
+  return COLVARSCRIPT_ERROR;
+}
+
+
+int colvarscript::proc_features(colvardeps *obj,
+                                int argc, char const *argv[]) {
+  // size was already checked before calling
+  std::string subcmd = argv[2];
+
+  if (argc == 3) {
+    if (subcmd == "state") {
+      // TODO make this returned as result?
+      obj->print_state();
+      return COLVARS_OK;
+    }
+
+    // get and set commands require more arguments
+    result = "Syntax error\n" + help_string();
+    return COLVARSCRIPT_ERROR;
+  }
+
+  if ((subcmd == "get") || (subcmd == "set")) {
+    std::vector<colvardeps::feature *> &features = obj->features();
+    std::string const req_feature(argv[3]);
+    colvardeps::feature *f = NULL;
+    int fid = 0;
+    for (fid = 0; fid < int(features.size()); fid++) {
+      if (features[fid]->description ==
+          colvarparse::to_lower_cppstr(req_feature)) {
+        f = features[fid];
+        break;
+      }
+    }
+
+    if (f == NULL) {
+
+      result = "Error: feature \""+req_feature+"\" does not exist.\n";
+      return COLVARSCRIPT_ERROR;
+
+    } else {
+
+      if (! obj->is_available(fid)) {
+        result = "Error: feature \""+req_feature+"\" is unavailable.\n";
+        return COLVARSCRIPT_ERROR;
+      }
+
+      if (subcmd == "get") {
+        result = cvm::to_str(obj->is_enabled(fid) ? 1 : 0);
+        return COLVARS_OK;
+      }
+
+      if (subcmd == "set") {
+        if (argc == 5) {
+          std::string const yesno =
+            colvarparse::to_lower_cppstr(std::string(argv[4]));
+          if ((yesno == std::string("yes")) ||
+              (yesno == std::string("on")) ||
+              (yesno == std::string("1"))) {
+            obj->enable(fid);
+            return COLVARS_OK;
+          } else if ((yesno == std::string("no")) ||
+              (yesno == std::string("off")) ||
+              (yesno == std::string("0"))) {
+            // TODO disable() function does not exist yet,
+            // dependencies will not be resolved
+            // obj->disable(fid);
+            obj->set_enabled(fid, false);
+            return COLVARS_OK;
+          }
+        }
+        result = "Syntax error\n" + help_string();
+        return COLVARSCRIPT_ERROR;
+      }
+    }
   }
 
   result = "Syntax error\n" + help_string();
@@ -406,10 +546,12 @@ Input and output:\n\
   load <file name>            -- load a state file (requires configuration)\n\
   save <file name>            -- save a state file (requires configuration)\n\
   update                      -- recalculate colvars and biases\n\
+  addenergy <E>               -- add <E> to the total bias energy\n\
   printframe                  -- return a summary of the current frame\n\
   printframelabels            -- return labels to annotate printframe's output\n";
 
-  if (proxy->frame() != COLVARS_NOT_IMPLEMENTED) {
+  long int tmp;
+  if (proxy->get_frame(tmp) != COLVARS_NOT_IMPLEMENTED) {
       buf += "\
   frame                       -- return current frame number\n\
   frame <new_frame>           -- set frame number\n";
@@ -424,12 +566,17 @@ Accessing collective variables:\n\
   colvar <name> addforce <F>  -- apply given force on colvar <name>\n\
   colvar <name> getconfig     -- return config string of colvar <name>\n\
   colvar <name> cvcflags <fl> -- enable or disable cvcs according to 0/1 flags\n\
+  colvar <name> get <f>       -- get the value of the colvar feature <f>\n\
+  colvar <name> set <f> <val> -- set the value of the colvar feature <f>\n\
 \n\
 Accessing biases:\n\
   bias <name> energy          -- return the current energy of bias <name>\n\
   bias <name> update          -- recalculate bias <name>\n\
   bias <name> delete          -- delete bias <name>\n\
-  bias <name> getconfig       -- return config string of bias <name>\n";
+  bias <name> getconfig       -- return config string of bias <name>\n\
+  bias <name> get <f>         -- get the value of the bias feature <f>\n\
+  bias <name> set <f> <val>   -- set the value of the bias feature <f>\n\
+";
 
   return buf;
 }

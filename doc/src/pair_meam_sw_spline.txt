@@ -23,16 +23,16 @@ pair_coeff * * Ti.meam.sw.spline Ti Ti Ti :pre
 
 The {meam/sw/spline} style computes pairwise interactions for metals
 using a variant of modified embedded-atom method (MEAM) potentials
-"(Lenosky)"_#Lenosky with an additional Stillinger-Weber (SW) term
-"(Stillinger)"_#Stillinger in the energy.  This form of the potential
+"(Lenosky)"_#Lenosky2 with an additional Stillinger-Weber (SW) term
+"(Stillinger)"_#Stillinger1 in the energy.  This form of the potential
 was first proposed by Nicklas, Fellinger, and Park
 "(Nicklas)"_#Nicklas.  We refer to it as MEAM+SW.  The total energy E
 is given by
 
 :c,image(Eqs/pair_meam_sw_spline.jpg)
 
-where rho_I is the density at atom I, theta_JIK is the angle between 
-atoms J, I, and K centered on atom I. The seven functions 
+where rho_I is the density at atom I, theta_JIK is the angle between
+atoms J, I, and K centered on atom I. The seven functions
 Phi, F, G, U, rho, f, and g are represented by cubic splines.
 
 The cutoffs and the coefficients for these spline functions are listed
@@ -89,7 +89,7 @@ in the examples/USER/misc/meam_sw_spline directory.
 
 [Mixing, shift, table, tail correction, restart, rRESPA info]:
 
-The pair style does not support multiple element types or mixing. 
+The pair style does not support multiple element types or mixing.
 It has been designed for pure elements only.
 
 This pair style does not support the "pair_modify"_pair_modify.html
@@ -123,15 +123,15 @@ See the "Making LAMMPS"_Section_start.html#start_3 section for more info.
 
 :line
 
-:link(Lenosky)
+:link(Lenosky2)
 [(Lenosky)] Lenosky, Sadigh, Alonso, Bulatov, de la Rubia, Kim, Voter,
 Kress, Modell. Simul. Mater. Sci. Eng. 8, 825 (2000).
 
-:link(Stillinger)
+:link(Stillinger1)
 [(Stillinger)] Stillinger, Weber, Phys. Rev. B 31, 5262 (1985).
 
 :link(Nicklas)
-[(Nicklas)] 
+[(Nicklas)]
 The spline-based MEAM+SW format was first devised and used to develop
 potentials for bcc transition metals by Jeremy Nicklas, Michael Fellinger,
 and Hyoungki Park at The Ohio State University.

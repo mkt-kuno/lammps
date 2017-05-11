@@ -87,7 +87,8 @@ Comm::Comm(LAMMPS *lmp) : Pointers(lmp)
   } else if (getenv("OMP_NUM_THREADS") == NULL) {
     nthreads = 1;
     if (me == 0)
-      error->warning(FLERR,"OMP_NUM_THREADS environment is not set.");
+      error->message(FLERR,"OMP_NUM_THREADS environment is not set. "
+                           "Defaulting to 1 thread.");
   } else {
     nthreads = omp_get_max_threads();
   }
@@ -265,7 +266,8 @@ void Comm::modify_params(int narg, char **arg)
     } else if (strcmp(arg[iarg],"cutoff") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal comm_modify command");
       if (mode == MULTI)
-        error->all(FLERR,"Use cutoff/multi keyword to set cutoff in multi mode");
+        error->all(FLERR,
+                   "Use cutoff/multi keyword to set cutoff in multi mode");
       cutghostuser = force->numeric(FLERR,arg[iarg+1]);
       if (cutghostuser < 0.0)
         error->all(FLERR,"Invalid cutoff in comm_modify command");
@@ -286,7 +288,7 @@ void Comm::modify_params(int narg, char **arg)
         for (i=0; i < ntypes+1; ++i)
           cutusermulti[i] = -1.0;
       }
-      force->bounds(arg[iarg+1],ntypes,nlo,nhi,1);
+      force->bounds(FLERR,arg[iarg+1],ntypes,nlo,nhi,1);
       cut = force->numeric(FLERR,arg[iarg+2]);
       cutghostuser = MAX(cutghostuser,cut);
       if (cut < 0.0)
@@ -687,6 +689,10 @@ void Comm::ring(int n, int nper, void *inbuf, int messtag,
   int nbytes = n*nper;
   int maxbytes;
   MPI_Allreduce(&nbytes,&maxbytes,1,MPI_INT,MPI_MAX,world);
+
+  // no need to communicate without data
+
+  if (maxbytes == 0) return;
 
   char *buf,*bufcopy;
   memory->create(buf,maxbytes,"comm:buf");

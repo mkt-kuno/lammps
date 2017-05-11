@@ -34,6 +34,8 @@ struct TagPairSWComputeFullA{};
 template<int NEIGHFLAG, int EVFLAG>
 struct TagPairSWComputeFullB{};
 
+struct TagPairSWComputeShortNeigh{};
+
 namespace LAMMPS_NS {
 
 template<class DeviceType>
@@ -75,6 +77,9 @@ class PairSWKokkos : public PairSW {
   KOKKOS_INLINE_FUNCTION
   void operator()(TagPairSWComputeFullB<NEIGHFLAG,EVFLAG>, const int&) const;
 
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagPairSWComputeShortNeigh, const int&) const;
+
   template<int NEIGHFLAG>
   KOKKOS_INLINE_FUNCTION
   void ev_tally(EV_FLOAT &ev, const int &i, const int &j,
@@ -113,29 +118,32 @@ class PairSWKokkos : public PairSW {
   void threebodyj(const Param&, const Param&, const Param&, const F_FLOAT&, const F_FLOAT&, F_FLOAT *, F_FLOAT *,
                  F_FLOAT *) const;
 
-  typename ArrayTypes<DeviceType>::t_x_array_randomread x;
-  typename ArrayTypes<DeviceType>::t_f_array f;
-  typename ArrayTypes<DeviceType>::t_tagint_1d tag;
-  typename ArrayTypes<DeviceType>::t_int_1d_randomread type;
+  typename AT::t_x_array_randomread x;
+  typename AT::t_f_array f;
+  typename AT::t_tagint_1d tag;
+  typename AT::t_int_1d_randomread type;
 
   DAT::tdual_efloat_1d k_eatom;
   DAT::tdual_virial_array k_vatom;
-  DAT::t_efloat_1d d_eatom;
-  DAT::t_virial_array d_vatom;
+  typename ArrayTypes<DeviceType>::t_efloat_1d d_eatom;
+  typename ArrayTypes<DeviceType>::t_virial_array d_vatom;
 
   DAT::t_int_1d_randomread d_type2frho;
   DAT::t_int_2d_randomread d_type2rhor;
   DAT::t_int_2d_randomread d_type2z2r;
 
-  typename ArrayTypes<DeviceType>::t_neighbors_2d d_neighbors;
-  typename ArrayTypes<DeviceType>::t_int_1d_randomread d_ilist;
-  typename ArrayTypes<DeviceType>::t_int_1d_randomread d_numneigh;
+  typename AT::t_neighbors_2d d_neighbors;
+  typename AT::t_int_1d_randomread d_ilist;
+  typename AT::t_int_1d_randomread d_numneigh;
   //NeighListKokkos<DeviceType> k_list;
 
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;
 
   int inum;
+  Kokkos::View<int**,DeviceType> d_neighbors_short;
+  Kokkos::View<int*,DeviceType> d_numneigh_short;
+
 
   friend void pair_virial_fdotr_compute<PairSWKokkos>(PairSWKokkos*);
 };

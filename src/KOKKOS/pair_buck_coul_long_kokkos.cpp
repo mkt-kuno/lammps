@@ -109,10 +109,23 @@ void PairBuckCoulLongKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   eflag = eflag_in;
   vflag = vflag_in;
 
-  if (neighflag == FULL || neighflag == FULLCLUSTER) no_virial_fdotr_compute = 1;
+  if (neighflag == FULL) no_virial_fdotr_compute = 1;
 
-  if (eflag || vflag) ev_setup(eflag,vflag);
+  if (eflag || vflag) ev_setup(eflag,vflag,0);
   else evflag = vflag_fdotr = 0;
+
+  // reallocate per-atom arrays if necessary
+
+  if (eflag_atom) {
+    memory->destroy_kokkos(k_eatom,eatom);
+    memory->create_kokkos(k_eatom,eatom,maxeatom,"pair:eatom");
+    d_eatom = k_eatom.view<DeviceType>();
+  }
+  if (vflag_atom) {
+    memory->destroy_kokkos(k_vatom,vatom);
+    memory->create_kokkos(k_vatom,vatom,maxvatom,6,"pair:vatom");
+    d_vatom = k_vatom.view<DeviceType>();
+  }
 
   atomKK->sync(execution_space,datamask_read);
   k_cutsq.template sync<DeviceType>();
@@ -458,11 +471,9 @@ void PairBuckCoulLongKokkos<DeviceType>::init_style()
   if (neighflag == FULL) {
     neighbor->requests[irequest]->full = 1;
     neighbor->requests[irequest]->half = 0;
-    neighbor->requests[irequest]->full_cluster = 0;
   } else if (neighflag == HALF || neighflag == HALFTHREAD) {
     neighbor->requests[irequest]->full = 0;
     neighbor->requests[irequest]->half = 1;
-    neighbor->requests[irequest]->full_cluster = 0;
   } else {
     error->all(FLERR,"Cannot use chosen neighbor list style with buck/coul/long/kk");
   }

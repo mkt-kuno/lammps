@@ -43,6 +43,8 @@ class FixIntel : public Fix {
   virtual int setmask();
   virtual void init();
   virtual void setup(int);
+  void setup_pre_reverse(int eflag = 0, int vflag = 0);
+
   void pair_init_check(const bool cdmessage=false);
   void bond_init_check();
   void kspace_init_check();
@@ -74,6 +76,10 @@ class FixIntel : public Fix {
     return 0;
   }
   inline void set_reduce_flag() { _need_reduce = 1; }
+  inline int lrt() {
+    if (force->kspace_match("pppm/intel", 0)) return _lrt;
+    else return 0;
+  }
 
  protected:
   IntelBuffers<float,float> *_single_buffers;
@@ -152,7 +158,7 @@ class FixIntel : public Fix {
  protected:
   int _overflow_flag[5];
   _alignvar(int _off_overflow_flag[5],64);
-  int _allow_separate_buffers, _offload_ghost;
+  int _allow_separate_buffers, _offload_ghost, _lrt;
 
   IntelBuffers<float,float>::vec3_acc_t *_force_array_s;
   IntelBuffers<float,double>::vec3_acc_t *_force_array_m;

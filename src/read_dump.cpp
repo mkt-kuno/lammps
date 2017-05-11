@@ -48,7 +48,7 @@ using namespace LAMMPS_NS;
 
 // also in reader_native.cpp
 
-enum{ID,TYPE,X,Y,Z,VX,VY,VZ,Q,IX,IY,IZ};
+enum{ID,TYPE,X,Y,Z,VX,VY,VZ,Q,IX,IY,IZ,FX,FY,FZ};
 enum{UNSET,NOSCALE_NOWRAP,NOSCALE_WRAP,SCALE_NOWRAP,SCALE_WRAP};
 
 /* ---------------------------------------------------------------------- */
@@ -607,7 +607,8 @@ int ReadDump::fields_and_keywords(int narg, char **arg)
 
   if (dimension == 2) {
     for (int i = 0; i < nfield; i++)
-      if (fieldtype[i] == Z || fieldtype[i] == VZ || fieldtype[i] == IZ)
+      if (fieldtype[i] == Z || fieldtype[i] == VZ || 
+          fieldtype[i] == IZ || fieldtype[i] == FZ)
         error->all(FLERR,"Illegal read_dump command");
   }
 
@@ -719,6 +720,9 @@ int ReadDump::whichtype(char *str)
   else if (strcmp(str,"ix") == 0) type = IX;
   else if (strcmp(str,"iy") == 0) type = IY;
   else if (strcmp(str,"iz") == 0) type = IZ;
+  else if (strcmp(str,"fx") == 0) type = FX;
+  else if (strcmp(str,"fy") == 0) type = FY;
+  else if (strcmp(str,"fz") == 0) type = FZ;
   return type;
 }
 
@@ -741,6 +745,7 @@ void ReadDump::process_atoms(int n)
   double **x = atom->x;
   double **v = atom->v;
   double *q = atom->q;
+  double **f = atom->f;
   imageint *image = atom->image;
   int nlocal = atom->nlocal;
   tagint map_tag_max = atom->map_tag_max;
@@ -804,6 +809,15 @@ void ReadDump::process_atoms(int n)
           break;
         case IZ:
           zbox = static_cast<int> (fields[i][ifield]);
+          break;
+        case FX:
+          f[m][0] = fields[i][ifield];
+          break;
+        case FY:
+          f[m][1] = fields[i][ifield];
+          break;
+        case FZ:
+          f[m][2] = fields[i][ifield];
           break;
         }
       }
@@ -908,27 +922,9 @@ void ReadDump::process_atoms(int n)
     }
   }
 
-  // invoke set_arrays() for fixes/computes/variables
-  //   that need initialization of attributes of new atoms
-  // same as in CreateAtoms
-  // don't use modify->create_attributes() since would be inefficient
-  //   for large number of atoms
-
-  nlocal = atom->nlocal;
-  for (int m = 0; m < modify->nfix; m++) {
-    Fix *fix = modify->fix[m];
-    if (fix->create_attribute)
-      for (i = nlocal_previous; i < nlocal; i++)
-        fix->set_arrays(i);
-  }
-  for (int m = 0; m < modify->ncompute; m++) {
-    Compute *compute = modify->compute[m];
-    if (compute->create_attribute)
-      for (i = nlocal_previous; i < nlocal; i++)
-        compute->set_arrays(i);
-  }
-  for (int i = nlocal_previous; i < nlocal; i++)
-    input->variable->set_arrays(i);
+  // init per-atom fix/compute/variable values for created atoms
+  
+  atom->data_fix_compute_variable(nlocal_previous,atom->nlocal);
 }
 
 /* ----------------------------------------------------------------------

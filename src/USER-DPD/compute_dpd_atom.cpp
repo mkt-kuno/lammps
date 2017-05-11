@@ -15,7 +15,7 @@
    Contributing author: James Larentzos (U.S. Army Research Laboratory)
 ------------------------------------------------------------------------- */
 
-#include "math.h"
+#include <math.h>
 #include <string.h>
 #include <stdlib.h>
 #include "compute_dpd_atom.h"
@@ -35,15 +35,14 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 ComputeDpdAtom::ComputeDpdAtom(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg), dpdAtom(NULL)
 {
   if (narg != 3) error->all(FLERR,"Illegal compute dpd/atom command");
 
   peratom_flag = 1;
-  size_peratom_cols = 3;
+  size_peratom_cols = 4;
 
   nmax = 0;
-  dpdAtom = NULL;
 
   if (atom->dpd_flag != 1) error->all(FLERR,"compute dpd requires atom_style with internal temperature and energies (e.g. dpd)");
 }
@@ -77,6 +76,7 @@ void ComputeDpdAtom::compute_peratom()
 
   double *uCond = atom->uCond;
   double *uMech = atom->uMech;
+  double *uChem = atom->uChem;
   double *dpdTheta = atom->dpdTheta;
   int nlocal = atom->nlocal;
   int *mask = atom->mask;
@@ -91,7 +91,8 @@ void ComputeDpdAtom::compute_peratom()
     if (mask[i] & groupbit){
       dpdAtom[i][0] =  uCond[i];
       dpdAtom[i][1] =  uMech[i];
-      dpdAtom[i][2] =  dpdTheta[i];
+      dpdAtom[i][2] =  uChem[i];
+      dpdAtom[i][3] =  dpdTheta[i];
     }
   }
 }

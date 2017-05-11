@@ -7,7 +7,6 @@
 :line
 
 compute pressure command :h3
-compute pressure/cuda command :h3
 
 [Syntax:]
 
@@ -38,12 +37,18 @@ The pressure is computed by the formula
 
 where N is the number of atoms in the system (see discussion of DOF
 below), Kb is the Boltzmann constant, T is the temperature, d is the
-dimensionality of the system (2 or 3 for 2d/3d), V is the system
-volume (or area in 2d), and the second term is the virial, computed
-within LAMMPS for all pairwise as well as 2-body, 3-body, and 4-body,
-and long-range interactions.  "Fixes"_fix.html that impose constraints
-(e.g. the "fix shake"_fix_shake.html command) also contribute to the
-virial term.
+dimensionality of the system (2 or 3 for 2d/3d), and V is the system
+volume (or area in 2d).  The second term is the virial, equal to
+-dU/dV, computed for all pairwise as well as 2-body, 3-body, 4-body,
+manybody, and long-range interactions, where r_i and f_i are the
+position and force vector of atom i, and the black dot indicates a dot
+product.  When periodic boundary conditions are used, N' necessarily
+includes periodic image (ghost) atoms outside the central box, and the
+position and force vectors of ghost atoms are thus included in the
+summation.  When periodic boundary conditions are not used, N' = N =
+the number of atoms in the system.  "Fixes"_fix.html that impose
+constraints (e.g. the "fix shake"_fix_shake.html command) also
+contribute to the virial term.
 
 A symmetric pressure tensor, stored as a 6-element vector, is also
 calculated by this compute.  The 6 components of the vector are
@@ -51,7 +56,7 @@ ordered xx, yy, zz, xy, xz, yz.  The equation for the I,J components
 (where I and J = x,y,z) is similar to the above formula, except that
 the first term uses components of the kinetic energy tensor and the
 second term uses components of the virial tensor:
-  
+
 :c,image(Eqs/pressure_tensor.jpg)
 
 If no extra keywords are listed, the entire equations above are
@@ -63,8 +68,9 @@ compute temperature or ke and/or the virial.  The {virial} keyword
 means include all terms except the kinetic energy {ke}.
 
 Details of how LAMMPS computes the virial efficiently for the entire
-system, including the effects of periodic boundary conditions is
-discussed in "(Thompson)"_#Thompson.
+system, including for manybody potentials and accounting for the
+effects of periodic boundary conditions are discussed in
+"(Thompson)"_#Thompson1.
 
 The temperature and kinetic energy tensor is not calculated by this
 compute, but rather by the temperature compute specified with the
@@ -83,7 +89,7 @@ commands"_compute.html to determine which ones include a bias.
 
 Also note that the N in the first formula above is really
 degrees-of-freedom divided by d = dimensionality, where the DOF value
-is calcluated by the temperature compute.  See the various "compute
+is calculated by the temperature compute.  See the various "compute
 temperature"_compute.html styles for details.
 
 A compute of this style with the ID of "thermo_press" is created when
@@ -96,17 +102,17 @@ where "thermo_temp" is the ID of a similarly defined compute of style
 
 :line
 
-Styles with a {cuda}, {gpu}, {intel}, {kk}, {omp}, or {opt} suffix are
+Styles with a {gpu}, {intel}, {kk}, {omp}, or {opt} suffix are
 functionally the same as the corresponding style without the suffix.
 They have been optimized to run faster, depending on your available
-hardware, as discussed in "Section_accelerate"_Section_accelerate.html
+hardware, as discussed in "Section 5"_Section_accelerate.html
 of the manual.  The accelerated styles take the same arguments and
 should produce the same results, except for round-off and precision
 issues.
 
-These accelerated styles are part of the USER-CUDA, GPU, USER-INTEL,
-KOKKOS, USER-OMP and OPT packages, respectively.  They are only
-enabled if LAMMPS was built with those packages.  See the "Making
+These accelerated styles are part of the GPU, USER-INTEL, KOKKOS,
+USER-OMP and OPT packages, respectively.  They are only enabled if
+LAMMPS was built with those packages.  See the "Making
 LAMMPS"_Section_start.html#start_3 section for more info.
 
 You can specify the accelerated styles explicitly in your input script
@@ -114,7 +120,7 @@ by including their suffix, or you can use the "-suffix command-line
 switch"_Section_start.html#start_7 when you invoke LAMMPS, or you can
 use the "suffix"_suffix.html command in your input script.
 
-See "Section_accelerate"_Section_accelerate.html of the manual for
+See "Section 5"_Section_accelerate.html of the manual for
 more instructions on how to use the accelerated styles effectively.
 
 :line
@@ -144,5 +150,5 @@ stress/atom"_compute_stress_atom.html,
 
 :line
 
-:link(Thompson)
+:link(Thompson1)
 [(Thompson)] Thompson, Plimpton, Mattson, J Chem Phys, 131, 154107 (2009).

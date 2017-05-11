@@ -12,8 +12,8 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   OpenMP based threading support for LAMMPS
    Contributing author: Axel Kohlmeyer (Temple U)
+   OpenMP based threading support for LAMMPS
 ------------------------------------------------------------------------- */
 
 #include "atom.h"
@@ -170,9 +170,8 @@ void ThrOMP::reduce_thr(void *style, const int eflag, const int vflag,
   switch (thr_style) {
 
   case THR_PAIR: {
-    Pair * const pair = lmp->force->pair;
 
-    if (pair->vflag_fdotr) {
+    if (lmp->force->pair->vflag_fdotr) {
 
       // this is a non-hybrid pair style. compute per thread fdotr
       if (fix->last_pair_hybrid == NULL) {
@@ -192,6 +191,8 @@ void ThrOMP::reduce_thr(void *style, const int eflag, const int vflag,
     }
 
     if (evflag) {
+      Pair * const pair = (Pair *)style;
+
 #if defined(_OPENMP)
 #pragma omp critical
 #endif
@@ -554,6 +555,37 @@ void ThrOMP::ev_tally_xyz_thr(Pair * const pair, const int i, const int j,
     v[5] = dely*fz;
 
     v_tally_thr(pair, i, j, nlocal, newton_pair, v, thr);
+  }
+}
+
+
+/* ----------------------------------------------------------------------
+   tally eng_vdwl and virial into global and per-atom accumulators
+   for virial, have delx,dely,delz and fx,fy,fz
+   called when using full neighbor lists
+------------------------------------------------------------------------- */
+
+void ThrOMP::ev_tally_xyz_full_thr(Pair * const pair, const int i,
+                                   const double evdwl, const double ecoul,
+                                   const double fx, const double fy,
+                                   const double fz, const double delx,
+                                   const double dely, const double delz,
+                                   ThrData * const thr)
+{
+
+  if (pair->eflag_either)
+    e_tally_thr(pair,i,i,i+1,0,0.5*evdwl,ecoul,thr);
+
+  if (pair->vflag_either) {
+    double v[6];
+    v[0] = 0.5*delx*fx;
+    v[1] = 0.5*dely*fy;
+    v[2] = 0.5*delz*fz;
+    v[3] = 0.5*delx*fy;
+    v[4] = 0.5*delx*fz;
+    v[5] = 0.5*dely*fz;
+
+    v_tally_thr(pair,i,i,i+1,0,v,thr);
   }
 }
 

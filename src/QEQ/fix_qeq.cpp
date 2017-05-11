@@ -46,7 +46,11 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixQEq::FixQEq(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg), list(NULL), chi(NULL), eta(NULL), 
+  gamma(NULL), zeta(NULL), zcore(NULL), chizj(NULL), shld(NULL), 
+  s(NULL), t(NULL), s_hist(NULL), t_hist(NULL), Hdia_inv(NULL), b_s(NULL), 
+  b_t(NULL), p(NULL), q(NULL), r(NULL), d(NULL), 
+  qf(NULL), q1(NULL), q2(NULL), qv(NULL)
 {
   if (narg < 8) error->all(FLERR,"Illegal fix qeq command");
 
@@ -282,7 +286,8 @@ void FixQEq::setup_pre_force(int vflag)
   if (force->newton_pair == 0)
     error->all(FLERR,"QEQ with 'newton pair off' not supported");
 
-  neighbor->build_one(list);
+  // should not be needed
+  // neighbor->build_one(list);
 
   deallocate_storage();
   allocate_storage();
@@ -300,13 +305,6 @@ void FixQEq::setup_pre_force(int vflag)
 void FixQEq::setup_pre_force_respa(int vflag, int ilevel)
 {
   if (ilevel < nlevels_respa-1) return;
-  setup_pre_force(vflag);
-}
-
-/* ---------------------------------------------------------------------- */
-
-void FixQEq::min_setup_pre_force(int vflag)
-{
   setup_pre_force(vflag);
 }
 

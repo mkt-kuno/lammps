@@ -14,7 +14,7 @@ fix ID group-ID temp/rescale/eff N Tstart Tstop window fraction :pre
 
 ID, group-ID are documented in "fix"_fix.html command
 temp/rescale/eff = style name of this fix command
-N = perform rescaling every N steps 
+N = perform rescaling every N steps
 Tstart,Tstop = desired temperature at start/end of run (temperature units)
 window = only rescale if temperature is outside this window (temperature units)
 fraction = rescale to target temperature by this fraction :ul
@@ -52,7 +52,7 @@ output"_thermo_style.html.
 
 This fix computes a global scalar which can be accessed by various
 "output commands"_Section_howto.html#howto_15.  The scalar is the
-cummulative energy change due to this fix.  The scalar value
+cumulative energy change due to this fix.  The scalar value
 calculated by this fix is "extensive".
 
 This fix can ramp its target temperature over multiple runs, using the

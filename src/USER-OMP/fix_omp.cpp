@@ -12,8 +12,8 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-   OpenMP based threading support for LAMMPS
    Contributing author: Axel Kohlmeyer (Temple U)
+   OpenMP based threading support for LAMMPS
 ------------------------------------------------------------------------- */
 
 #include "atom.h"
@@ -45,15 +45,8 @@
 
 #include "suffix.h"
 
-#if defined(LMP_USER_CUDA)
-#include "cuda_modify_flags.h"
-#endif
-
 using namespace LAMMPS_NS;
 using namespace FixConst;
-#if defined(LMP_USER_CUDA)
-using namespace FixConstCuda;
-#endif
 
 static int get_tid()
 {
@@ -112,6 +105,7 @@ FixOMP::FixOMP(LAMMPS *lmp, int narg, char **arg)
   // print summary of settings
 
   if (comm->me == 0) {
+#if defined(_OPENMP)
     const char * const nmode = _neighbor ? "multi-threaded" : "serial";
 
     if (screen) {
@@ -125,6 +119,10 @@ FixOMP::FixOMP(LAMMPS *lmp, int narg, char **arg)
 	fprintf(logfile,"set %d OpenMP thread(s) per MPI task\n", nthreads);
       fprintf(logfile,"using %s neighbor list subroutines\n", nmode);
     }
+#else
+    error->warning(FLERR,"OpenMP support not enabled during compilation; "
+                         "using 1 thread only.");
+#endif
   }
 
   // allocate list for per thread accumulator manager class instances
@@ -157,18 +155,6 @@ FixOMP::~FixOMP()
 
 int FixOMP::setmask()
 {
-  // compatibility with USER-CUDA
-  // our fix doesn't need any data transfer.
-#if defined(LMP_USER_CUDA)
-  if (lmp->cuda) {
-    int mask = 0;
-    mask |= PRE_FORCE_CUDA;
-    mask |= PRE_FORCE_RESPA;
-    mask |= MIN_PRE_FORCE;
-    return mask;
-  }
-#endif
-
   int mask = 0;
   mask |= PRE_FORCE;
   mask |= PRE_FORCE_RESPA;

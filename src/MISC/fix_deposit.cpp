@@ -38,13 +38,16 @@ using namespace MathConst;
 
 enum{ATOM,MOLECULE};
 enum{LAYOUT_UNIFORM,LAYOUT_NONUNIFORM,LAYOUT_TILED};    // several files
+enum{DIST_UNIFORM,DIST_GAUSSIAN};
 
 #define EPSILON 1.0e6
 
 /* ---------------------------------------------------------------------- */
 
 FixDeposit::FixDeposit(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg), idregion(NULL), idrigid(NULL),
+  idshake(NULL), onemols(NULL), molfrac(NULL), coords(NULL), imageflags(NULL),
+  fixrigid(NULL), fixshake(NULL), random(NULL)
 {
   if (narg < 7) error->all(FLERR,"Illegal fix deposit command");
 
@@ -169,6 +172,10 @@ FixDeposit::FixDeposit(LAMMPS *lmp, int narg, char **arg) :
   vyhi *= yscale;
   vzlo *= zscale;
   vzhi *= zscale;
+  xmid *= xscale;
+  ymid *= yscale;
+  zmid *= zscale;
+  sigma *= xscale; // same as in region sphere
   tx *= xscale;
   ty *= yscale;
   tz *= zscale;
@@ -227,7 +234,7 @@ void FixDeposit::init()
   fixrigid = NULL;
   if (rigidflag) {
     int ifix = modify->find_fix(idrigid);
-    if (ifix < 0) error->all(FLERR,"Fix pour rigid fix does not exist");
+    if (ifix < 0) error->all(FLERR,"Fix deposit rigid fix does not exist");
     fixrigid = modify->fix[ifix];
     int tmp;
     if (onemols != (Molecule **) fixrigid->extract("onemol",tmp))
@@ -336,15 +343,19 @@ void FixDeposit::pre_exchange()
     attempt++;
 
     // choose random position for new particle within region
-
-    coord[0] = xlo + random->uniform() * (xhi-xlo);
-    coord[1] = ylo + random->uniform() * (yhi-ylo);
-    coord[2] = zlo + random->uniform() * (zhi-zlo);
-    while (domain->regions[iregion]->match(coord[0],coord[1],coord[2]) == 0) {
-      coord[0] = xlo + random->uniform() * (xhi-xlo);
-      coord[1] = ylo + random->uniform() * (yhi-ylo);
-      coord[2] = zlo + random->uniform() * (zhi-zlo);
-    }
+    if (distflag == DIST_UNIFORM) {
+      do {
+        coord[0] = xlo + random->uniform() * (xhi-xlo);
+        coord[1] = ylo + random->uniform() * (yhi-ylo);
+        coord[2] = zlo + random->uniform() * (zhi-zlo);
+      } while (domain->regions[iregion]->match(coord[0],coord[1],coord[2]) == 0);
+    } else if (distflag == DIST_GAUSSIAN) {
+      do {
+        coord[0] = xmid + random->gaussian() * sigma;
+        coord[1] = ymid + random->gaussian() * sigma;
+        coord[2] = zmid + random->gaussian() * sigma;
+      } while (domain->regions[iregion]->match(coord[0],coord[1],coord[2]) == 0);
+    } else error->all(FLERR,"Unknown particle distribution in fix deposit");
 
     // adjust vertical coord by offset
 
@@ -644,6 +655,9 @@ void FixDeposit::options(int narg, char **arg)
   maxattempt = 10;
   rateflag = 0;
   vxlo = vxhi = vylo = vyhi = vzlo = vzhi = 0.0;
+  distflag = DIST_UNIFORM;
+  sigma = 1.0;
+  xmid = ymid = zmid = 0.0;
   scaleflag = 1;
   targetflag = 0;
 
@@ -759,6 +773,14 @@ void FixDeposit::options(int narg, char **arg)
       else if (strcmp(arg[iarg+1],"lattice") == 0) scaleflag = 1;
       else error->all(FLERR,"Illegal fix deposit command");
       iarg += 2;
+    } else if (strcmp(arg[iarg],"gaussian") == 0) {
+      if (iarg+5 > narg) error->all(FLERR,"Illegal fix deposit command");
+      xmid = force->numeric(FLERR,arg[iarg+1]);
+      ymid = force->numeric(FLERR,arg[iarg+2]);
+      zmid = force->numeric(FLERR,arg[iarg+3]);
+      sigma = force->numeric(FLERR,arg[iarg+4]);
+      distflag = DIST_GAUSSIAN;
+      iarg += 5;
     } else if (strcmp(arg[iarg],"target") == 0) {
       if (iarg+4 > narg) error->all(FLERR,"Illegal fix deposit command");
       tx = force->numeric(FLERR,arg[iarg+1]);

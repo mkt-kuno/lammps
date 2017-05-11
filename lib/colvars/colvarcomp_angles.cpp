@@ -1,4 +1,11 @@
-/// -*- c++ -*-
+// -*- c++ -*-
+
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
 
 #include "colvarmodule.h"
 #include "colvar.h"
@@ -7,20 +14,21 @@
 #include <cmath>
 
 
+
 colvar::angle::angle(std::string const &conf)
   : cvc(conf)
 {
   function_type = "angle";
   provide(f_cvc_inv_gradient);
   provide(f_cvc_Jacobian);
-  provide(f_cvc_com_based);
+  enable(f_cvc_com_based);
 
   group1 = parse_group(conf, "group1");
   group2 = parse_group(conf, "group2");
   group3 = parse_group(conf, "group3");
-  if (get_keyval(conf, "oneSiteSystemForce", b_1site_force, false)) {
-    cvm::log("Computing system force on group 1 only");
-  }
+
+  init_total_force_params(conf);
+
   x.type(colvarvalue::type_scalar);
 }
 
@@ -32,8 +40,7 @@ colvar::angle::angle(cvm::atom const &a1,
   function_type = "angle";
   provide(f_cvc_inv_gradient);
   provide(f_cvc_Jacobian);
-  provide(f_cvc_com_based);
-  b_1site_force = false;
+  enable(f_cvc_com_based);
 
   group1 = new cvm::atom_group(std::vector<cvm::atom>(1, a1));
   group2 = new cvm::atom_group(std::vector<cvm::atom>(1, a2));
@@ -86,6 +93,7 @@ void colvar::angle::calc_gradients()
   group3->set_weighted_gradient(dxdr3);
 }
 
+
 void colvar::angle::calc_force_invgrads()
 {
   // This uses a force measurement on groups 1 and 3 only
@@ -94,19 +102,20 @@ void colvar::angle::calc_force_invgrads()
   // centered on group2, which means group2 is kept fixed
   // when propagating changes in the angle)
 
-  if (b_1site_force) {
-    group1->read_system_forces();
+  if (is_enabled(f_cvc_one_site_total_force)) {
+    group1->read_total_forces();
     cvm::real norm_fact = 1.0 / dxdr1.norm2();
-    ft.real_value = norm_fact * dxdr1 * group1->system_force();
+    ft.real_value = norm_fact * dxdr1 * group1->total_force();
   } else {
-    group1->read_system_forces();
-    group3->read_system_forces();
+    group1->read_total_forces();
+    group3->read_total_forces();
     cvm::real norm_fact = 1.0 / (dxdr1.norm2() + dxdr3.norm2());
-    ft.real_value = norm_fact * ( dxdr1 * group1->system_force()
-                                + dxdr3 * group3->system_force());
+    ft.real_value = norm_fact * ( dxdr1 * group1->total_force()
+                                + dxdr3 * group3->total_force());
   }
   return;
 }
+
 
 void colvar::angle::calc_Jacobian_derivative()
 {
@@ -130,6 +139,8 @@ void colvar::angle::apply_force(colvarvalue const &force)
 }
 
 
+simple_scalar_dist_functions(angle)
+
 
 
 colvar::dipole_angle::dipole_angle(std::string const &conf)
@@ -140,9 +151,8 @@ colvar::dipole_angle::dipole_angle(std::string const &conf)
   group2 = parse_group(conf, "group2");
   group3 = parse_group(conf, "group3");
 
-  if (get_keyval(conf, "oneSiteSystemForce", b_1site_force, false)) {
-    cvm::log("Computing system force on group 1 only");
-  }
+  init_total_force_params(conf);
+
   x.type(colvarvalue::type_scalar);
 }
 
@@ -152,7 +162,6 @@ colvar::dipole_angle::dipole_angle(cvm::atom const &a1,
                       cvm::atom const &a3)
 {
   function_type = "dipole_angle";
-  b_1site_force = false;
 
   group1 = new cvm::atom_group(std::vector<cvm::atom>(1, a1));
   group2 = new cvm::atom_group(std::vector<cvm::atom>(1, a2));
@@ -238,6 +247,8 @@ void colvar::dipole_angle::apply_force(colvarvalue const &force)
 }
 
 
+simple_scalar_dist_functions(dipole_angle)
+
 
 
 colvar::dihedral::dihedral(std::string const &conf)
@@ -248,15 +259,14 @@ colvar::dihedral::dihedral(std::string const &conf)
   b_periodic = true;
   provide(f_cvc_inv_gradient);
   provide(f_cvc_Jacobian);
-  provide(f_cvc_com_based);
+  enable(f_cvc_com_based);
 
-  if (get_keyval(conf, "oneSiteSystemForce", b_1site_force, false)) {
-    cvm::log("Computing system force on group 1 only");
-  }
   group1 = parse_group(conf, "group1");
   group2 = parse_group(conf, "group2");
   group3 = parse_group(conf, "group3");
   group4 = parse_group(conf, "group4");
+
+  init_total_force_params(conf);
 
   x.type(colvarvalue::type_scalar);
 }
@@ -275,7 +285,7 @@ colvar::dihedral::dihedral(cvm::atom const &a1,
   b_periodic = true;
   provide(f_cvc_inv_gradient);
   provide(f_cvc_Jacobian);
-  provide(f_cvc_com_based);
+  enable(f_cvc_com_based);
 
   b_1site_force = false;
 
@@ -421,15 +431,15 @@ void colvar::dihedral::calc_force_invgrads()
   cvm::real const fact1 = d12 * std::sqrt(1.0 - dot1 * dot1);
   cvm::real const fact4 = d34 * std::sqrt(1.0 - dot4 * dot4);
 
-  group1->read_system_forces();
-  if ( b_1site_force ) {
+  group1->read_total_forces();
+  if (is_enabled(f_cvc_one_site_total_force)) {
     // This is only measuring the force on group 1
-    ft.real_value = PI/180.0 * fact1 * (cross1 * group1->system_force());
+    ft.real_value = PI/180.0 * fact1 * (cross1 * group1->total_force());
   } else {
     // Default case: use groups 1 and 4
-    group4->read_system_forces();
-    ft.real_value = PI/180.0 * 0.5 * (fact1 * (cross1 * group1->system_force())
-				      + fact4 * (cross4 * group4->system_force()));
+    group4->read_total_forces();
+    ft.real_value = PI/180.0 * 0.5 * (fact1 * (cross1 * group1->total_force())
+				      + fact4 * (cross4 * group4->total_force()));
   }
 }
 
@@ -457,3 +467,46 @@ void colvar::dihedral::apply_force(colvarvalue const &force)
 }
 
 
+// metrics functions for cvc implementations with a periodicity
+
+cvm::real colvar::dihedral::dist2(colvarvalue const &x1,
+                                  colvarvalue const &x2) const
+{
+  cvm::real diff = x1.real_value - x2.real_value;
+  diff = (diff < -180.0 ? diff + 360.0 : (diff > 180.0 ? diff - 360.0 : diff));
+  return diff * diff;
+}
+
+
+colvarvalue colvar::dihedral::dist2_lgrad(colvarvalue const &x1,
+                                          colvarvalue const &x2) const
+{
+  cvm::real diff = x1.real_value - x2.real_value;
+  diff = (diff < -180.0 ? diff + 360.0 : (diff > 180.0 ? diff - 360.0 : diff));
+  return 2.0 * diff;
+}
+
+
+colvarvalue colvar::dihedral::dist2_rgrad(colvarvalue const &x1,
+                                          colvarvalue const &x2) const
+{
+  cvm::real diff = x1.real_value - x2.real_value;
+  diff = (diff < -180.0 ? diff + 360.0 : (diff > 180.0 ? diff - 360.0 : diff));
+  return (-2.0) * diff;
+}
+
+
+void colvar::dihedral::wrap(colvarvalue &x) const
+{
+  if ((x.real_value - wrap_center) >= 180.0) {
+    x.real_value -= 360.0;
+    return;
+  }
+
+  if ((x.real_value - wrap_center) < -180.0) {
+    x.real_value += 360.0;
+    return;
+  }
+
+  return;
+}

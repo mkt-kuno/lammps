@@ -21,7 +21,7 @@
 #include "fix_reaxc_bonds.h"
 #include "atom.h"
 #include "update.h"
-#include "pair_reax_c.h"
+#include "pair_reaxc.h"
 #include "modify.h"
 #include "neighbor.h"
 #include "neigh_list.h"
@@ -108,6 +108,9 @@ void FixReaxCBonds::setup(int vflag)
 void FixReaxCBonds::init()
 {
   reaxc = (PairReaxC *) force->pair_match("reax/c",1);
+  if (reaxc == NULL)
+    reaxc = (PairReaxC *) force->pair_match("reax/c/kk",1);
+
   if (reaxc == NULL) error->all(FLERR,"Cannot use fix reax/c/bonds without "
                   "pair_style reax/c");
 

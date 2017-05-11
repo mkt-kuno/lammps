@@ -59,15 +59,17 @@
 #include <TestVector.hpp>
 #include <TestDualView.hpp>
 #include <TestDynamicView.hpp>
-#include <TestSegmentedView.hpp>
 
 #include <Kokkos_DynRankView.hpp>
 #include <TestDynViewAPI.hpp>
 
+#include <Kokkos_ErrorReporter.hpp>
+#include <TestErrorReporter.hpp>
+
 //----------------------------------------------------------------------------
 
 
-#ifdef KOKKOS_HAVE_CUDA
+#ifdef KOKKOS_ENABLE_CUDA
 
 namespace Test {
 
@@ -94,6 +96,18 @@ TEST_F( cuda , staticcrsgraph )
 {
   TestStaticCrsGraph::run_test_graph< Kokkos::Cuda >();
   TestStaticCrsGraph::run_test_graph2< Kokkos::Cuda >();
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(1, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(1, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(1, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(1, 100000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(3, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(3, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(3, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(3, 100000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(75, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(75, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(75, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Cuda >(75, 100000);
 }
 
 
@@ -131,11 +145,6 @@ void cuda_test_vector_combinations(unsigned int size)
 void cuda_test_dualview_combinations(unsigned int size)
 {
   test_dualview_combinations<int,Kokkos::Cuda>(size);
-}
-
-void cuda_test_segmented_view(unsigned int size)
-{
-  test_segmented_view<double,Kokkos::Cuda>(size);
 }
 
 void cuda_test_bitset()
@@ -184,11 +193,6 @@ void cuda_test_bitset()
       cuda_test_dualview_combinations(size);                     \
   }
 
-#define CUDA_SEGMENTEDVIEW_TEST( size )                             \
-  TEST_F( cuda, segmentedview_##size##x) {       \
-      cuda_test_segmented_view(size);                     \
-  }
-
 CUDA_DUALVIEW_COMBINE_TEST( 10 )
 CUDA_VECTOR_COMBINE_TEST( 10 )
 CUDA_VECTOR_COMBINE_TEST( 3057 )
@@ -198,7 +202,6 @@ CUDA_INSERT_TEST(close,               100000, 90000, 100, 500)
 CUDA_INSERT_TEST(far,                 100000, 90000, 100, 500)
 CUDA_DEEP_COPY( 10000, 1 )
 CUDA_FAILED_INSERT_TEST( 10000, 1000 )
-CUDA_SEGMENTEDVIEW_TEST( 200 )
 
 
 #undef CUDA_INSERT_TEST
@@ -207,7 +210,6 @@ CUDA_SEGMENTEDVIEW_TEST( 200 )
 #undef CUDA_DEEP_COPY
 #undef CUDA_VECTOR_COMBINE_TEST
 #undef CUDA_DUALVIEW_COMBINE_TEST
-#undef CUDA_SEGMENTEDVIEW_TEST
 
 
 TEST_F( cuda , dynamic_view )
@@ -221,7 +223,19 @@ TEST_F( cuda , dynamic_view )
 }
 
 
+#if defined(KOKKOS_CLASS_LAMBDA)
+TEST_F(cuda, ErrorReporterViaLambda)
+{
+  TestErrorReporter<ErrorReporterDriverUseLambda<Kokkos::Cuda>>();
+}
+#endif
+
+TEST_F(cuda, ErrorReporter)
+{
+  TestErrorReporter<ErrorReporterDriver<Kokkos::Cuda>>();
 }
 
-#endif  /* #ifdef KOKKOS_HAVE_CUDA */
+}
+
+#endif  /* #ifdef KOKKOS_ENABLE_CUDA */
 

@@ -47,6 +47,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <Kokkos_Macros.hpp>
+#include <string>
 #include <type_traits>
 
 namespace Kokkos {
@@ -357,8 +358,30 @@ struct is_integral : public integral_constant< bool ,
     std::is_same< T , uint64_t >::value 
   )>
 {};
-
 //----------------------------------------------------------------------------
+
+template<typename T>
+struct is_label : public false_type {};
+
+template<>
+struct is_label<const char*> : public true_type {};
+
+template<>
+struct is_label<char*> : public true_type {};
+
+
+template<int N>
+struct is_label<const char[N]> : public true_type {};
+
+template<int N>
+struct is_label<char[N]> : public true_type {};
+
+
+template<>
+struct is_label<const std::string> : public true_type {};
+
+template<>
+struct is_label<std::string> : public true_type {};
 
 // These 'constexpr'functions can be used as
 // both regular functions and meta-function.
@@ -417,7 +440,7 @@ unsigned power_of_two_if_valid( const unsigned N )
 {
   unsigned p = ~0u ;
   if ( N && ! ( N & ( N - 1 ) ) ) {
-#if defined( __CUDA_ARCH__ ) && defined( KOKKOS_HAVE_CUDA )
+#if defined( __CUDA_ARCH__ ) && defined( KOKKOS_ENABLE_CUDA )
     p = __ffs(N) - 1 ;
 #elif defined( __GNUC__ ) || defined( __GNUG__ )
     p = __builtin_ffs(N) - 1 ;

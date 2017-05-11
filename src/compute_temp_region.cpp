@@ -28,7 +28,8 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 ComputeTempRegion::ComputeTempRegion(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  idregion(NULL)
 {
   if (narg != 4) error->all(FLERR,"Illegal compute temp/region command");
 
@@ -209,7 +210,7 @@ void ComputeTempRegion::remove_bias_all()
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
-  if (nlocal > maxbias) {
+  if (atom->nmax > maxbias) {
     memory->destroy(vbiasall);
     maxbias = atom->nmax;
     memory->create(vbiasall,maxbias,3,"temp/region:vbiasall");

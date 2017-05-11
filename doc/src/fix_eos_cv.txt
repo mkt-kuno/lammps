@@ -36,10 +36,14 @@ possible.
 
 :line
 
-[Restrictions:] 
+[Restrictions:]
 
-The fix {eos/cv} is only available if LAMMPS is built with the
-USER-DPD package.
+This command is part of the USER-DPD package.  It is only enabled if
+LAMMPS was built with that package.  See the "Making
+LAMMPS"_Section_start.html#start_3 section for more info.
+
+This command also requires use of the "atom_style dpd"_atom_style.html
+command.
 
 [Related commands:]
 
@@ -49,7 +53,7 @@ USER-DPD package.
 
 :line
 
-:link(Larentzos)
+:link(Larentzos4)
 [(Larentzos)] J.P. Larentzos, J.K. Brennan, J.D. Moore, and
 W.D. Mattson, "LAMMPS Implementation of Constant Energy Dissipative
 Particle Dynamics (DPD-E)", ARL-TR-6863, U.S. Army Research

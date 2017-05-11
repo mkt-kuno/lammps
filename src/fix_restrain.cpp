@@ -44,22 +44,22 @@ enum{BOND,ANGLE,DIHEDRAL};
 /* ---------------------------------------------------------------------- */
 
 FixRestrain::FixRestrain(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  rstyle(NULL), ids(NULL), kstart(NULL), kstop(NULL), target(NULL), 
+  cos_target(NULL), sin_target(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal fix restrain command");
 
   scalar_flag = 1;
   global_freq = 1;
   extscalar = 1;
+  respa_level_support = 1;
+  ilevel_respa = 0;
 
   // parse args
 
   nrestrain = maxrestrain = 0;
-  rstyle = NULL;
-  ids = NULL;
-  kstart = kstop = NULL;
-  target = cos_target = sin_target = NULL;
-
+  
   int iarg = 3;
   while (iarg < narg) {
     if (nrestrain == maxrestrain) {
@@ -147,8 +147,10 @@ int FixRestrain::setmask()
 
 void FixRestrain::init()
 {
-  if (strcmp(update->integrate_style,"respa") == 0)
-    nlevels_respa = ((Respa *) update->integrate)->nlevels;
+  if (strstr(update->integrate_style,"respa")) {
+    ilevel_respa = ((Respa *) update->integrate)->nlevels-1;
+    if (respa_level >= 0) ilevel_respa = MIN(respa_level,ilevel_respa);
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -158,9 +160,9 @@ void FixRestrain::setup(int vflag)
   if (strcmp(update->integrate_style,"verlet") == 0)
     post_force(vflag);
   else {
-    ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
-    post_force_respa(vflag,nlevels_respa-1,0);
-    ((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
+    ((Respa *) update->integrate)->copy_flevel_f(ilevel_respa);
+    post_force_respa(vflag,ilevel_respa,0);
+    ((Respa *) update->integrate)->copy_f_flevel(ilevel_respa);
   }
 }
 
@@ -187,7 +189,7 @@ void FixRestrain::post_force(int vflag)
 
 void FixRestrain::post_force_respa(int vflag, int ilevel, int iloop)
 {
-  if (ilevel == nlevels_respa-1) post_force(vflag);
+  if (ilevel == ilevel_respa) post_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */

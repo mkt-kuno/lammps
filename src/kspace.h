@@ -15,6 +15,7 @@
 #define LMP_KSPACE_H
 
 #include "pointers.h"
+#include "accelerator_kokkos.h"
 
 #ifdef FFT_SINGLE
 typedef float FFT_SCALAR;
@@ -32,7 +33,7 @@ class KSpace : protected Pointers {
  public:
   double energy;                 // accumulated energies
   double energy_1,energy_6;
-  double virial[6];              // accumlated virial
+  double virial[6];              // accumulated virial
   double *eatom,**vatom;         // accumulated per-atom energy/virial
   double e2group;                // accumulated group-group energy
   double f2group[3];             // accumulated group-group force
@@ -61,14 +62,14 @@ class KSpace : protected Pointers {
 
   int order,order_6,order_allocated;
   double accuracy;                  // accuracy of KSpace solver (force units)
-  double accuracy_absolute;         // user-specifed accuracy in force units
+  double accuracy_absolute;         // user-specified accuracy in force units
   double accuracy_relative;         // user-specified dimensionless accuracy
                                     // accurary = acc_rel * two_charge_force
   double accuracy_real_6;           // real space accuracy for
                                     // dispersion solver (force units)
   double accuracy_kspace_6;         // reciprocal space accuracy for
                                     // dispersion solver (force units)
-  int auto_disp_flag;		    // use automatic paramter generation for pppm/disp
+  int auto_disp_flag;		    // use automatic parameter generation for pppm/disp
   double two_charge_force;          // force in user units of two point
                                     // charges separated by 1 Angstrom
 
@@ -79,12 +80,11 @@ class KSpace : protected Pointers {
 
   int group_group_enable;         // 1 if style supports group/group calculation
 
-  unsigned int datamask;
-  unsigned int datamask_ext;
-
   // KOKKOS host/device flag and data masks
+
   ExecutionSpace execution_space;
   unsigned int datamask_read,datamask_modify;
+  int copymode;
 
   int compute_flag;               // 0 if skip compute()
   int fftbench;                   // 0 if skip FFT timing
@@ -123,6 +123,11 @@ class KSpace : protected Pointers {
   virtual void unpack_forward(int, FFT_SCALAR *, int, int *) {};
   virtual void pack_reverse(int, FFT_SCALAR *, int, int *) {};
   virtual void unpack_reverse(int, FFT_SCALAR *, int, int *) {};
+
+  virtual void pack_forward_kokkos(int, DAT::tdual_FFT_SCALAR_1d &, int, DAT::tdual_int_2d &, int) {};
+  virtual void unpack_forward_kokkos(int, DAT::tdual_FFT_SCALAR_1d &, int, DAT::tdual_int_2d &, int) {};
+  virtual void pack_reverse_kokkos(int, DAT::tdual_FFT_SCALAR_1d &, int, DAT::tdual_int_2d &, int) {};
+  virtual void unpack_reverse_kokkos(int, DAT::tdual_FFT_SCALAR_1d &, int, DAT::tdual_int_2d &, int) {};
 
   virtual int timing(int, double &, double &) {return 0;}
   virtual int timing_1d(int, double &) {return 0;}
@@ -192,7 +197,7 @@ class KSpace : protected Pointers {
   int kx_ewald,ky_ewald,kz_ewald;   // kspace settings for Ewald sum
 
   void pair_check();
-  void ev_setup(int, int);
+  void ev_setup(int, int, int alloc = 1);
   double estimate_table_accuracy(double, double);
 };
 

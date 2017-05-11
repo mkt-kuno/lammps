@@ -46,6 +46,8 @@ PairTable::PairTable(LAMMPS *lmp) : Pair(lmp)
 
 PairTable::~PairTable()
 {
+  if (copymode) return;
+
   for (int m = 0; m < ntables; m++) free_table(&tables[m]);
   memory->sfree(tables);
 
@@ -63,6 +65,7 @@ void PairTable::compute(int eflag, int vflag)
   int i,j,ii,jj,inum,jnum,itype,jtype,itable;
   double xtmp,ytmp,ztmp,delx,dely,delz,evdwl,fpair;
   double rsq,factor_lj,fraction,value,a,b;
+  char estr[128];
   int *ilist,*jlist,*numneigh,**firstneigh;
   Table *tb;
 
@@ -109,25 +112,37 @@ void PairTable::compute(int eflag, int vflag)
 
       if (rsq < cutsq[itype][jtype]) {
         tb = &tables[tabindex[itype][jtype]];
-        if (rsq < tb->innersq)
-          error->one(FLERR,"Pair distance < table inner cutoff");
+        if (rsq < tb->innersq) {
+          sprintf(estr,"Pair distance < table inner cutoff: " 
+                  "ijtype %d %d dist %g",itype,jtype,sqrt(rsq));
+          error->one(FLERR,estr);
+        }
 
         if (tabstyle == LOOKUP) {
           itable = static_cast<int> ((rsq - tb->innersq) * tb->invdelta);
-          if (itable >= tlm1)
-            error->one(FLERR,"Pair distance > table outer cutoff");
+          if (itable >= tlm1) {
+            sprintf(estr,"Pair distance > table outer cutoff: " 
+                    "ijtype %d %d dist %g",itype,jtype,sqrt(rsq));
+            error->one(FLERR,estr);
+          }
           fpair = factor_lj * tb->f[itable];
         } else if (tabstyle == LINEAR) {
           itable = static_cast<int> ((rsq - tb->innersq) * tb->invdelta);
-          if (itable >= tlm1)
-            error->one(FLERR,"Pair distance > table outer cutoff");
+          if (itable >= tlm1) {
+            sprintf(estr,"Pair distance > table outer cutoff: " 
+                    "ijtype %d %d dist %g",itype,jtype,sqrt(rsq));
+            error->one(FLERR,estr);
+          }
           fraction = (rsq - tb->rsq[itable]) * tb->invdelta;
           value = tb->f[itable] + fraction*tb->df[itable];
           fpair = factor_lj * value;
         } else if (tabstyle == SPLINE) {
           itable = static_cast<int> ((rsq - tb->innersq) * tb->invdelta);
-          if (itable >= tlm1)
-            error->one(FLERR,"Pair distance > table outer cutoff");
+          if (itable >= tlm1) {
+            sprintf(estr,"Pair distance > table outer cutoff: " 
+                    "ijtype %d %d dist %g",itype,jtype,sqrt(rsq));
+            error->one(FLERR,estr);
+          }
           b = (rsq - tb->rsq[itable]) * tb->invdelta;
           a = 1.0 - b;
           value = a * tb->f[itable] + b * tb->f[itable+1] +
@@ -250,8 +265,8 @@ void PairTable::coeff(int narg, char **arg)
   if (!allocated) allocate();
 
   int ilo,ihi,jlo,jhi;
-  force->bounds(arg[0],atom->ntypes,ilo,ihi);
-  force->bounds(arg[1],atom->ntypes,jlo,jhi);
+  force->bounds(FLERR,arg[0],atom->ntypes,ilo,ihi);
+  force->bounds(FLERR,arg[1],atom->ntypes,jlo,jhi);
 
   int me;
   MPI_Comm_rank(world,&me);
@@ -541,7 +556,7 @@ void PairTable::spline_table(Table *tb)
 
 /* ----------------------------------------------------------------------
    extract attributes from parameter line in table section
-   format of line: N value R/RSQ/BITMAP lo hi FP fplo fphi
+   format of line: N value R/RSQ/BITMAP lo hi FPRIME fplo fphi
    N is required, other params are optional
 ------------------------------------------------------------------------- */
 
@@ -565,7 +580,7 @@ void PairTable::param_extract(Table *tb, char *line)
       tb->rlo = atof(word);
       word = strtok(NULL," \t\n\r\f");
       tb->rhi = atof(word);
-    } else if (strcmp(word,"FP") == 0) {
+    } else if (strcmp(word,"FPRIME") == 0) {
       tb->fpflag = 1;
       word = strtok(NULL," \t\n\r\f");
       tb->fplo = atof(word);

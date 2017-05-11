@@ -31,10 +31,9 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixEOStable::FixEOStable(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg), ntables(0), tables(NULL)
 {
   if (narg != 7) error->all(FLERR,"Illegal fix eos/table command");
-  restart_peratom = 1;
   nevery = 1;
 
   if (strcmp(arg[3],"linear") == 0) tabstyle = LINEAR;
@@ -78,6 +77,9 @@ FixEOStable::FixEOStable(LAMMPS *lmp, int narg, char **arg) :
   spline_table(tb2);
   compute_table(tb2);
   ntables++;
+
+  if (atom->dpd_flag != 1)
+    error->all(FLERR,"FixEOStable requires atom_style with internal temperature and energies (e.g. dpd)");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -112,15 +114,15 @@ void FixEOStable::init()
   if(this->restart_reset){
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit)
-	temperature_lookup(uCond[i]+uMech[i],dpdTheta[i]);
+        temperature_lookup(uCond[i]+uMech[i],dpdTheta[i]);
   } else {
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit) {
-	if(dpdTheta[i] <= double(0.0)) 
-	  error->one(FLERR,"Internal temperature <= zero");
-	energy_lookup(dpdTheta[i],tmp);
-	uCond[i] = tmp / double(2.0);
-	uMech[i] = tmp / double(2.0);
+        if(dpdTheta[i] <= 0.0)
+          error->one(FLERR,"Internal temperature <= zero");
+        energy_lookup(dpdTheta[i],tmp);
+        uCond[i] = 0.0;
+        uMech[i] = tmp;
       }
   }
 }
@@ -138,8 +140,8 @@ void FixEOStable::post_integrate()
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit){
       temperature_lookup(uCond[i]+uMech[i],dpdTheta[i]);
-      if(dpdTheta[i] <= double(0.0)) 
-	error->one(FLERR,"Internal temperature <= zero");
+      if(dpdTheta[i] <= 0.0)
+        error->one(FLERR,"Internal temperature <= zero");
     }
 }
 
@@ -156,8 +158,8 @@ void FixEOStable::end_of_step()
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit){
       temperature_lookup(uCond[i]+uMech[i],dpdTheta[i]);
-      if(dpdTheta[i] <= double(0.0)) 
-	error->one(FLERR,"Internal temperature <= zero");
+      if(dpdTheta[i] <= 0.0)
+        error->one(FLERR,"Internal temperature <= zero");
     }
 }
 
@@ -195,13 +197,13 @@ void FixEOStable::read_table(Table *tb, Table *tb2, char *file, char *keyword)
 
   // open file
 
-  FILE *fp = fopen(file,"r");
+  FILE *fp = force->open_potential(file);
   if (fp == NULL) {
     char str[128];
     sprintf(str,"Cannot open file %s",file);
     error->one(FLERR,str);
   }
-  
+
   // loop until section found with matching keyword
 
   while (1) {
@@ -248,6 +250,10 @@ void FixEOStable::read_table(Table *tb, Table *tb2, char *file, char *keyword)
 void FixEOStable::spline_table(Table *tb)
 {
   memory->create(tb->e2file,tb->ninput,"eos:e2file");
+
+  double ep0 = 0.0;
+  double epn = 0.0;
+  spline(tb->rfile,tb->efile,tb->ninput,ep0,epn,tb->e2file);
 }
 
 /* ----------------------------------------------------------------------
@@ -422,7 +428,7 @@ void FixEOStable::temperature_lookup(double u, double &t)
   double fraction;
 
   Table *tb = &tables[1];
-  if(u < tb->lo || u > tb->hi){ 
+  if(u < tb->lo || u > tb->hi){
     printf("Energy=%lf TableMin=%lf TableMax=%lf\n",u,tb->lo,tb->hi);
     error->one(FLERR,"Energy is not within table cutoffs");
   }

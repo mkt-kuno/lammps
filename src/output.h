@@ -15,6 +15,8 @@
 #define LMP_OUTPUT_H
 
 #include "pointers.h"
+#include <map>
+#include <string>
 
 namespace LAMMPS_NS {
 
@@ -57,6 +59,11 @@ class Output : protected Pointers {
   char *restart2a,*restart2b;  // names of double restart files
   class WriteRestart *restart; // class for writing restart files
 
+
+  typedef Dump *(*DumpCreator)(LAMMPS *,int,char**);
+  typedef std::map<std::string,DumpCreator> DumpCreatorMap;
+  DumpCreatorMap *dump_map;
+
   Output(class LAMMPS *);
   ~Output();
   void init();
@@ -69,12 +76,16 @@ class Output : protected Pointers {
   void add_dump(int, char **);       // add a Dump to Dump list
   void modify_dump(int, char **);    // modify a Dump
   void delete_dump(char *);          // delete a Dump from Dump list
+  int find_dump(const char *);       // find a Dump ID
 
   void set_thermo(int, char **);     // set thermo output freqquency
   void create_thermo(int, char **);  // create a thermo style
   void create_restart(int, char **); // create Restart and restart files
 
   void memory_usage();               // print out memory usage
+
+ private:
+  template <typename T> static Dump *dump_creator(LAMMPS *, int, char **);
 };
 
 }
@@ -162,7 +173,7 @@ W: New thermo_style command, previous thermo_modify settings will be lost
 
 If a thermo_style command is used after a thermo_modify command, the
 settings changed by the thermo_modify command will be reset to their
-default values.  This is because the thermo_modify commmand acts on
+default values.  This is because the thermo_modify command acts on
 the currently defined thermo style, and a thermo_style command creates
 a new style.
 

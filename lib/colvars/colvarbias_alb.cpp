@@ -1,5 +1,12 @@
 // -*- c++ -*-
 
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -23,8 +30,18 @@ double fmin(double A, double B) { return ( A < B ? A : B ); }
  *
  */
 
-colvarbias_alb::colvarbias_alb(std::string const &conf, char const *key) :
-  colvarbias(conf, key), update_calls(0), b_equilibration(true) {
+colvarbias_alb::colvarbias_alb(char const *key)
+  : colvarbias(key), update_calls(0), b_equilibration(true)
+{
+}
+
+
+int colvarbias_alb::init(std::string const &conf)
+{
+  colvarbias::init(conf);
+
+  enable(f_cvb_scalar_variables);
+
   size_t i;
 
   // get the initial restraint centers
@@ -71,8 +88,10 @@ colvarbias_alb::colvarbias_alb(std::string const &conf, char const *key) :
   //we split the time between updating and equilibrating
   update_freq /= 2;
 
-  if (update_freq == 0)
+  if (update_freq <= 1)
     cvm::fatal_error("Error: must set updateFrequency to greater than 2.\n");
+
+  enable(f_cvb_history_dependent);
 
   get_keyval(conf, "outputCenters", b_output_centers, false);
   get_keyval(conf, "outputGradient", b_output_grad, false);
@@ -99,8 +118,6 @@ colvarbias_alb::colvarbias_alb(std::string const &conf, char const *key) :
     }
   }
 
-
-
   if (!get_keyval(conf, "rateMax", max_coupling_rate, max_coupling_rate)) {
     //set to default
     for (i = 0; i < colvars.size(); i++) {
@@ -112,25 +129,23 @@ colvarbias_alb::colvarbias_alb(std::string const &conf, char const *key) :
   if (cvm::debug())
     cvm::log(" bias.\n");
 
+  return COLVARS_OK;
 }
 
-colvarbias_alb::~colvarbias_alb() {
 
-  if (cvm::n_rest_biases > 0)
-    cvm::n_rest_biases -= 1;
-
+colvarbias_alb::~colvarbias_alb()
+{
 }
 
-int colvarbias_alb::update() {
+
+int colvarbias_alb::update()
+{
 
   bias_energy = 0.0;
   update_calls++;
 
   if (cvm::debug())
     cvm::log("Updating the adaptive linear bias \""+this->name+"\".\n");
-
-
-
 
   //log the moments of the CVs
   // Force and energy calculation
@@ -229,37 +244,8 @@ int colvarbias_alb::update() {
 }
 
 
-std::istream & colvarbias_alb::read_restart(std::istream &is)
+int colvarbias_alb::set_state_params(std::string const &conf)
 {
-  size_t const start_pos = is.tellg();
-
-  cvm::log("Restarting adaptive linear bias \""+
-            this->name+"\".\n");
-
-  std::string key, brace, conf;
-  if ( !(is >> key)   || !(key == "ALB") ||
-       !(is >> brace) || !(brace == "{") ||
-       !(is >> colvarparse::read_block("configuration", conf)) ) {
-
-    cvm::log("Error: in reading restart configuration for restraint bias \""+
-              this->name+"\" at position "+
-              cvm::to_str(is.tellg())+" in stream.\n");
-    is.clear();
-    is.seekg(start_pos, std::ios::beg);
-    is.setstate(std::ios::failbit);
-    return is;
-  }
-
-  std::string name = "";
-  if ( (colvarparse::get_keyval(conf, "name", name, std::string(""), colvarparse::parse_silent)) &&
-       (name != this->name) )
-    cvm::fatal_error("Error: in the restart file, the "
-                      "\"ALB\" block has a wrong name\n");
-  if (name.size() == 0) {
-    cvm::fatal_error("Error: \"ALB\" block in the restart file "
-                      "has no identifiers.\n");
-  }
-
   if (!get_keyval(conf, "setCoupling", set_coupling))
     cvm::fatal_error("Error: current setCoupling  is missing from the restart.\n");
 
@@ -289,23 +275,13 @@ std::istream & colvarbias_alb::read_restart(std::istream &is)
   if (!get_keyval(conf, "b_equilibration", b_equilibration))
     cvm::fatal_error("Error: current updateCalls is missing from the restart.\n");
 
-  is >> brace;
-  if (brace != "}") {
-    cvm::fatal_error("Error: corrupt restart information for adaptive linear bias \""+
-                      this->name+"\": no matching brace at position "+
-                      cvm::to_str(is.tellg())+" in the restart file.\n");
-    is.setstate(std::ios::failbit);
-  }
-
-  return is;
+  return COLVARS_OK;
 }
 
 
-std::ostream & colvarbias_alb::write_restart(std::ostream &os)
+std::string const colvarbias_alb::get_state_params() const
 {
-  os << "ALB {\n"
-     << "  configuration {\n"
-     << "    name " << this->name << "\n";
+  std::ostringstream os;
   os << "    setCoupling ";
   size_t i;
   for (i = 0; i < colvars.size(); i++) {
@@ -348,10 +324,7 @@ std::ostream & colvarbias_alb::write_restart(std::ostream &os)
   else
     os << "    b_equilibration no\n";
 
-  os << "  }\n"
-     << "}\n\n";
-
-  return os;
+  return os.str();
 }
 
 
@@ -423,17 +396,24 @@ std::ostream & colvarbias_alb::write_traj(std::ostream &os)
 }
 
 
-cvm::real colvarbias_alb::restraint_potential(cvm::real k,  const colvar* x,  const colvarvalue &xcenter) const
+cvm::real colvarbias_alb::restraint_potential(cvm::real k,
+                                              colvar const *x,
+                                              colvarvalue const &xcenter) const
 {
   return k * (x->value() - xcenter);
 }
 
-colvarvalue colvarbias_alb::restraint_force(cvm::real k,  const colvar* x,  const colvarvalue &xcenter) const
+
+colvarvalue colvarbias_alb::restraint_force(cvm::real k,
+                                            colvar const *x,
+                                            colvarvalue const &xcenter) const
 {
   return k;
 }
 
-cvm::real colvarbias_alb::restraint_convert_k(cvm::real k, cvm::real dist_measure) const
+
+cvm::real colvarbias_alb::restraint_convert_k(cvm::real k,
+                                              cvm::real dist_measure) const
 {
   return k / dist_measure;
 }

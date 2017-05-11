@@ -1,4 +1,11 @@
-/// -*- c++ -*-
+// -*- c++ -*-
+
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
 
 #ifndef COLVARATOMS_H
 #define COLVARATOMS_H
@@ -45,7 +52,7 @@ public:
 
   /// \brief System force at the previous step (copied from the
   /// program, can be modified if necessary)
-  cvm::rvector    system_force;
+  cvm::rvector    total_force;
 
   /// \brief Gradient of a scalar collective variable with respect
   /// to this atom
@@ -64,7 +71,7 @@ public:
 
   /// \brief Initialize an atom for collective variable calculation
   /// and get its internal identifier \param atom_number Atom index in
-  /// the system topology (starting from 1)
+  /// the system topology (1-based)
   atom(int atom_number);
 
   /// \brief Initialize an atom for collective variable calculation
@@ -86,7 +93,7 @@ public:
   inline void reset_data()
   {
     pos = cvm::atom_pos(0.0);
-    vel = grad = system_force = cvm::rvector(0.0);
+    vel = grad = total_force = cvm::rvector(0.0);
   }
 
   /// Get the latest value of the mass
@@ -113,10 +120,10 @@ public:
     vel = (cvm::proxy)->get_atom_velocity(index);
   }
 
-  /// Get the system force
-  inline void read_system_force()
+  /// Get the total force
+  inline void read_total_force()
   {
-    system_force = (cvm::proxy)->get_atom_system_force(index);
+    total_force = (cvm::proxy)->get_atom_total_force(index);
   }
 
   /// \brief Apply a force to the atom
@@ -139,7 +146,7 @@ public:
 /// \brief Group of \link atom \endlink objects, mostly used by a
 /// \link cvc \endlink object to gather all atomic data
 class colvarmodule::atom_group
-  : public colvarparse, public cvm::deps
+  : public colvarparse, public colvardeps
 {
 public:
 
@@ -253,6 +260,8 @@ public:
     return atoms.size();
   }
 
+  std::string const print_atom_ids() const;
+
   /// \brief If this option is on, this group merely acts as a wrapper
   /// for a fixed position; any calls to atoms within or to
   /// functions that return disaggregated data will fail
@@ -299,7 +308,7 @@ public:
 
   /// \brief If b_center or b_rotate is true, use this group to
   /// define the transformation (default: this group itself)
-  atom_group                *ref_pos_group;
+  atom_group                *fitting_group;
 
   /// Total mass of the atom group
   cvm::real total_mass;
@@ -336,18 +345,18 @@ public:
   /// rotation applied to the coordinates will be used
   void read_velocities();
 
-  /// \brief Get the current system_forces; this must be called always
+  /// \brief Get the current total_forces; this must be called always
   /// *after* read_positions(); if b_rotate is defined, the same
   /// rotation applied to the coordinates will be used
-  void read_system_forces();
+  void read_total_forces();
 
   /// Call reset_data() for each atom
   inline void reset_atoms_data()
   {
     for (cvm::atom_iter ai = atoms.begin(); ai != atoms.end(); ai++)
       ai->reset_data();
-    if (ref_pos_group)
-      ref_pos_group->reset_atoms_data();
+    if (fitting_group)
+      fitting_group->reset_atoms_data();
   }
 
   /// \brief Recompute all mutable quantities that are required to compute CVCs
@@ -410,11 +419,11 @@ public:
     return dip;
   }
 
-  /// \brief Return a copy of the system forces
-  std::vector<cvm::rvector> system_forces() const;
+  /// \brief Return a copy of the total forces
+  std::vector<cvm::rvector> total_forces() const;
 
   /// \brief Return a copy of the aggregated total force on the group
-  cvm::rvector system_force() const;
+  cvm::rvector total_force() const;
 
 
   /// \brief Shorthand: save the specified gradient on each atom,
@@ -451,6 +460,8 @@ public:
   /// are not used, either because they were not defined (e.g because
   /// the colvar has not a scalar value) or the biases require to
   /// micromanage the force.
+  /// This function will be phased out eventually, in favor of
+  /// apply_colvar_force() once that is implemented for non-scalar values
   void apply_force(cvm::rvector const &force);
 
 };

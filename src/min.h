@@ -31,7 +31,7 @@ class Min : protected Pointers {
   Min(class LAMMPS *);
   virtual ~Min();
   virtual void init();
-  void setup();
+  void setup(int flag=1);
   void setup_minimal(int);
   void run(int);
   void cleanup();
@@ -45,6 +45,10 @@ class Min : protected Pointers {
   virtual void setup_style() = 0;
   virtual void reset_vectors() = 0;
   virtual int iterate(int) = 0;
+
+  // possible return values of iterate() method
+  enum{MAXITER,MAXEVAL,ETOL,FTOL,DOWNHILL,ZEROALPHA,ZEROFORCE,
+       ZEROQUAD,TRSMALL,INTERROR,TIMEOUT};
 
  protected:
   int eflag,vflag;            // flags for energy/virial computation
@@ -118,6 +122,12 @@ Minimization requires that neigh_modify settings be delay = 0, every =
 1, check = yes.  Since these settings were not in place, LAMMPS
 changed them and will restore them to their original values after the
 minimization.
+
+W: Energy due to X extra global DOFs will be included in minimizer energies
+
+When using fixes like box/relax, the potential energy used by the minimizer
+is augmented by an additional energy provided by the fix. Thus the printed
+converged energy may be different from the total potential energy.
 
 E: Minimization could not find thermo_pe compute
 

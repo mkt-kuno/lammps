@@ -1,4 +1,12 @@
-/// -*- c++ -*-
+
+// -*- c++ -*-
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 
 #include "colvarmodule.h"
 #include "colvarvalue.h"
@@ -16,20 +24,31 @@ bool compare(colvar::cvc *i, colvar::cvc *j) {
 }
 
 
-colvar::colvar(std::string const &conf)
-  : colvarparse(conf)
+colvar::colvar()
 {
-  size_t i;
+  // Initialize static array once and for all
+  init_cv_requires();
+}
+
+
+int colvar::init(std::string const &conf)
+{
   cvm::log("Initializing a new collective variable.\n");
+  colvarparse::init(conf);
+
+  int error_code = COLVARS_OK;
+
+  colvarmodule *cv = cvm::main();
 
   get_keyval(conf, "name", this->name,
-              (std::string("colvar")+cvm::to_str(cvm::colvars.size()+1)));
+             (std::string("colvar")+cvm::to_str(cv->variables()->size()+1)));
 
-  if (cvm::colvar_by_name(this->name) != NULL) {
+  if ((cvm::colvar_by_name(this->name) != NULL) &&
+      (cvm::colvar_by_name(this->name) != this)) {
     cvm::error("Error: this colvar cannot have the same name, \""+this->name+
                       "\", as another colvar.\n",
                INPUT_ERROR);
-    return;
+    return INPUT_ERROR;
   }
 
   // Initialize dependency members
@@ -37,154 +56,20 @@ colvar::colvar(std::string const &conf)
 
   this->description = "colvar " + this->name;
 
-  // Initialize static array once and for all
-  init_cv_requires();
-
   kinetic_energy = 0.0;
   potential_energy = 0.0;
 
-  // read the configuration and set up corresponding instances, for
-  // each type of component implemented
-#define initialize_components(def_desc,def_config_key,def_class_name)   \
-  {                                                                     \
-    size_t def_count = 0;                                               \
-    std::string def_conf = "";                                          \
-    size_t pos = 0;                                                     \
-    while ( this->key_lookup(conf,                                     \
-                              def_config_key,                           \
-                              def_conf,                                 \
-                              pos) ) {                                  \
-      if (!def_conf.size()) continue;                                   \
-      cvm::log("Initializing "                                         \
-                "a new \""+std::string(def_config_key)+"\" component"+ \
-                (cvm::debug() ? ", with configuration:\n"+def_conf      \
-                 : ".\n"));                                             \
-      cvm::increase_depth();                                            \
-      cvc *cvcp = new colvar::def_class_name(def_conf);                \
-      if (cvcp != NULL) {                                               \
-        cvcs.push_back(cvcp);                                          \
-        cvcp->check_keywords(def_conf, def_config_key);                \
-        if (cvm::get_error()) {                                         \
-          cvm::error("Error: in setting up component \""                \
-                      def_config_key"\".\n");                           \
-          return;                                                       \
-        }                                                               \
-        cvm::decrease_depth();                                          \
-      } else {                                                          \
-        cvm::error("Error: in allocating component \""                  \
-                          def_config_key"\".\n",                        \
-                          MEMORY_ERROR);                                \
-        return;                                                         \
-      }                                                                 \
-      if ( (cvcp->period != 0.0) || (cvcp->wrap_center != 0.0) ) {      \
-        if ( (cvcp->function_type != std::string("distance_z")) &&     \
-             (cvcp->function_type != std::string("dihedral")) &&       \
-             (cvcp->function_type != std::string("spin_angle")) ) {    \
-          cvm::error("Error: invalid use of period and/or "            \
-                            "wrapAround in a \""+                       \
-                            std::string(def_config_key)+               \
-                            "\" component.\n"+                          \
-                            "Period: "+cvm::to_str(cvcp->period) +      \
-                        " wrapAround: "+cvm::to_str(cvcp->wrap_center), \
-                        INPUT_ERROR);                                   \
-          return;                                                       \
-        }                                                               \
-      }                                                                 \
-      if ( ! cvcs.back()->name.size()){                                 \
-        std::ostringstream s;                                           \
-        s << def_config_key << std::setfill('0') << std::setw(4) << ++def_count;\
-        cvcs.back()->name = s.str();                                    \
-          /* pad cvc number for correct ordering when sorting by name */\
-      }                                                                 \
-      cvcs.back()->setup();                                             \
-      if (cvm::debug())                                                 \
-        cvm::log("Done initializing a \""+                             \
-                  std::string(def_config_key)+                         \
-                  "\" component"+                                       \
-                  (cvm::debug() ?                                       \
-                   ", named \""+cvcs.back()->name+"\""                  \
-                   : "")+".\n");                                        \
-      def_conf = "";                                                    \
-      if (cvm::debug())                                                 \
-        cvm::log("Parsed "+cvm::to_str(cvcs.size())+                  \
-                  " components at this time.\n");                       \
-    }                                                                   \
+  error_code |= init_components(conf);
+  if (error_code != COLVARS_OK) {
+    return cvm::get_error();
   }
 
-
-  initialize_components("distance",         "distance",       distance);
-  initialize_components("distance vector",  "distanceVec",    distance_vec);
-  initialize_components("Cartesian coordinates", "cartesian",  cartesian);
-  initialize_components("distance vector "
-                        "direction",        "distanceDir",    distance_dir);
-  initialize_components("distance projection "
-                        "on an axis",       "distanceZ",      distance_z);
-  initialize_components("distance projection "
-                        "on a plane",       "distanceXY",     distance_xy);
-  initialize_components("average distance weighted by inverse power",
-                        "distanceInv", distance_inv);
-  initialize_components("N1xN2-long vector of pairwise distances",
-                        "distancePairs", distance_pairs);
-
-  initialize_components("coordination "
-                        "number",           "coordNum",       coordnum);
-  initialize_components("self-coordination "
-                        "number",           "selfCoordNum",   selfcoordnum);
-
-  initialize_components("angle",            "angle",          angle);
-  initialize_components("dipole angle",     "dipoleAngle",    dipole_angle);
-  initialize_components("dihedral",         "dihedral",       dihedral);
-
-  initialize_components("hydrogen bond",    "hBond",          h_bond);
-
-  //  initialize_components ("alpha helix",      "alphaDihedrals", alpha_dihedrals);
-  initialize_components("alpha helix",      "alpha",          alpha_angles);
-
-  initialize_components("dihedral principal "
-                        "component",        "dihedralPC",     dihedPC);
-
-  initialize_components("orientation",      "orientation",    orientation);
-  initialize_components("orientation "
-                        "angle",            "orientationAngle",orientation_angle);
-  initialize_components("orientation "
-                        "projection",       "orientationProj",orientation_proj);
-  initialize_components("tilt",             "tilt",           tilt);
-  initialize_components("spin angle",       "spinAngle",      spin_angle);
-
-  initialize_components("RMSD",             "rmsd",           rmsd);
-
-  //  initialize_components ("logarithm of MSD", "logmsd",         logmsd);
-
-  initialize_components("radius of "
-                        "gyration",         "gyration",       gyration);
-  initialize_components("moment of "
-                        "inertia",          "inertia",        inertia);
-  initialize_components("moment of inertia around an axis",
-                        "inertiaZ",       inertia_z);
-  initialize_components("eigenvector",      "eigenvector",    eigenvector);
-
-  if (!cvcs.size()) {
-    cvm::error("Error: no valid components were provided "
-               "for this collective variable.\n",
-               INPUT_ERROR);
-    return;
-  }
-
-  n_active_cvcs = cvcs.size();
-
-  cvm::log("All components initialized.\n");
-
-  // Store list of children cvcs for dependency checking purposes
-  for (i = 0; i < cvcs.size(); i++) {
-    add_child(cvcs[i]);
-  }
+  size_t i;
 
   // Setup colvar as scripted function of components
   if (get_keyval(conf, "scriptedFunction", scripted_function,
     "", colvarparse::parse_silent)) {
 
-    // Make feature available only on user request
-    provide(f_cv_scripted);
     enable(f_cv_scripted);
     cvm::log("This colvar uses scripted function \"" + scripted_function + "\".");
 
@@ -200,21 +85,24 @@ colvar::colvar(std::string const &conf)
       }
     }
     if (x.type() == colvarvalue::type_notset) {
-      cvm::error("Could not parse scripted colvar type.");
-      return;
+      cvm::error("Could not parse scripted colvar type.", INPUT_ERROR);
+      return INPUT_ERROR;
     }
-    x_reported.type(x.type());
+
     cvm::log(std::string("Expecting colvar value of type ")
       + colvarvalue::type_desc(x.type()));
 
     if (x.type() == colvarvalue::type_vector) {
       int size;
       if (!get_keyval(conf, "scriptedFunctionVectorSize", size)) {
-        cvm::error("Error: no size specified for vector scripted function.");
-        return;
+        cvm::error("Error: no size specified for vector scripted function.",
+                   INPUT_ERROR);
+        return INPUT_ERROR;
       }
       x.vector1d_value.resize(size);
     }
+
+    x_reported.type(x);
 
     // Sort array of cvcs based on their names
     // Note: default CVC names are in input order for same type of CVC
@@ -276,10 +164,10 @@ colvar::colvar(std::string const &conf)
         }
       }
     }
-    feature_states[f_cv_linear]->enabled = lin;
+    set_enabled(f_cv_linear, lin);
   }
 
-  // Colvar is homogeneous iff:
+  // Colvar is homogeneous if:
   // - it is linear (hence not scripted)
   // - all cvcs have coefficient 1 or -1
   // i.e. sum or difference of cvcs
@@ -290,41 +178,41 @@ colvar::colvar(std::string const &conf)
         homogeneous = false;
       }
     }
-    feature_states[f_cv_homogeneous]->enabled = homogeneous;
+    set_enabled(f_cv_homogeneous, homogeneous);
   }
-  // Colvar is deemed periodic iff:
+
+  // Colvar is deemed periodic if:
   // - it is homogeneous
   // - all cvcs are periodic
   // - all cvcs have the same period
-
-  b_periodic = cvcs[0]->b_periodic && is_enabled(f_cv_homogeneous);
-  period = cvcs[0]->period;
-  for (i = 1; i < cvcs.size(); i++) {
-    if (!cvcs[i]->b_periodic || cvcs[i]->period != period) {
-      b_periodic = false;
-      period = 0.0;
+  if (cvcs[0]->b_periodic) { // TODO make this a CVC feature
+    bool b_periodic = true;
+    period = cvcs[0]->period;
+    for (i = 1; i < cvcs.size(); i++) {
+      if (!cvcs[i]->b_periodic || cvcs[i]->period != period) {
+        b_periodic = false;
+        period = 0.0;
+        cvm::log("Warning: although one component is periodic, this colvar will "
+                 "not be treated as periodic, either because the exponent is not "
+                 "1, or because components of different periodicity are defined.  "
+                 "Make sure that you know what you are doing!");
+      }
     }
+    set_enabled(f_cv_periodic, b_periodic);
   }
-  feature_states[f_cv_periodic]->enabled = b_periodic;
 
   // check that cvcs are compatible
 
   for (i = 0; i < cvcs.size(); i++) {
-    if ((cvcs[i])->b_periodic && !b_periodic) {
-        cvm::log("Warning: although this component is periodic, the colvar will "
-                  "not be treated as periodic, either because the exponent is not "
-                  "1, or because multiple components are present. Make sure that "
-                  "you know what you are doing!");
-    }
 
     // components may have different types only for scripted functions
     if (!is_enabled(f_cv_scripted) && (colvarvalue::check_types(cvcs[i]->value(),
-                                                           cvcs[0]->value())) ) {
+                                                                cvcs[0]->value())) ) {
       cvm::error("ERROR: you are definining this collective variable "
                  "by using components of different types. "
                  "You must use the same type in order to "
-                 " sum them together.\n", INPUT_ERROR);
-      return;
+                 "sum them together.\n", INPUT_ERROR);
+      return INPUT_ERROR;
     }
   }
 
@@ -335,46 +223,112 @@ colvar::colvar(std::string const &conf)
 
   // at this point, the colvar's type is defined
   f.type(value());
-  fb.type(value());
+  f_accumulated.type(value());
+
+  x_old.type(value());
+  v_fdiff.type(value());
+  v_reported.type(value());
+  fj.type(value());
+  ft.type(value());
+  ft_reported.type(value());
+  f_old.type(value());
+  f_old.reset();
+
+  x_restart.type(value());
+  after_restart = false;
+
+  reset_bias_force();
+
+  // TODO use here information from the CVCs' own natural boundaries
+  error_code |= init_grid_parameters(conf);
+
+  get_keyval(conf, "timeStepFactor", time_step_factor, 1);
+
+  error_code |= init_extended_Lagrangian(conf);
+  error_code |= init_output_flags(conf);
+
+  // Start in active state by default
+  enable(f_cv_active);
+  // Make sure dependency side-effects are correct
+  refresh_deps();
+
+  if (cvm::b_analysis)
+    parse_analysis(conf);
+
+  if (cvm::debug())
+    cvm::log("Done initializing collective variable \""+this->name+"\".\n");
+
+  return error_code;
+}
+
+
+int colvar::init_grid_parameters(std::string const &conf)
+{
+  colvarmodule *cv = cvm::main();
 
   get_keyval(conf, "width", width, 1.0);
   if (width <= 0.0) {
     cvm::error("Error: \"width\" must be positive.\n", INPUT_ERROR);
+    return INPUT_ERROR;
   }
 
-  // NOTE: not porting wall stuff to new deps, as this will change to a separate bias
-  // the grid functions will wait a little as well
-
   lower_boundary.type(value());
-  lower_wall.type(value());
 
   upper_boundary.type(value());
   upper_wall.type(value());
 
-  feature_states[f_cv_scalar]->enabled = (value().type() == colvarvalue::type_scalar);
+  set_enabled(f_cv_scalar, (value().type() == colvarvalue::type_scalar));
 
   if (is_enabled(f_cv_scalar)) {
 
     if (get_keyval(conf, "lowerBoundary", lower_boundary, lower_boundary)) {
-      provide(f_cv_lower_boundary);
       enable(f_cv_lower_boundary);
     }
+    std::string lw_conf, uw_conf;
 
-    get_keyval(conf, "lowerWallConstant", lower_wall_k, 0.0);
-    if (lower_wall_k > 0.0) {
+    if (get_keyval(conf, "lowerWallConstant", lower_wall_k, 0.0, parse_silent)) {
+      cvm::log("Warning: lowerWallConstant and lowerWall are deprecated, "
+               "please define a harmonicWalls bias instead.\n");
+      lower_wall.type(value());
       get_keyval(conf, "lowerWall", lower_wall, lower_boundary);
-      enable(f_cv_lower_wall);
+      lw_conf = std::string("\n\
+    lowerWallConstant "+cvm::to_str(lower_wall_k*width*width)+"\n\
+    lowerWalls "+cvm::to_str(lower_wall)+"\n");
     }
 
     if (get_keyval(conf, "upperBoundary", upper_boundary, upper_boundary)) {
-      provide(f_cv_upper_boundary);
       enable(f_cv_upper_boundary);
     }
 
-    get_keyval(conf, "upperWallConstant", upper_wall_k, 0.0);
-    if (upper_wall_k > 0.0) {
+    if (get_keyval(conf, "upperWallConstant", upper_wall_k, 0.0, parse_silent)) {
+      cvm::log("Warning: upperWallConstant and upperWall are deprecated, "
+               "please define a harmonicWalls bias instead.\n");
+      upper_wall.type(value());
       get_keyval(conf, "upperWall", upper_wall, upper_boundary);
-      enable(f_cv_upper_wall);
+      uw_conf = std::string("\n\
+    upperWallConstant "+cvm::to_str(upper_wall_k*width*width)+"\n\
+    upperWalls "+cvm::to_str(upper_wall)+"\n");
+    }
+
+    if (lw_conf.size() && uw_conf.size()) {
+      if (lower_wall >= upper_wall) {
+        cvm::error("Error: the upper wall, "+
+                   cvm::to_str(upper_wall)+
+                   ", is not higher than the lower wall, "+
+                   cvm::to_str(lower_wall)+".\n",
+                   INPUT_ERROR);
+        return INPUT_ERROR;
+      }
+    }
+
+    if (lw_conf.size() || uw_conf.size()) {
+      cvm::log("Generating a new harmonicWalls bias for compatibility purposes.\n");
+      std::string const walls_conf("\n\
+harmonicWalls {\n\
+    name "+this->name+"w\n\
+    colvars "+this->name+"\n"+lw_conf+uw_conf+
+                             "}\n");
+      cv->append_new_config(walls_conf);
     }
   }
 
@@ -393,16 +347,7 @@ colvar::colvar(std::string const &conf)
                         ", is not higher than the lower boundary, "+
                         cvm::to_str(lower_boundary)+".\n",
                 INPUT_ERROR);
-    }
-  }
-
-  if (is_enabled(f_cv_lower_wall) && is_enabled(f_cv_upper_wall)) {
-    if (lower_wall >= upper_wall) {
-      cvm::error("Error: the upper wall, "+
-                 cvm::to_str(upper_wall)+
-                 ", is not higher than the lower wall, "+
-                 cvm::to_str(lower_wall)+".\n",
-                 INPUT_ERROR);
+      return INPUT_ERROR;
     }
   }
 
@@ -411,77 +356,90 @@ colvar::colvar(std::string const &conf)
     cvm::error("Error: trying to expand boundaries that already "
                "cover a whole period of a periodic colvar.\n",
                INPUT_ERROR);
+    return INPUT_ERROR;
   }
   if (expand_boundaries && hard_lower_boundary && hard_upper_boundary) {
     cvm::error("Error: inconsistent configuration "
                "(trying to expand boundaries with both "
                "hardLowerBoundary and hardUpperBoundary enabled).\n",
                INPUT_ERROR);
+    return INPUT_ERROR;
   }
 
-  {
-    bool b_extended_Lagrangian;
-    get_keyval(conf, "extendedLagrangian", b_extended_Lagrangian, false);
+  return COLVARS_OK;
+}
 
-    if (b_extended_Lagrangian) {
-      cvm::real temp, tolerance, period;
 
-      cvm::log("Enabling the extended Lagrangian term for colvar \""+
-                this->name+"\".\n");
+int colvar::init_extended_Lagrangian(std::string const &conf)
+{
+  bool b_extended_Lagrangian;
+  get_keyval(conf, "extendedLagrangian", b_extended_Lagrangian, false);
 
-      // Make feature available only on user request
-      provide(f_cv_extended_Lagrangian);
-      enable(f_cv_extended_Lagrangian);
+  if (b_extended_Lagrangian) {
+    cvm::real temp, tolerance, period;
 
-      xr.type(value());
-      vr.type(value());
-      fr.type(value());
+    cvm::log("Enabling the extended Lagrangian term for colvar \""+
+             this->name+"\".\n");
 
-      const bool found = get_keyval(conf, "extendedTemp", temp, cvm::temperature());
-      if (temp <= 0.0) {
-        if (found)
-          cvm::error("Error: \"extendedTemp\" must be positive.\n", INPUT_ERROR);
-        else
-          cvm::error("Error: a positive temperature must be provided, either "
-                     "by enabling a thermostat, or through \"extendedTemp\".\n",
-                     INPUT_ERROR);
+    enable(f_cv_extended_Lagrangian);
+
+    xr.type(value());
+    vr.type(value());
+    fr.type(value());
+
+    const bool found = get_keyval(conf, "extendedTemp", temp, cvm::temperature());
+    if (temp <= 0.0) {
+      if (found)
+        cvm::error("Error: \"extendedTemp\" must be positive.\n", INPUT_ERROR);
+      else
+        cvm::error("Error: a positive temperature must be provided, either "
+                   "by enabling a thermostat, or through \"extendedTemp\".\n",
+                   INPUT_ERROR);
+      return INPUT_ERROR;
+    }
+
+    get_keyval(conf, "extendedFluctuation", tolerance);
+    if (tolerance <= 0.0) {
+      cvm::error("Error: \"extendedFluctuation\" must be positive.\n", INPUT_ERROR);
+      return INPUT_ERROR;
+    }
+    ext_force_k = cvm::boltzmann() * temp / (tolerance * tolerance);
+    cvm::log("Computed extended system force constant: " + cvm::to_str(ext_force_k) + " kcal/mol/U^2");
+
+    get_keyval(conf, "extendedTimeConstant", period, 200.0);
+    if (period <= 0.0) {
+      cvm::error("Error: \"extendedTimeConstant\" must be positive.\n", INPUT_ERROR);
+    }
+    ext_mass = (cvm::boltzmann() * temp * period * period)
+      / (4.0 * PI * PI * tolerance * tolerance);
+    cvm::log("Computed fictitious mass: " + cvm::to_str(ext_mass) + " kcal/mol/(U/fs)^2   (U: colvar unit)");
+
+    {
+      bool b_output_energy;
+      get_keyval(conf, "outputEnergy", b_output_energy, false);
+      if (b_output_energy) {
+        enable(f_cv_output_energy);
       }
+    }
 
-      get_keyval(conf, "extendedFluctuation", tolerance);
-      if (tolerance <= 0.0) {
-        cvm::error("Error: \"extendedFluctuation\" must be positive.\n", INPUT_ERROR);
-      }
-      ext_force_k = cvm::boltzmann() * temp / (tolerance * tolerance);
-      cvm::log("Computed extended system force constant: " + cvm::to_str(ext_force_k) + " kcal/mol/U^2");
-
-      get_keyval(conf, "extendedTimeConstant", period, 200.0);
-      if (period <= 0.0) {
-        cvm::error("Error: \"extendedTimeConstant\" must be positive.\n", INPUT_ERROR);
-      }
-      ext_mass = (cvm::boltzmann() * temp * period * period)
-                 / (4.0 * PI * PI * tolerance * tolerance);
-      cvm::log("Computed fictitious mass: " + cvm::to_str(ext_mass) + " kcal/mol/(U/fs)^2   (U: colvar unit)");
-
-      {
-        bool b_output_energy;
-        get_keyval(conf, "outputEnergy", b_output_energy, false);
-        if (b_output_energy) {
-          enable(f_cv_output_energy);
-        }
-      }
-
-      get_keyval(conf, "extendedLangevinDamping", ext_gamma, 1.0);
-      if (ext_gamma < 0.0) {
-        cvm::error("Error: \"extendedLangevinDamping\" may not be negative.\n", INPUT_ERROR);
-      }
-      if (ext_gamma != 0.0) {
-        enable(f_cv_Langevin);
-        ext_gamma *= 1.0e-3; // convert from ps-1 to fs-1
-        ext_sigma = std::sqrt(2.0 * cvm::boltzmann() * temp * ext_gamma * ext_mass / cvm::dt());
-      }
+    get_keyval(conf, "extendedLangevinDamping", ext_gamma, 1.0);
+    if (ext_gamma < 0.0) {
+      cvm::error("Error: \"extendedLangevinDamping\" may not be negative.\n", INPUT_ERROR);
+      return INPUT_ERROR;
+    }
+    if (ext_gamma != 0.0) {
+      enable(f_cv_Langevin);
+      ext_gamma *= 1.0e-3; // convert from ps-1 to fs-1
+      ext_sigma = std::sqrt(2.0 * cvm::boltzmann() * temp * ext_gamma * ext_mass / cvm::dt());
     }
   }
 
+  return COLVARS_OK;
+}
+
+
+int colvar::init_output_flags(std::string const &conf)
+{
   {
     bool b_output_value;
     get_keyval(conf, "outputValue", b_output_value, true);
@@ -499,46 +457,172 @@ colvar::colvar(std::string const &conf)
   }
 
   {
-    bool b_output_system_force;
-    get_keyval(conf, "outputSystemForce", b_output_system_force, false);
-    if (b_output_system_force) {
-      enable(f_cv_output_system_force);
+    bool temp;
+    if (get_keyval(conf, "outputSystemForce", temp, false, colvarparse::parse_silent)) {
+      cvm::error("Option outputSystemForce is deprecated: only outputTotalForce is supported instead.\n"
+                 "The two are NOT identical: see http://colvars.github.io/totalforce.html.\n", INPUT_ERROR);
+      return INPUT_ERROR;
     }
   }
 
-  {
-    bool b_output_applied_force;
-    get_keyval(conf, "outputAppliedForce", b_output_applied_force, false);
-    if (b_output_applied_force) {
-      enable(f_cv_output_applied_force);
+  get_keyval_feature(this, conf, "outputTotalForce", f_cv_output_total_force, false);
+  get_keyval_feature(this, conf, "outputAppliedForce", f_cv_output_applied_force, false);
+  get_keyval_feature(this, conf, "subtractAppliedForce", f_cv_subtract_applied_force, false);
+
+  return COLVARS_OK;
+}
+
+
+
+
+// read the configuration and set up corresponding instances, for
+// each type of component implemented
+template<typename def_class_name> int colvar::init_components_type(std::string const &conf,
+                                                                   char const *def_desc,
+                                                                   char const *def_config_key)
+{
+  size_t def_count = 0;
+  std::string def_conf = "";
+  size_t pos = 0;
+  while ( this->key_lookup(conf,
+                           def_config_key,
+                           def_conf,
+                           pos) ) {
+    if (!def_conf.size()) continue;
+    cvm::log("Initializing "
+             "a new \""+std::string(def_config_key)+"\" component"+
+             (cvm::debug() ? ", with configuration:\n"+def_conf
+              : ".\n"));
+    cvm::increase_depth();
+    cvc *cvcp = new def_class_name(def_conf);
+    if (cvcp != NULL) {
+      cvcs.push_back(cvcp);
+      cvcp->check_keywords(def_conf, def_config_key);
+      if (cvm::get_error()) {
+        cvm::error("Error: in setting up component \""+
+                   std::string(def_config_key)+"\".\n", INPUT_ERROR);
+        return INPUT_ERROR;
+      }
+      cvm::decrease_depth();
+    } else {
+      cvm::error("Error: in allocating component \""+
+                   std::string(def_config_key)+"\".\n",
+                 MEMORY_ERROR);
+      return MEMORY_ERROR;
+    }
+
+    if ( (cvcp->period != 0.0) || (cvcp->wrap_center != 0.0) ) {
+      if ( (cvcp->function_type != std::string("distance_z")) &&
+           (cvcp->function_type != std::string("dihedral")) &&
+           (cvcp->function_type != std::string("spin_angle")) ) {
+        cvm::error("Error: invalid use of period and/or "
+                   "wrapAround in a \""+
+                   std::string(def_config_key)+
+                   "\" component.\n"+
+                   "Period: "+cvm::to_str(cvcp->period) +
+                   " wrapAround: "+cvm::to_str(cvcp->wrap_center),
+                   INPUT_ERROR);
+        return INPUT_ERROR;
+      }
+    }
+
+    if ( ! cvcs.back()->name.size()) {
+      std::ostringstream s;
+      s << def_config_key << std::setfill('0') << std::setw(4) << ++def_count;
+      cvcs.back()->name = s.str();
+      /* pad cvc number for correct ordering when sorting by name */
+    }
+
+    cvcs.back()->setup();
+    if (cvm::debug()) {
+      cvm::log("Done initializing a \""+
+               std::string(def_config_key)+
+               "\" component"+
+               (cvm::debug() ?
+                ", named \""+cvcs.back()->name+"\""
+                : "")+".\n");
+    }
+    def_conf = "";
+    if (cvm::debug()) {
+      cvm::log("Parsed "+cvm::to_str(cvcs.size())+
+               " components at this time.\n");
     }
   }
 
-  // Start in active state by default
-  enable(f_cv_active);
-  // Make sure dependency side-effects are correct
-  refresh_deps();
+  return COLVARS_OK;
+}
 
-  x_old.type(value());
-  v_fdiff.type(value());
-  v_reported.type(value());
-  fj.type(value());
-  ft.type(value());
-  ft_reported.type(value());
 
-  if (cvm::b_analysis)
-    parse_analysis(conf);
+int colvar::init_components(std::string const &conf)
+{
+  int error_code = COLVARS_OK;
 
-  if (cvm::debug())
-    cvm::log("Done initializing collective variable \""+this->name+"\".\n");
+  error_code |= init_components_type<distance>(conf, "distance", "distance");
+  error_code |= init_components_type<distance_vec>(conf, "distance vector", "distanceVec");
+  error_code |= init_components_type<cartesian>(conf, "Cartesian coordinates", "cartesian");
+  error_code |= init_components_type<distance_dir>(conf, "distance vector "
+    "direction", "distanceDir");
+  error_code |= init_components_type<distance_z>(conf, "distance projection "
+    "on an axis", "distanceZ");
+  error_code |= init_components_type<distance_xy>(conf, "distance projection "
+    "on a plane", "distanceXY");
+  error_code |= init_components_type<distance_inv>(conf, "average distance "
+    "weighted by inverse power", "distanceInv");
+  error_code |= init_components_type<distance_pairs>(conf, "N1xN2-long vector "
+    "of pairwise distances", "distancePairs");
+  error_code |= init_components_type<coordnum>(conf, "coordination "
+    "number", "coordNum");
+  error_code |= init_components_type<selfcoordnum>(conf, "self-coordination "
+    "number", "selfCoordNum");
+  error_code |= init_components_type<groupcoordnum>(conf, "group-coordination "
+    "number", "groupCoord");
+  error_code |= init_components_type<angle>(conf, "angle", "angle");
+  error_code |= init_components_type<dipole_angle>(conf, "dipole angle", "dipoleAngle");
+  error_code |= init_components_type<dihedral>(conf, "dihedral", "dihedral");
+  error_code |= init_components_type<h_bond>(conf, "hydrogen bond", "hBond");
+  error_code |= init_components_type<alpha_angles>(conf, "alpha helix", "alpha");
+  error_code |= init_components_type<dihedPC>(conf, "dihedral "
+    "principal component", "dihedralPC");
+  error_code |= init_components_type<orientation>(conf, "orientation", "orientation");
+  error_code |= init_components_type<orientation_angle>(conf, "orientation "
+    "angle", "orientationAngle");
+  error_code |= init_components_type<orientation_proj>(conf, "orientation "
+    "projection", "orientationProj");
+  error_code |= init_components_type<tilt>(conf, "tilt", "tilt");
+  error_code |= init_components_type<spin_angle>(conf, "spin angle", "spinAngle");
+  error_code |= init_components_type<rmsd>(conf, "RMSD", "rmsd");
+  error_code |= init_components_type<gyration>(conf, "radius of "
+    "gyration", "gyration");
+  error_code |= init_components_type<inertia>(conf, "moment of "
+    "inertia", "inertia");
+  error_code |= init_components_type<inertia_z>(conf, "moment of inertia around an axis", "inertiaZ");
+  error_code |= init_components_type<eigenvector>(conf, "eigenvector", "eigenvector");
+
+  if (!cvcs.size() || (error_code != COLVARS_OK)) {
+    cvm::error("Error: no valid components were provided "
+               "for this collective variable.\n",
+               INPUT_ERROR);
+    return INPUT_ERROR;
+  }
+
+  n_active_cvcs = cvcs.size();
+
+  cvm::log("All components initialized.\n");
+
+  // Store list of children cvcs for dependency checking purposes
+  for (size_t i = 0; i < cvcs.size(); i++) {
+    add_child(cvcs[i]);
+  }
+
+  return COLVARS_OK;
 }
 
 
 int colvar::refresh_deps()
 {
   // If enabled features are changed upstream, the features below should be refreshed
-  if (is_enabled(f_cv_system_force_calc)) {
-    cvm::request_system_force();
+  if (is_enabled(f_cv_total_force_calc)) {
+    cvm::request_total_force();
   }
   if (is_enabled(f_cv_collect_gradient) && atom_ids.size() == 0) {
     build_atom_list();
@@ -606,7 +690,7 @@ int colvar::parse_analysis(std::string const &conf)
 
     std::string runave_outfile;
     get_keyval(conf, "runAveOutputFile", runave_outfile,
-                std::string(cvm::output_prefix+"."+
+                std::string(cvm::output_prefix()+"."+
                              this->name+".runave.traj"));
 
     size_t const this_cv_width = x.output_width(cvm::cv_width);
@@ -649,7 +733,7 @@ int colvar::parse_analysis(std::string const &conf)
     } else {
       cvm::log("Unknown type of correlation function, \""+
                         acf_type_str+"\".\n");
-      cvm::set_error_bit(INPUT_ERROR);
+      cvm::set_error_bits(INPUT_ERROR);
     }
 
     get_keyval(conf, "corrFuncOffset", acf_offset, 0);
@@ -662,7 +746,7 @@ int colvar::parse_analysis(std::string const &conf)
 
     get_keyval(conf, "corrFuncNormalize", acf_normalize, true);
     get_keyval(conf, "corrFuncOutputFile", acf_outfile,
-                std::string(cvm::output_prefix+"."+this->name+
+                std::string(cvm::output_prefix()+"."+this->name+
                              ".corrfunc.dat"));
   }
   return (cvm::get_error() ? COLVARS_ERROR : COLVARS_OK);
@@ -699,11 +783,12 @@ colvar::~colvar()
   }
 
   // remove reference to this colvar from the CVM
-  for (std::vector<colvar *>::iterator cvi = cvm::colvars.begin();
-       cvi != cvm::colvars.end();
+  colvarmodule *cv = cvm::main();
+  for (std::vector<colvar *>::iterator cvi = cv->variables()->begin();
+       cvi != cv->variables()->end();
        ++cvi) {
     if ( *cvi == this) {
-      cvm::colvars.erase(cvi);
+      cv->variables()->erase(cvi);
       break;
     }
   }
@@ -720,9 +805,11 @@ int colvar::calc()
   // Note: if anything is added here, it should be added also in the SMP block of calc_colvars()
   int error_code = COLVARS_OK;
   if (is_enabled(f_cv_active)) {
-    cvm::combine_errors(error_code, update_cvc_flags());
-    cvm::combine_errors(error_code, calc_cvcs());
-    cvm::combine_errors(error_code, collect_cvc_data());
+    error_code |= update_cvc_flags();
+    if (error_code != COLVARS_OK) return error_code;
+    error_code |= calc_cvcs();
+    if (error_code != COLVARS_OK) return error_code;
+    error_code |= collect_cvc_data();
   }
   return error_code;
 }
@@ -735,15 +822,19 @@ int colvar::calc_cvcs(int first_cvc, size_t num_cvcs)
     cvm::log("Calculating colvar \""+this->name+"\", components "+
              cvm::to_str(first_cvc)+" through "+cvm::to_str(first_cvc+num_cvcs)+".\n");
 
-  cvm::combine_errors(error_code, check_cvc_range(first_cvc, num_cvcs));
+  error_code |= check_cvc_range(first_cvc, num_cvcs);
   if (error_code != COLVARS_OK) {
     return error_code;
   }
 
-  cvm::combine_errors(error_code, calc_cvc_values(first_cvc, num_cvcs));
-  cvm::combine_errors(error_code, calc_cvc_gradients(first_cvc, num_cvcs));
-  cvm::combine_errors(error_code, calc_cvc_sys_forces(first_cvc, num_cvcs));
-  cvm::combine_errors(error_code, calc_cvc_Jacobians(first_cvc, num_cvcs));
+  if (cvm::step_relative() > 0) {
+    // Total force depends on Jacobian derivative from previous timestep
+    error_code |= calc_cvc_total_force(first_cvc, num_cvcs);
+  }
+  // atom coordinates are updated by the next line
+  error_code |= calc_cvc_values(first_cvc, num_cvcs);
+  error_code |= calc_cvc_gradients(first_cvc, num_cvcs);
+  error_code |= calc_cvc_Jacobians(first_cvc, num_cvcs);
 
   if (cvm::debug())
     cvm::log("Done calculating colvar \""+this->name+"\".\n");
@@ -759,12 +850,14 @@ int colvar::collect_cvc_data()
 
   int error_code = COLVARS_OK;
 
-  cvm::combine_errors(error_code, collect_cvc_values());
-  cvm::combine_errors(error_code, collect_cvc_gradients());
-  cvm::combine_errors(error_code, collect_cvc_sys_forces());
-  cvm::combine_errors(error_code, collect_cvc_Jacobians());
-
-  cvm::combine_errors(error_code, calc_colvar_properties());
+  if (cvm::step_relative() > 0) {
+    // Total force depends on Jacobian derivative from previous timestep
+    error_code |= collect_cvc_total_forces();
+  }
+  error_code |= collect_cvc_values();
+  error_code |= collect_cvc_gradients();
+  error_code |= collect_cvc_Jacobians();
+  error_code |= calc_colvar_properties();
 
   if (cvm::debug())
     cvm::log("Done calculating colvar \""+this->name+"\"'s properties.\n");
@@ -852,6 +945,21 @@ int colvar::collect_cvc_values()
     cvm::log("Colvar \""+this->name+"\" has value "+
               cvm::to_str(x, cvm::cv_width, cvm::cv_prec)+".\n");
 
+  if (after_restart) {
+    if (cvm::proxy->simulation_running()) {
+      cvm::real const jump2 = dist2(x, x_restart) / (width*width);
+      if (jump2 > 0.25) {
+        cvm::error("Error: the calculated value of colvar \""+name+
+                   "\":\n"+cvm::to_str(x)+"\n differs greatly from the value "
+                   "last read from the state file:\n"+cvm::to_str(x_restart)+
+                   "\nPossible causes are changes in configuration, "
+                   "wrong state file, or how PBC wrapping is handled.\n",
+                   INPUT_ERROR);
+        return INPUT_ERROR;
+      }
+    }
+  }
+
   return COLVARS_OK;
 }
 
@@ -861,21 +969,22 @@ int colvar::calc_cvc_gradients(int first_cvc, size_t num_cvcs)
   size_t const cvc_max_count = num_cvcs ? num_cvcs : num_active_cvcs();
   size_t i, cvc_count;
 
-  if (is_enabled(f_cv_gradient)) {
+  if (cvm::debug())
+    cvm::log("Calculating gradients of colvar \""+this->name+"\".\n");
 
-    if (cvm::debug())
-      cvm::log("Calculating gradients of colvar \""+this->name+"\".\n");
+  // calculate the gradients of each component
+  cvm::increase_depth();
+  for (i = first_cvc, cvc_count = 0;
+      (i < cvcs.size()) && (cvc_count < cvc_max_count);
+      i++) {
+    if (!cvcs[i]->is_enabled()) continue;
+    cvc_count++;
 
-    // calculate the gradients of each component
-    cvm::increase_depth();
-    for (i = first_cvc, cvc_count = 0;
-        (i < cvcs.size()) && (cvc_count < cvc_max_count);
-        i++) {
-      if (!cvcs[i]->is_enabled()) continue;
-      cvc_count++;
+    if ((cvcs[i])->is_enabled(f_cvc_gradient)) {
       (cvcs[i])->calc_gradients();
       // if requested, propagate (via chain rule) the gradients above
       // to the atoms used to define the roto-translation
+      // This could be integrated in the CVC base class
       for (size_t ig = 0; ig < cvcs[i]->atom_groups.size(); ig++) {
         if (cvcs[i]->atom_groups[ig]->b_fit_gradients)
           cvcs[i]->atom_groups[ig]->calc_fit_gradients();
@@ -886,6 +995,7 @@ int colvar::calc_cvc_gradients(int first_cvc, size_t num_cvcs)
         }
       }
     }
+
     cvm::decrease_depth();
 
     if (cvm::debug())
@@ -948,69 +1058,56 @@ int colvar::collect_cvc_gradients()
 }
 
 
-int colvar::calc_cvc_sys_forces(int first_cvc, size_t num_cvcs)
+int colvar::calc_cvc_total_force(int first_cvc, size_t num_cvcs)
 {
   size_t const cvc_max_count = num_cvcs ? num_cvcs : num_active_cvcs();
   size_t i, cvc_count;
 
-  if (is_enabled(f_cv_system_force) && !is_enabled(f_cv_extended_Lagrangian)) {
-    // If extended Lagrangian is enabled, system force calculation is trivial
-    // and done together with integration of the extended coordinate.
+  if (is_enabled(f_cv_total_force_calc)) {
+    if (cvm::debug())
+      cvm::log("Calculating total force of colvar \""+this->name+"\".\n");
 
-    if (is_enabled(f_cv_scripted)) {
-      // TODO see if this could reasonably be done in a generic way
-      // from generic inverse gradients
-      cvm::error("System force is not implemented for "
-                 "scripted colvars.", COLVARS_NOT_IMPLEMENTED);
-      return COLVARS_NOT_IMPLEMENTED;
+    cvm::increase_depth();
+
+    for (i = first_cvc, cvc_count = 0;
+        (i < cvcs.size()) && (cvc_count < cvc_max_count);
+        i++) {
+      if (!cvcs[i]->is_enabled()) continue;
+      cvc_count++;
+      (cvcs[i])->calc_force_invgrads();
     }
+    cvm::decrease_depth();
+
 
     if (cvm::debug())
-      cvm::log("Calculating system force of colvar \""+this->name+"\".\n");
-
-    // if (!tasks[task_extended_lagrangian] && (cvm::step_relative() > 0)) {
-   // Disabled check to allow for explicit system force calculation
-    // even with extended Lagrangian
-
-    if (cvm::step_relative() > 0) {
-      cvm::increase_depth();
-      // get from the cvcs the system forces from the PREVIOUS step
-      for (i = first_cvc, cvc_count = 0;
-          (i < cvcs.size()) && (cvc_count < cvc_max_count);
-          i++) {
-        if (!cvcs[i]->is_enabled()) continue;
-        cvc_count++;
-        (cvcs[i])->calc_force_invgrads();
-      }
-      cvm::decrease_depth();
-    }
-
-    if (cvm::debug())
-      cvm::log("Done calculating system force of colvar \""+this->name+"\".\n");
+      cvm::log("Done calculating total force of colvar \""+this->name+"\".\n");
   }
 
   return COLVARS_OK;
 }
 
 
-int colvar::collect_cvc_sys_forces()
+int colvar::collect_cvc_total_forces()
 {
-  if (is_enabled(f_cv_system_force) && !is_enabled(f_cv_extended_Lagrangian)) {
-    // If extended Lagrangian is enabled, system force calculation is trivial
-    // and done together with integration of the extended coordinate.
+  if (is_enabled(f_cv_total_force_calc)) {
     ft.reset();
 
     if (cvm::step_relative() > 0) {
-      // get from the cvcs the system forces from the PREVIOUS step
+      // get from the cvcs the total forces from the PREVIOUS step
       for (size_t i = 0; i < cvcs.size();  i++) {
         if (!cvcs[i]->is_enabled()) continue;
+            if (cvm::debug())
+            cvm::log("Colvar component no. "+cvm::to_str(i+1)+
+                " within colvar \""+this->name+"\" has total force "+
+                cvm::to_str((cvcs[i])->total_force(),
+                cvm::cv_width, cvm::cv_prec)+".\n");
         // linear combination is assumed
-        ft += (cvcs[i])->system_force() * (cvcs[i])->sup_coeff / active_cvc_square_norm;
+        ft += (cvcs[i])->total_force() * (cvcs[i])->sup_coeff / active_cvc_square_norm;
       }
     }
 
     if (!is_enabled(f_cv_hide_Jacobian)) {
-      // add the Jacobian force to the system force, and don't apply any silent
+      // add the Jacobian force to the total force, and don't apply any silent
       // correction internally: biases such as colvarbias_abf will handle it
       ft += fj;
     }
@@ -1047,6 +1144,11 @@ int colvar::collect_cvc_Jacobians()
     fj.reset();
     for (size_t i = 0; i < cvcs.size(); i++) {
       if (!cvcs[i]->is_enabled()) continue;
+        if (cvm::debug())
+          cvm::log("Colvar component no. "+cvm::to_str(i+1)+
+            " within colvar \""+this->name+"\" has Jacobian derivative"+
+            cvm::to_str((cvcs[i])->Jacobian_derivative(),
+            cvm::cv_width, cvm::cv_prec)+".\n");
       // linear combination is assumed
       fj += (cvcs[i])->Jacobian_derivative() * (cvcs[i])->sup_coeff / active_cvc_square_norm;
     }
@@ -1073,26 +1175,33 @@ int colvar::calc_colvar_properties()
 
     // initialize the restraint center in the first step to the value
     // just calculated from the cvcs
-    // TODO: put it in the restart information
-    if (cvm::step_relative() == 0) {
+    if (cvm::step_relative() == 0 && !after_restart) {
       xr = x;
-      vr = 0.0; // (already 0; added for clarity)
+      vr.reset(); // (already 0; added for clarity)
     }
 
     // report the restraint center as "value"
     x_reported = xr;
     v_reported = vr;
-    // the "system force" with the extended Lagrangian is just the
-    // harmonic term acting on the extended coordinate
-    // Note: this is the force for current timestep
-    ft_reported = (-0.5 * ext_force_k) * this->dist2_lgrad(xr, x);
+    // the "total force" with the extended Lagrangian is
+    // calculated in update_forces_energy() below
 
   } else {
+
+    if (is_enabled(f_cv_subtract_applied_force)) {
+      // correct the total force only if it has been measured
+      // TODO add a specific test instead of relying on sq norm
+      if (ft.norm2() > 0.0) {
+        ft -= f_old;
+      }
+    }
 
     x_reported = x;
     ft_reported = ft;
   }
 
+  // At the end of the first update after a restart, we can reset the flag
+  after_restart = false;
   return COLVARS_OK;
 }
 
@@ -1111,27 +1220,46 @@ cvm::real colvar::update_forces_energy()
   f += fb;
 
   if (is_enabled(f_cv_Jacobian)) {
-    // the instantaneous Jacobian force was not included in the reported system force;
+    // the instantaneous Jacobian force was not included in the reported total force;
     // instead, it is subtracted from the applied force (silent Jacobian correction)
+    // This requires the Jacobian term for the *current* timestep
     if (is_enabled(f_cv_hide_Jacobian))
       f -= fj;
   }
 
+  // At this point f is the force f from external biases that will be applied to the
+  // extended variable if there is one
+
   if (is_enabled(f_cv_extended_Lagrangian)) {
 
+    if (cvm::debug()) {
+      cvm::log("Updating extended-Lagrangian degree of freedom.\n");
+    }
+
     cvm::real dt = cvm::dt();
-    cvm::real f_ext;
+    colvarvalue f_ext(fr.type()); // force acting on the extended variable
+    f_ext.reset();
 
     // the total force is applied to the fictitious mass, while the
-    // atoms only feel the harmonic force
-    // fr: bias force on extended coordinate (without harmonic spring), for output in trajectory
-    // f_ext: total force on extended coordinate (including harmonic spring)
+    // atoms only feel the harmonic force + wall force
+    // fr: bias force on extended variable (without harmonic spring), for output in trajectory
+    // f_ext: total force on extended variable (including harmonic spring)
     // f: - initially, external biasing force
-    //    - after this code block, colvar force to be applied to atomic coordinates, ie. spring force
-    //      (note: wall potential is added to f after this block)
+    //    - after this code block, colvar force to be applied to atomic coordinates
+    //      ie. spring force (fb_actual will be added just below)
     fr    = f;
     f_ext = f + (-0.5 * ext_force_k) * this->dist2_lgrad(xr, x);
     f     =     (-0.5 * ext_force_k) * this->dist2_rgrad(xr, x);
+
+    if (is_enabled(f_cv_subtract_applied_force)) {
+      // Report a "system" force without the biases on this colvar
+      // that is, just the spring force
+      ft_reported = (-0.5 * ext_force_k) * this->dist2_lgrad(xr, x);
+    } else {
+      // The total force acting on the extended variable is f_ext
+      // This will be used in the next timestep
+      ft_reported = f_ext;
+    }
 
     // leapfrog: starting from x_i, f_i, v_(i-1/2)
     vr  += (0.5 * dt) * f_ext / ext_mass;
@@ -1140,57 +1268,31 @@ cvm::real colvar::update_forces_energy()
     potential_energy = 0.5 * ext_force_k * this->dist2(xr, x);
     // leap to v_(i+1/2)
     if (is_enabled(f_cv_Langevin)) {
-      vr -= dt * ext_gamma * vr.real_value;
-      vr += dt * ext_sigma * cvm::rand_gaussian() / ext_mass;
+      vr -= dt * ext_gamma * vr;
+      colvarvalue rnd(x);
+      rnd.set_random();
+      vr += dt * ext_sigma * rnd / ext_mass;
     }
     vr  += (0.5 * dt) * f_ext / ext_mass;
     xr  += dt * vr;
     xr.apply_constraints();
-    if (this->b_periodic) this->wrap(xr);
+    if (this->is_enabled(f_cv_periodic)) this->wrap(xr);
   }
 
+  // Now adding the force on the actual colvar (for those biases who
+  // bypass the extended Lagrangian mass)
+  f += fb_actual;
 
-  // Adding wall potential to "true" colvar force, whether or not an extended coordinate is in use
-  if (is_enabled(f_cv_lower_wall) || is_enabled(f_cv_upper_wall)) {
-
-    // Wall force
-    colvarvalue fw(x);
-    fw.reset();
-
-    if (cvm::debug())
-      cvm::log("Calculating wall forces for colvar \""+this->name+"\".\n");
-
-    // For a periodic colvar, both walls may be applicable at the same time
-    // in which case we pick the closer one
-    if ( (!is_enabled(f_cv_upper_wall)) ||
-         (this->dist2(x, lower_wall) < this->dist2(x, upper_wall)) ) {
-
-      cvm::real const grad = this->dist2_lgrad(x, lower_wall);
-      if (grad < 0.0) {
-        fw = -0.5 * lower_wall_k * grad;
-        f += fw;
-        if (cvm::debug())
-          cvm::log("Applying a lower wall force("+
-                    cvm::to_str(fw)+") to \""+this->name+"\".\n");
-      }
-
-    } else {
-
-      cvm::real const grad = this->dist2_lgrad(x, upper_wall);
-      if (grad > 0.0) {
-        fw = -0.5 * upper_wall_k * grad;
-        f += fw;
-        if (cvm::debug())
-          cvm::log("Applying an upper wall force("+
-                    cvm::to_str(fw)+") to \""+this->name+"\".\n");
-      }
-    }
-  }
-
+  // Store force to be applied, possibly summed over several timesteps
+  f_accumulated += f;
 
   if (is_enabled(f_cv_fdiff_velocity)) {
     // set it for the next step
     x_old = x;
+  }
+
+  if (is_enabled(f_cv_subtract_applied_force)) {
+    f_old = f;
   }
 
   if (cvm::debug())
@@ -1202,8 +1304,10 @@ cvm::real colvar::update_forces_energy()
 void colvar::communicate_forces()
 {
   size_t i;
-  if (cvm::debug())
+  if (cvm::debug()) {
     cvm::log("Communicating forces from colvar \""+this->name+"\".\n");
+    cvm::log("Force to be applied: " + cvm::to_str(f_accumulated) + "\n");
+  }
 
   if (is_enabled(f_cv_scripted)) {
     std::vector<cvm::matrix2d<cvm::real> > func_grads;
@@ -1229,14 +1333,14 @@ void colvar::communicate_forces()
       if (!cvcs[i]->is_enabled()) continue;
       // cvc force is colvar force times colvar/cvc Jacobian
       // (vector-matrix product)
-      (cvcs[i])->apply_force(colvarvalue(f.as_vector() * func_grads[grad_index++],
+      (cvcs[i])->apply_force(colvarvalue(f_accumulated.as_vector() * func_grads[grad_index++],
                              cvcs[i]->value().type()));
     }
   } else if (x.type() == colvarvalue::type_scalar) {
 
     for (i = 0; i < cvcs.size(); i++) {
       if (!cvcs[i]->is_enabled()) continue;
-      (cvcs[i])->apply_force(f * (cvcs[i])->sup_coeff *
+      (cvcs[i])->apply_force(f_accumulated * (cvcs[i])->sup_coeff *
                               cvm::real((cvcs[i])->sup_np) *
                               (std::pow((cvcs[i])->value().real_value,
                                       (cvcs[i])->sup_np-1)) );
@@ -1246,9 +1350,13 @@ void colvar::communicate_forces()
 
     for (i = 0; i < cvcs.size(); i++) {
       if (!cvcs[i]->is_enabled()) continue;
-      (cvcs[i])->apply_force(f * (cvcs[i])->sup_coeff);
+      (cvcs[i])->apply_force(f_accumulated * (cvcs[i])->sup_coeff);
     }
   }
+
+  // Accumulated forces have been applied, impulse-style
+  // Reset to start accumulating again
+  f_accumulated.reset();
 
   if (cvm::debug())
     cvm::log("Done communicating forces from colvar \""+this->name+"\".\n");
@@ -1276,7 +1384,7 @@ int colvar::update_cvc_flags()
     active_cvc_square_norm = 0.;
 
     for (size_t i = 0; i < cvcs.size(); i++) {
-      cvcs[i]->feature_states[f_cvc_active]->enabled = cvc_flags[i];
+      cvcs[i]->set_enabled(f_cvc_active, cvc_flags[i]);
       if (cvcs[i]->is_enabled()) {
         n_active_cvcs++;
         active_cvc_square_norm += cvcs[i]->sup_coeff * cvcs[i]->sup_coeff;
@@ -1302,7 +1410,7 @@ bool colvar::periodic_boundaries(colvarvalue const &lb, colvarvalue const &ub) c
   if ( (!is_enabled(f_cv_lower_boundary)) || (!is_enabled(f_cv_upper_boundary)) ) {
     cvm::log("Error: checking periodicity for collective variable \""+this->name+"\" "
                     "requires lower and upper boundaries to be defined.\n");
-    cvm::set_error_bit(INPUT_ERROR);
+    cvm::set_error_bits(INPUT_ERROR);
   }
 
   if (period > 0.0) {
@@ -1394,14 +1502,15 @@ std::istream & colvar::read_restart(std::istream &is)
     }
   }
 
-  if ( !(get_keyval(conf, "x", x,
-                    colvarvalue(x.type()), colvarparse::parse_silent)) ) {
+  if ( !(get_keyval(conf, "x", x, x, colvarparse::parse_silent)) ) {
     cvm::log("Error: restart file does not contain "
              "the value of the colvar \""+
              name+"\" .\n");
   } else {
     cvm::log("Restarting collective variable \""+name+"\" from value: "+
              cvm::to_str(x)+"\n");
+    x_restart = x;
+    after_restart = true;
   }
 
   if (is_enabled(f_cv_extended_Lagrangian)) {
@@ -1474,7 +1583,7 @@ std::istream & colvar::read_traj(std::istream &is)
     }
   }
 
-  if (is_enabled(f_cv_output_system_force)) {
+  if (is_enabled(f_cv_output_total_force)) {
     is >> ft;
     ft_reported = ft;
   }
@@ -1559,8 +1668,8 @@ std::ostream & colvar::write_traj_label(std::ostream & os)
        << cvm::wrap_string(this->name, this_cv_width-3);
   }
 
-  if (is_enabled(f_cv_output_system_force)) {
-    os << " fs_"
+  if (is_enabled(f_cv_output_total_force)) {
+    os << " ft_"
        << cvm::wrap_string(this->name, this_cv_width-3);
   }
 
@@ -1612,22 +1721,16 @@ std::ostream & colvar::write_traj(std::ostream &os)
   }
 
 
-  if (is_enabled(f_cv_output_system_force)) {
+  if (is_enabled(f_cv_output_total_force)) {
     os << " "
        << std::setprecision(cvm::cv_prec) << std::setw(cvm::cv_width)
        << ft_reported;
   }
 
   if (is_enabled(f_cv_output_applied_force)) {
-    if (is_enabled(f_cv_extended_Lagrangian)) {
-      os << " "
-         << std::setprecision(cvm::cv_prec) << std::setw(cvm::cv_width)
-         << fr;
-    } else {
-      os << " "
-         << std::setprecision(cvm::cv_prec) << std::setw(cvm::cv_width)
-         << f;
-    }
+    os << " "
+       << std::setprecision(cvm::cv_prec) << std::setw(cvm::cv_width)
+       << applied_force();
   }
 
   return os;
@@ -1944,4 +2047,4 @@ void colvar::calc_runave()
 
 // Static members
 
-std::vector<cvm::deps::feature *> colvar::cv_features;
+std::vector<colvardeps::feature *> colvar::cv_features;

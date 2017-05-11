@@ -32,10 +32,12 @@ FixEOScv::FixEOScv(LAMMPS *lmp, int narg, char **arg) :
 {
   if (narg != 4) error->all(FLERR,"Illegal fix eos/cv command");
   cvEOS = force->numeric(FLERR,arg[3]);
-  if(cvEOS <= double(0.0)) error->all(FLERR,"EOS cv must be > 0.0");
+  if(cvEOS <= 0.0) error->all(FLERR,"EOS cv must be > 0.0");
 
-  restart_peratom = 1;
   nevery = 1;
+
+  if (atom->dpd_flag != 1)
+    error->all(FLERR,"FixEOScv requires atom_style with internal temperature and energies (e.g. dpd)");
 }
 
 /* ---------------------------------------------------------------------- */
@@ -61,14 +63,14 @@ void FixEOScv::init()
   if(this->restart_reset){
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit)
-	dpdTheta[i] = (uCond[i]+uMech[i])/cvEOS;
+        dpdTheta[i] = (uCond[i]+uMech[i])/cvEOS;
   } else {
     for (int i = 0; i < nlocal; i++)
       if (mask[i] & groupbit) {
-	if(dpdTheta[i] <= double(0.0)) 
-	  error->one(FLERR,"Internal temperature <= zero");
-	uCond[i] = double(0.5)*cvEOS*dpdTheta[i];
-	uMech[i] = double(0.5)*cvEOS*dpdTheta[i];
+        if(dpdTheta[i] <= 0.0)
+          error->one(FLERR,"Internal temperature <= zero");
+        uCond[i] = 0.0;
+        uMech[i] = cvEOS*dpdTheta[i];
       }
   }
 }
@@ -86,8 +88,8 @@ void FixEOScv::post_integrate()
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit){
       dpdTheta[i] = (uCond[i]+uMech[i])/cvEOS;
-      if(dpdTheta[i] <= double(0.0)) 
-	error->one(FLERR,"Internal temperature <= zero");
+      if(dpdTheta[i] <= 0.0)
+        error->one(FLERR,"Internal temperature <= zero");
     }
 }
 
@@ -104,7 +106,7 @@ void FixEOScv::end_of_step()
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit){
       dpdTheta[i] = (uCond[i]+uMech[i])/cvEOS;
-      if(dpdTheta[i] <= double(0.0)) 
-	error->one(FLERR,"Internal temperature <= zero");
+      if(dpdTheta[i] <= 0.0)
+        error->one(FLERR,"Internal temperature <= zero");
     }
 }

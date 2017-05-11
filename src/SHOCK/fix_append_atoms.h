@@ -79,8 +79,7 @@ must be of type m (shrink/minimum).
 
 E: Bad fix ID in fix append/atoms command
 
-The value of the fix_id for keyword spatial must start with the suffix
-f_.
+The value of the fix_id for keyword spatial must start with 'f_'.
 
 E: Invalid basis setting in fix append/atoms command
 
@@ -95,7 +94,7 @@ type p (periodic).
 
 E: Cannot append atoms to a triclinic box
 
-The simulation box must be defined with edges alligned with the
+The simulation box must be defined with edges aligned with the
 Cartesian axes.
 
 E: Fix ID for fix ave/spatial does not exist
