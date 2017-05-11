@@ -626,7 +626,7 @@ void Neighbor::granular_nsq_newton(NeighList *list)
     fix_history->nall_neigh = nall;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    shearpartner = fix_history->shearpartner;
+    shearpartner = fix_history->shearpartner3;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -1352,7 +1352,7 @@ void Neighbor::granular_bin_newton(NeighList *list)
     fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    shearpartner = fix_history->shearpartner;
+    shearpartner = fix_history->shearpartner3;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -1548,7 +1548,7 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
     fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    shearpartner = fix_history->shearpartner;
+    shearpartner = fix_history->shearpartner3;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
