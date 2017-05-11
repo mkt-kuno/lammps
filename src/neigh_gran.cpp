@@ -94,6 +94,8 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 
   FixShearHistory *fix_history = list->fix_history;
   if (fix_history) {
+    fix_history->nlocal_neigh = nlocal;
+    fix_history->nall_neigh = nall;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
     num_quants = fix_history->num_quants; // added in, modified GM
@@ -579,7 +581,6 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 /* ----------------------------------------------------------------------
    granular particles
    N^2 / 2 search for neighbor pairs with full Newton's 3rd law
-   no shear history is allowed for this option
    pair added to list if atoms i and j are both owned and i < j
    if j is ghost only me or other proc adds pair
    decision based on itag,jtag tests
@@ -587,10 +588,20 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
 
 void Neighbor::granular_nsq_newton(NeighList *list)
 {
-  int i,j,n,itag,jtag,bitmask;
+  int i,j,m,n,nn,itag,jtag,bitmask;
   double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
   double radi,radsum,cutsq;
-  int *neighptr;
+  int *neighptr,*touchptr;
+  double *shearptr;
+
+  NeighList *listgranhistory;
+  int *npartner;
+  tagint **partner;
+  double (**shearpartner)[3];
+  int **firsttouch;
+  double **firstshear;
+  MyPage<int> *ipage_touch;
+  MyPage<double> *dpage_shear;
 
   double **x = atom->x;
   double *radius = atom->radius;
@@ -610,12 +621,35 @@ void Neighbor::granular_nsq_newton(NeighList *list)
   int **firstneigh = list->firstneigh;
   MyPage<int> *ipage = list->ipage;
 
+  FixShearHistory *fix_history = list->fix_history;
+  if (fix_history) {
+    fix_history->nlocal_neigh = nlocal;
+    fix_history->nall_neigh = nall;
+    npartner = fix_history->npartner;
+    partner = fix_history->partner;
+    shearpartner = fix_history->shearpartner;
+    listgranhistory = list->listgranhistory;
+    firsttouch = listgranhistory->firstneigh;
+    firstshear = listgranhistory->firstdouble;
+    ipage_touch = listgranhistory->ipage;
+    dpage_shear = listgranhistory->dpage;
+  }
+
   int inum = 0;
   ipage->reset();
+  if (fix_history) {
+    ipage_touch->reset();
+    dpage_shear->reset();
+  }
 
   for (i = 0; i < nlocal; i++) {
     n = 0;
     neighptr = ipage->vget();
+    if (fix_history) {
+      nn = 0;
+      touchptr = ipage_touch->vget();
+      shearptr = dpage_shear->vget();
+    }
 
     itag = tag[i];
     xtmp = x[i][0];
@@ -652,7 +686,34 @@ void Neighbor::granular_nsq_newton(NeighList *list)
       radsum = radi + radius[j];
       cutsq = (radsum+skin) * (radsum+skin);
 
-      if (rsq <= cutsq) neighptr[n++] = j;
+      if (rsq <= cutsq) {
+        neighptr[n++] = j;
+
+        if (fix_history) {
+          if (rsq < radsum*radsum) {
+            for (m = 0; m < npartner[i]; m++)
+              if (partner[i][m] == tag[j]) break;
+            if (m < npartner[i]) {
+              touchptr[n] = 1;
+              shearptr[nn++] = shearpartner[i][m][0];
+              shearptr[nn++] = shearpartner[i][m][1];
+              shearptr[nn++] = shearpartner[i][m][2];
+            } else {
+              touchptr[n] = 0;
+              shearptr[nn++] = 0.0;
+              shearptr[nn++] = 0.0;
+              shearptr[nn++] = 0.0;
+            }
+          } else {
+            touchptr[n] = 0;
+            shearptr[nn++] = 0.0;
+            shearptr[nn++] = 0.0;
+            shearptr[nn++] = 0.0;
+          }
+        }
+
+        n++;
+      }
     }
 
     ilist[inum++] = i;
@@ -661,6 +722,13 @@ void Neighbor::granular_nsq_newton(NeighList *list)
     ipage->vgot(n);
     if (ipage->status())
       error->one(FLERR,"Neighbor list overflow, boost neigh_modify one");
+
+    if (fix_history) {
+      firsttouch[i] = touchptr;
+      firstshear[i] = shearptr;
+      ipage_touch->vgot(n);
+      dpage_shear->vgot(nn);
+    }
   }
 
   list->inum = inum;
@@ -741,6 +809,8 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
 
   FixShearHistory *fix_history = list->fix_history;
   if (fix_history) {
+    fix_history->nlocal_neigh = nlocal;
+    fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
     num_quants = fix_history->num_quants; // added in, modified GM
@@ -1234,17 +1304,26 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
 /* ----------------------------------------------------------------------
    granular particles
    binned neighbor list construction with full Newton's 3rd law
-   no shear history is allowed for this option
    each owned atom i checks its own bin and other bins in Newton stencil
    every pair stored exactly once by some processor
 ------------------------------------------------------------------------- */
 
 void Neighbor::granular_bin_newton(NeighList *list)
 {
-  int i,j,k,n,ibin;
+  int i,j,k,m,n,nn,ibin;
   double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
   double radi,radsum,cutsq;
-  int *neighptr;
+  int *neighptr,*touchptr;
+  double *shearptr;
+
+  NeighList *listgranhistory;
+  int *npartner;
+  tagint **partner;
+  double (**shearpartner)[3];
+  int **firsttouch;
+  double **firstshear;
+  MyPage<int> *ipage_touch;
+  MyPage<double> *dpage_shear;
 
   // bin local & ghost atoms
 
@@ -1254,6 +1333,7 @@ void Neighbor::granular_bin_newton(NeighList *list)
 
   double **x = atom->x;
   double *radius = atom->radius;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
   tagint *molecule = atom->molecule;
@@ -1267,12 +1347,35 @@ void Neighbor::granular_bin_newton(NeighList *list)
   int *stencil = list->stencil;
   MyPage<int> *ipage = list->ipage;
 
+  FixShearHistory *fix_history = list->fix_history;
+  if (fix_history) {
+    fix_history->nlocal_neigh = nlocal;
+    fix_history->nall_neigh = nlocal + atom->nghost;
+    npartner = fix_history->npartner;
+    partner = fix_history->partner;
+    shearpartner = fix_history->shearpartner;
+    listgranhistory = list->listgranhistory;
+    firsttouch = listgranhistory->firstneigh;
+    firstshear = listgranhistory->firstdouble;
+    ipage_touch = listgranhistory->ipage;
+    dpage_shear = listgranhistory->dpage;
+  }
+
   int inum = 0;
   ipage->reset();
+  if (fix_history) {
+    ipage_touch->reset();
+    dpage_shear->reset();
+  }
 
   for (i = 0; i < nlocal; i++) {
     n = 0;
     neighptr = ipage->vget();
+    if (fix_history) {
+      nn = 0;
+      touchptr = ipage_touch->vget();
+      shearptr = dpage_shear->vget();
+    }
 
     xtmp = x[i][0];
     ytmp = x[i][1];
@@ -1301,7 +1404,34 @@ void Neighbor::granular_bin_newton(NeighList *list)
       radsum = radi + radius[j];
       cutsq = (radsum+skin) * (radsum+skin);
 
-      if (rsq <= cutsq) neighptr[n++] = j;
+      if (rsq <= cutsq) {
+        neighptr[n] = j;
+
+        if (fix_history) {
+          if (rsq < radsum*radsum) {
+            for (m = 0; m < npartner[i]; m++)
+              if (partner[i][m] == tag[j]) break;
+            if (m < npartner[i]) {
+              touchptr[n] = 1;
+              shearptr[nn++] = shearpartner[i][m][0];
+              shearptr[nn++] = shearpartner[i][m][1];
+              shearptr[nn++] = shearpartner[i][m][2];
+            } else {
+              touchptr[n] = 0;
+              shearptr[nn++] = 0.0;
+              shearptr[nn++] = 0.0;
+              shearptr[nn++] = 0.0;
+            }
+          } else {
+            touchptr[n] = 0;
+            shearptr[nn++] = 0.0;
+            shearptr[nn++] = 0.0;
+            shearptr[nn++] = 0.0;
+          }
+        }
+
+        n++;
+      }
     }
 
     // loop over all atoms in other bins in stencil, store every pair
@@ -1318,7 +1448,34 @@ void Neighbor::granular_bin_newton(NeighList *list)
         radsum = radi + radius[j];
         cutsq = (radsum+skin) * (radsum+skin);
 
-        if (rsq <= cutsq) neighptr[n++] = j;
+        if (rsq <= cutsq) {
+          neighptr[n] = j;
+
+          if (fix_history) {
+            if (rsq < radsum*radsum) {
+              for (m = 0; m < npartner[i]; m++)
+                if (partner[i][m] == tag[j]) break;
+              if (m < npartner[i]) {
+                touchptr[n] = 1;
+                shearptr[nn++] = shearpartner[i][m][0];
+                shearptr[nn++] = shearpartner[i][m][1];
+                shearptr[nn++] = shearpartner[i][m][2];
+              } else {
+                touchptr[n] = 0;
+                shearptr[nn++] = 0.0;
+                shearptr[nn++] = 0.0;
+                shearptr[nn++] = 0.0;
+              }
+            } else {
+              touchptr[n] = 0;
+              shearptr[nn++] = 0.0;
+              shearptr[nn++] = 0.0;
+              shearptr[nn++] = 0.0;
+            }
+          }
+          
+          n++;
+        }
       }
     }
 
@@ -1328,6 +1485,13 @@ void Neighbor::granular_bin_newton(NeighList *list)
     ipage->vgot(n);
     if (ipage->status())
       error->one(FLERR,"Neighbor list overflow, boost neigh_modify one");
+
+    if (fix_history) {
+      firsttouch[i] = touchptr;
+      firstshear[i] = shearptr;
+      ipage_touch->vgot(n);
+      dpage_shear->vgot(nn);
+    }
   }
 
   list->inum = inum;
@@ -1336,17 +1500,26 @@ void Neighbor::granular_bin_newton(NeighList *list)
 /* ----------------------------------------------------------------------
    granular particles
    binned neighbor list construction with Newton's 3rd law for triclinic
-   no shear history is allowed for this option
    each owned atom i checks its own bin and other bins in triclinic stencil
    every pair stored exactly once by some processor
 ------------------------------------------------------------------------- */
 
 void Neighbor::granular_bin_newton_tri(NeighList *list)
 {
-  int i,j,k,n,ibin;
+  int i,j,k,m,n,nn,ibin;
   double xtmp,ytmp,ztmp,delx,dely,delz,rsq;
   double radi,radsum,cutsq;
-  int *neighptr;
+  int *neighptr,*touchptr;
+  double *shearptr;
+
+  NeighList *listgranhistory;
+  int *npartner;
+  tagint **partner;
+  double (**shearpartner)[3];
+  int **firsttouch;
+  double **firstshear;
+  MyPage<int> *ipage_touch;
+  MyPage<double> *dpage_shear;
 
   // bin local & ghost atoms
 
@@ -1356,6 +1529,7 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
 
   double **x = atom->x;
   double *radius = atom->radius;
+  tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
   tagint *molecule = atom->molecule;
@@ -1369,12 +1543,35 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
   int *stencil = list->stencil;
   MyPage<int> *ipage = list->ipage;
 
+  FixShearHistory *fix_history = list->fix_history;
+  if (fix_history) {
+    fix_history->nlocal_neigh = nlocal;
+    fix_history->nall_neigh = nlocal + atom->nghost;
+    npartner = fix_history->npartner;
+    partner = fix_history->partner;
+    shearpartner = fix_history->shearpartner;
+    listgranhistory = list->listgranhistory;
+    firsttouch = listgranhistory->firstneigh;
+    firstshear = listgranhistory->firstdouble;
+    ipage_touch = listgranhistory->ipage;
+    dpage_shear = listgranhistory->dpage;
+  }
+
   int inum = 0;
   ipage->reset();
+  if (fix_history) {
+    ipage_touch->reset();
+    dpage_shear->reset();
+  }
 
   for (i = 0; i < nlocal; i++) {
     n = 0;
     neighptr = ipage->vget();
+    if (fix_history) {
+      nn = 0;
+      touchptr = ipage_touch->vget();
+      shearptr = dpage_shear->vget();
+    }
 
     xtmp = x[i][0];
     ytmp = x[i][1];
@@ -1408,7 +1605,34 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
         radsum = radi + radius[j];
         cutsq = (radsum+skin) * (radsum+skin);
 
-        if (rsq <= cutsq) neighptr[n++] = j;
+        if (rsq <= cutsq) {
+          neighptr[n++] = j;
+
+          if (fix_history) {
+            if (rsq < radsum*radsum) {
+              for (m = 0; m < npartner[i]; m++)
+                if (partner[i][m] == tag[j]) break;
+              if (m < npartner[i]) {
+                touchptr[n] = 1;
+                shearptr[nn++] = shearpartner[i][m][0];
+                shearptr[nn++] = shearpartner[i][m][1];
+                shearptr[nn++] = shearpartner[i][m][2];
+              } else {
+                touchptr[n] = 0;
+                shearptr[nn++] = 0.0;
+                shearptr[nn++] = 0.0;
+                shearptr[nn++] = 0.0;
+              }
+            } else {
+              touchptr[n] = 0;
+              shearptr[nn++] = 0.0;
+              shearptr[nn++] = 0.0;
+              shearptr[nn++] = 0.0;
+            }
+          }
+
+          n++;
+        }
       }
     }
 
@@ -1418,6 +1642,13 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
     ipage->vgot(n);
     if (ipage->status())
       error->one(FLERR,"Neighbor list overflow, boost neigh_modify one");
+
+    if (fix_history) {
+      firsttouch[i] = touchptr;
+      firstshear[i] = shearptr;
+      ipage_touch->vgot(n);
+      dpage_shear->vgot(nn);
+    }
   }
 
   list->inum = inum;

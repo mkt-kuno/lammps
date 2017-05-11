@@ -384,12 +384,16 @@ double PairGranHooke::single(int i, int j, int itype, int jtype, double rsq,
   if (vrel != 0.0) ft = MIN(fn,fs) / vrel;
   else ft = 0.0;
 
-  // set all forces and return no energy
+  // set force and return no energy
 
   /*~ Some of the following are included only for convenience as
     the data could instead be obtained from a dump of the sphere
     coordinates [KH - 13 December 2011]*/
   fforce = ccel;
+
+
+  // set single_extra quantities
+
   svector[0] = -ft*vtr1;
   svector[1] = -ft*vtr2;
   svector[2] = -ft*vtr3;

@@ -30,6 +30,8 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
+enum{NPARTNER,PERPARTNER};
+
 /* ---------------------------------------------------------------------- */
 
 FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
@@ -42,6 +44,12 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
     [KH - 21 November 2012]*/
   if (narg == 4) num_quants = force->inumeric(FLERR,arg[3]); // added in GM
   else num_quants = 3; //~ Assume the default value of 3 instead
+
+  newton_pair = force->newton_pair;
+
+  if (newton_pair) comm_reverse = 1;   // just for single npartner value
+                                       // variable-size history communicated via
+                                       // reverse_comm_fix_variable()
 
   // perform initial allocation of atom-based arrays
   // register with atom class
@@ -106,6 +114,8 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
   int nlocal = atom->nlocal;
   for (int i = 0; i < nlocal; i++) npartner[i] = 0;
   maxtouch = 0;
+
+  nlocal_neigh = nall_neigh = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -332,33 +342,173 @@ void FixShearHistory::allocate_pages()
 /* ----------------------------------------------------------------------
    copy shear partner info from neighbor lists to atom arrays
    should be called whenever neighbor list stores current history info
-     and need to have atoms store the info
+     and need to store the info with owned atoms
    e.g. so atoms can migrate to new procs or between runs
      when atoms may be added or deleted (neighbor list becomes out-of-date)
    the next granular neigh list build will put this info back into neigh list
-   called during run before atom exchanges
+   called during run before atom exchanges, including for restart files
    called at end of run via post_run()
    do not call during setup of run (setup_pre_exchange)
      b/c there is no guarantee of a current neigh list (even on continued run)
    if run command does a 2nd run with pre = no, then no neigh list
      will be built, but old neigh list will still have the info
+   newton ON and newton OFF versions
+     newton ON does reverse comm to acquire shear partner info from ghost atoms
+     newton OFF works with smaller vectors that don't include ghost info
 ------------------------------------------------------------------------- */
 
 void FixShearHistory::pre_exchange()
+{
+  if (newton_pair) pre_exchange_newton();
+  else pre_exchange_no_newton();
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixShearHistory::pre_exchange_newton()
 {
   int i,j,ii,jj,m,n,inum,jnum;
   int *ilist,*jlist,*numneigh,**firstneigh;
   int *touch,**firsttouch;
   double *shear,*allshear,**firstshear;
 
-  // nlocal may include atoms added since last neigh build
+  // NOTE: all operations until very end are with 
+  //   nlocal_neigh  <= current nlocal and nall_neigh
+  // b/c previous neigh list was built with nlocal_neigh,nghost_neigh
+  // nlocal can be larger if other fixes added atoms at this pre_exchange()
 
-  int nlocal = atom->nlocal;
-
-  // zero npartner for all current atoms
+  // zero npartner for owned+ghost atoms
   // clear 2 page data structures
 
-  for (i = 0; i < nlocal; i++) npartner[i] = 0;
+  for (i = 0; i < nall_neigh; i++) npartner[i] = 0;
+
+  ipage->reset();
+  dpage->reset();
+
+  // 1st loop over neighbor list
+  // calculate npartner for owned+ghost atoms
+
+  tagint *tag = atom->tag;
+  NeighList *list = pair->list;
+  inum = list->inum;
+  ilist = list->ilist;
+  numneigh = list->numneigh;
+  firstneigh = list->firstneigh;
+  firsttouch = list->listgranhistory->firstneigh;
+  firstshear = list->listgranhistory->firstdouble;
+
+  for (ii = 0; ii < inum; ii++) {
+    i = ilist[ii];
+    jlist = firstneigh[i];
+    jnum = numneigh[i];
+    touch = firsttouch[i];
+
+    for (jj = 0; jj < jnum; jj++) {
+      if (touch[jj]) {
+        npartner[i]++;
+        j = jlist[jj];
+        j &= NEIGHMASK;
+        npartner[j]++;
+      }
+    }
+  }
+
+  // perform reverse comm to augment owned npartner counts with ghost counts
+
+  commflag = NPARTNER;
+  comm->reverse_comm_fix(this,0);
+
+  // get page chunks to store atom IDs and shear history for owned+ghost atoms
+
+  for (ii = 0; ii < inum; ii++) {
+    i = ilist[ii];
+    n = npartner[i];
+    partner[i] = ipage->get(n);
+    shearpartner[i] = dpage->get(n);
+    if (partner[i] == NULL || shearpartner[i] == NULL) {
+      error->one(FLERR,"Shear history overflow, boost neigh_modify one");
+    }
+  }
+
+  for (i = nlocal_neigh; i < nall_neigh; i++) {
+    n = npartner[i];
+    partner[i] = ipage->get(n);
+    shearpartner[i] = dpage->get(n);
+    if (partner[i] == NULL || shearpartner[i] == NULL) {
+      error->one(FLERR,"Shear history overflow, boost neigh_modify one");
+    }
+  }
+
+  // 2nd loop over neighbor list
+  // store atom IDs and shear history for owned+ghost atoms
+  // re-zero npartner to use as counter
+
+  for (i = 0; i < nall_neigh; i++) npartner[i] = 0;
+
+  for (ii = 0; ii < inum; ii++) {
+    i = ilist[ii];
+    jlist = firstneigh[i];
+    allshear = firstshear[i];
+    jnum = numneigh[i];
+    touch = firsttouch[i];
+
+    for (jj = 0; jj < jnum; jj++) {
+      if (touch[jj]) {
+        shear = &allshear[3*jj];
+        j = jlist[jj];
+        j &= NEIGHMASK;
+        m = npartner[i]++;
+        partner[i][m] = tag[j];
+        shearpartner[i][m][0] = shear[0];
+        shearpartner[i][m][1] = shear[1];
+        shearpartner[i][m][2] = shear[2];
+        m = npartner[j]++;
+        partner[j][m] = tag[i];
+        shearpartner[j][m][0] = -shear[0];
+        shearpartner[j][m][1] = -shear[1];
+        shearpartner[j][m][2] = -shear[2];
+      }
+    }
+  }
+
+  // perform reverse comm to augment
+  // owned atom partner/shearpartner with ghost info
+  // use variable variant b/c size of packed data can be arbitrarily large
+  //   if many touching neighbors for large particle
+
+  commflag = PERPARTNER;
+  comm->reverse_comm_fix_variable(this);
+
+  // set maxtouch = max # of partners of any owned atom
+  // bump up comm->maxexchange_fix if necessary
+
+  maxtouch = 0;
+  for (i = 0; i < nlocal_neigh; i++) maxtouch = MAX(maxtouch,npartner[i]);
+  comm->maxexchange_fix = MAX(comm->maxexchange_fix,4*maxtouch+1);
+
+  // zero npartner values from previous nlocal_neigh to current nlocal
+
+  int nlocal = atom->nlocal;
+  for (i = nlocal_neigh; i < nlocal; i++) npartner[i] = 0;
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixShearHistory::pre_exchange_no_newton()
+{
+  int i,j,ii,jj,m,n,inum,jnum;
+  int *ilist,*jlist,*numneigh,**firstneigh;
+  int *touch,**firsttouch;
+  double *shear,*allshear,**firstshear;
+
+  // NOTE: all operations until very end are with nlocal_neigh <= current nlocal
+  // b/c previous neigh list was built with nlocal_neigh
+  // nlocal can be larger if other fixes added atoms at this pre_exchange()
+
+  // zero npartner for owned atoms
+  // clear 2 page data structures
+
+  for (i = 0; i < nlocal_neigh; i++) npartner[i] = 0;
 
   ipage->reset();
 
@@ -419,8 +569,7 @@ void FixShearHistory::pre_exchange()
   }
 
   // 1st loop over neighbor list
-  // calculate npartner for each owned atom
-  // nlocal_neigh = nlocal when neigh list was built, may be smaller than nlocal
+  // calculate npartner for owned atoms
 
   tagint *tag = atom->tag;
   NeighList *list = pair->list;
@@ -430,9 +579,6 @@ void FixShearHistory::pre_exchange()
   firstneigh = list->firstneigh;
   firsttouch = list->listgranhistory->firstneigh;
   firstshear = list->listgranhistory->firstdouble;
-
-  int nlocal_neigh = 0;
-  if (inum) nlocal_neigh = ilist[inum-1] + 1;
 
   for (ii = 0; ii < inum; ii++) {
     i = ilist[ii];
@@ -450,7 +596,7 @@ void FixShearHistory::pre_exchange()
     }
   }
 
-  // get page chunks to store atom IDs and shear history for my atoms
+  // get page chunks to store atom IDs and shear history for owned atoms
   /*~ Use a switch-case structure at the highest level, rather than
     inside the for loop, for maximum efficiency [KH - 9 January 2014]*/
   switch (num_quants) {
@@ -632,15 +778,14 @@ void FixShearHistory::pre_exchange()
       shearpartner50[i] = dpage50->get(n);
       if (partner[i] == NULL || shearpartner50[i] == NULL)
 	error->one(FLERR,"Shear history overflow, boost neigh_modify one");
-    }  
-    //
+    }
   }
 
   // 2nd loop over neighbor list
-  // store atom IDs and shear history for my atoms
-  // re-zero npartner to use as counter for all my atoms
+  // store atom IDs and shear history for owned atoms
+  // re-zero npartner to use as counter
 
-  for (i = 0; i < nlocal; i++) npartner[i] = 0;
+  for (i = 0; i < nlocal_neigh; i++) npartner[i] = 0;
 
   /*~ As before, use a switch-case structure at the highest level
     [KH - 9 January 2014]*/
@@ -1256,8 +1401,13 @@ void FixShearHistory::pre_exchange()
   // bump up comm->maxexchange_fix if necessary
   //~ Hard-coded 4 replaced with (num_quants+1) [KH - 9 January 2014]
   maxtouch = 0;
-  for (i = 0; i < nlocal; i++) maxtouch = MAX(maxtouch,npartner[i]);
+  for (i = 0; i < nlocal_neigh; i++) maxtouch = MAX(maxtouch,npartner[i]);
   comm->maxexchange_fix = MAX(comm->maxexchange_fix,(num_quants+1)*maxtouch+1);
+
+  // zero npartner values from previous nlocal_neigh to current nlocal
+
+  int nlocal = atom->nlocal;
+  for (i = nlocal_neigh; i < nlocal; i++) npartner[i] = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1562,6 +1712,83 @@ void FixShearHistory::copy_arrays(int i, int j, int delflag)
 void FixShearHistory::set_arrays(int i)
 {
   npartner[i] = 0;
+}
+
+/* ----------------------------------------------------------------------
+   only called by Comm::reverse_comm_fix_variable for PERPARTNER mode
+------------------------------------------------------------------------- */
+
+int FixShearHistory::pack_reverse_comm_size(int n, int first)
+{
+  int i,j,k,last;
+
+  int m = 0;
+  last = first + n;
+
+  for (i = first; i < last; i++)
+    m += 1 + 4*npartner[i];
+
+  return m;
+}
+
+/* ----------------------------------------------------------------------
+   two modes: NPARTNER and PERPARTNER
+------------------------------------------------------------------------- */
+
+int FixShearHistory::pack_reverse_comm(int n, int first, double *buf)
+{
+  int i,j,k,last;
+
+  int m = 0;
+  last = first + n;
+
+  if (commflag == NPARTNER) {
+    for (i = first; i < last; i++) {
+      buf[m++] = npartner[i];
+    }
+  } else if (commflag == PERPARTNER) {
+    for (i = first; i < last; i++) {
+      buf[m++] = npartner[i];
+      for (int k = 0; k < npartner[i]; k++) {
+        buf[m++] = partner[i][k];
+        buf[m++] = shearpartner[i][k][0];
+        buf[m++] = shearpartner[i][k][1];
+        buf[m++] = shearpartner[i][k][2];
+      }
+    }
+  }
+
+  return m;
+}
+
+/* ----------------------------------------------------------------------
+   two modes: NPARTNER and PERPARTNER
+------------------------------------------------------------------------- */
+
+void FixShearHistory::unpack_reverse_comm(int n, int *list, double *buf)
+{
+  int i,j,k,kk,ncount;
+
+  int m = 0;
+
+  if (commflag == NPARTNER) {
+    for (i = 0; i < n; i++) {
+      j = list[i];
+      npartner[j] += static_cast<int> (buf[m++]);
+    }
+  } else if (commflag == PERPARTNER) {
+    for (i = 0; i < n; i++) {
+      j = list[i];
+      ncount = static_cast<int> (buf[m++]);
+      for (int k = 0; k < ncount; k++) {
+        kk = npartner[j]++;
+        partner[j][kk] = static_cast<tagint> (buf[m++]);
+        shearpartner[j][kk][0] = buf[m++];
+        shearpartner[j][kk][1] = buf[m++];
+        shearpartner[j][kk][2] = buf[m++];
+      }
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------

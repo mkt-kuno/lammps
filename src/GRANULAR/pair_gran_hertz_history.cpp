@@ -92,6 +92,7 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
   double *rmass = atom->rmass;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
+  int newton_pair = force->newton_pair;
   double deltan,cri,crj,oldshear[3];
 
   inum = list->inum;
@@ -329,7 +330,7 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
 	torque[i][1] -= cri*tor2;
 	torque[i][2] -= cri*tor3;
 
-        if (j < nlocal) {
+        if (newton_pair || j < nlocal) {
           f[j][0] -= fx;
           f[j][1] -= fy;
           f[j][2] -= fz;
@@ -391,6 +392,8 @@ void PairGranHertzHistory::compute(int eflag, int vflag)
       }
     }
   }
+
+  if (vflag_fdotr) virial_fdotr_compute();
 }
 
 /* ----------------------------------------------------------------------
@@ -475,7 +478,7 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
       globaldM[*], ksbar, (K+1)_rolling, (K+1)_twisting*/
     if (optionalq > 0)
       for (int q = 0; q < optionalq; q++) svector[q+14] = 0.0;
-
+    
     return 0.0;
   }
 
@@ -620,6 +623,9 @@ double PairGranHertzHistory::single(int i, int j, int itype, int jtype,
     the data could instead be obtained from a dump of the sphere
     coordinates [KH - 13 December 2011]*/
   fforce = ccel;
+
+  // set single_extra quantities
+
   svector[0] = fs1;
   svector[1] = fs2;
   svector[2] = fs3;
