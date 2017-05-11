@@ -470,6 +470,13 @@ void FixGCMC::init()
                  "same molecule template ID");
   }
 
+  // check for fix rigid
+
+  for (int irigid = 0; irigid < modify->nfix; irigid++) {
+    if (strncmp(modify->fix[irigid]->style,"rigid",5) == 0)
+      error->all(FLERR,"Fix gcmc can not currently be used with any rigid fix");
+  }
+
   if (domain->dimension == 2)
     error->all(FLERR,"Cannot use fix gcmc in a 2d simulation");
 
@@ -2190,7 +2197,7 @@ void FixGCMC::update_gas_atoms_list()
   tagint *molecule = atom->molecule;
   double **x = atom->x;
 
-  if (nlocal > gcmc_nmax) {
+  if (atom->nmax > gcmc_nmax) {
     memory->sfree(local_gas_list);
     gcmc_nmax = atom->nmax;
     local_gas_list = (int *) memory->smalloc(gcmc_nmax*sizeof(int),

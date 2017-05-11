@@ -186,6 +186,9 @@ Neighbor::~Neighbor()
   memory->destroy(binhead);
   memory->destroy(bins);
 
+  memory->destroy(gbinhead_ssa);
+  memory->destroy(binhead_ssa);
+  memory->destroy(bins_ssa);
   memory->destroy(ssa_airnum);
 
   memory->destroy(ex1_type);
@@ -1539,7 +1542,7 @@ void Neighbor::build(int topoflag)
     double **x = atom->x;
     int nlocal = atom->nlocal;
     if (includegroup) nlocal = atom->nfirst;
-    if (nlocal > maxhold) {
+    if (atom->nmax > maxhold) {
       maxhold = atom->nmax;
       memory->destroy(xhold);
       memory->create(xhold,maxhold,3,"neigh:xhold");
@@ -1574,10 +1577,10 @@ void Neighbor::build(int topoflag)
   // else only invoke grow() if nlocal exceeds previous list size
   // only for lists with growflag set and which are perpetual (glist)
 
-  if (anyghostlist && atom->nlocal+atom->nghost > maxatom) {
+  if (anyghostlist && atom->nmax > maxatom) {
     maxatom = atom->nmax;
     for (i = 0; i < nglist; i++) lists[glist[i]]->grow(maxatom);
-  } else if (atom->nlocal > maxatom) {
+  } else if (atom->nmax > maxatom) {
     maxatom = atom->nmax;
     for (i = 0; i < nglist; i++) lists[glist[i]]->grow(maxatom);
   }
