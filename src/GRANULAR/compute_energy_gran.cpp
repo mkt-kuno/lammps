@@ -288,7 +288,7 @@ void ComputeEnergyGran::compute_peratom()
   invoked_peratom = update->ntimestep;
 
   // grow energy array if necessary
-  if (atom->nlocal > nmax) {
+  if (atom->nmax > nmax) {
     nmax = atom->nmax;
 
     if (size_peratom_cols == 1) {
