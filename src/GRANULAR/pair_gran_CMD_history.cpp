@@ -96,6 +96,7 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
   double *rmass = atom->rmass;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
+  int newton_pair = force->newton_pair;
   double deltan,cri,crj;
 
   inum = list->inum;
@@ -726,7 +727,7 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
 	torque[i][1] -= cri*tor2;
 	torque[i][2] -= cri*tor3;
 
-        if (j < nlocal) {
+        if (newton_pair || j < nlocal) {
           f[j][0] -= fx;
           f[j][1] -= fy;
           f[j][2] -= fz;
@@ -943,6 +944,8 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
     MPI_Allreduce(&shearstrain,&gatheredss,1,MPI_DOUBLE,MPI_SUM,world);
     MPI_Allreduce(&spinenergy,&gatheredse,1,MPI_DOUBLE,MPI_SUM,world);
   }
+
+  if (vflag_fdotr) virial_fdotr_compute();
 }
     
 
@@ -1151,12 +1154,7 @@ void PairGranCMDHistory::init_style()
   dt = update->dt;
 
   // if shear history is stored:
-  // check if newton flag is valid
   // if first init, create Fix needed for storing shear history
-
-  if (history && force->newton_pair == 1)
-    error->all(FLERR,
-               "Pair granular with shear history requires newton pair off");
 
   if (history && fix_history == NULL) {
     char **fixarg = new char*[4]; //~ Also increased [KH - 23 November 2012]

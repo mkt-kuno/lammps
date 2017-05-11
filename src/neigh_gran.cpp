@@ -68,7 +68,6 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
   double (**shearpartner29)[29]; //~ CM/history with D_spin
   double (**shearpartner50)[50]; //~ HMD/history with D_spin
 
-
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;

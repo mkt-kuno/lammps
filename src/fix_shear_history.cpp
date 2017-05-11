@@ -51,6 +51,10 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
                                        // variable-size history communicated via
                                        // reverse_comm_fix_variable()
 
+  //~ Added error message [KH - 11 May 2017]
+  if (newton_pair)
+    error->all(FLERR,"newton on code not yet written in FixShearHistory or NeighGran");
+  
   // perform initial allocation of atom-based arrays
   // register with atom class
 
@@ -383,7 +387,7 @@ void FixShearHistory::pre_exchange_newton()
   for (i = 0; i < nall_neigh; i++) npartner[i] = 0;
 
   ipage->reset();
-  dpage->reset();
+  dpage3->reset();
 
   // 1st loop over neighbor list
   // calculate npartner for owned+ghost atoms
@@ -424,8 +428,8 @@ void FixShearHistory::pre_exchange_newton()
     i = ilist[ii];
     n = npartner[i];
     partner[i] = ipage->get(n);
-    shearpartner[i] = dpage->get(n);
-    if (partner[i] == NULL || shearpartner[i] == NULL) {
+    shearpartner3[i] = dpage3->get(n);
+    if (partner[i] == NULL || shearpartner3[i] == NULL) {
       error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
   }
@@ -433,8 +437,8 @@ void FixShearHistory::pre_exchange_newton()
   for (i = nlocal_neigh; i < nall_neigh; i++) {
     n = npartner[i];
     partner[i] = ipage->get(n);
-    shearpartner[i] = dpage->get(n);
-    if (partner[i] == NULL || shearpartner[i] == NULL) {
+    shearpartner3[i] = dpage3->get(n);
+    if (partner[i] == NULL || shearpartner3[i] == NULL) {
       error->one(FLERR,"Shear history overflow, boost neigh_modify one");
     }
   }
@@ -459,14 +463,14 @@ void FixShearHistory::pre_exchange_newton()
         j &= NEIGHMASK;
         m = npartner[i]++;
         partner[i][m] = tag[j];
-        shearpartner[i][m][0] = shear[0];
-        shearpartner[i][m][1] = shear[1];
-        shearpartner[i][m][2] = shear[2];
+        shearpartner3[i][m][0] = shear[0];
+        shearpartner3[i][m][1] = shear[1];
+        shearpartner3[i][m][2] = shear[2];
         m = npartner[j]++;
         partner[j][m] = tag[i];
-        shearpartner[j][m][0] = -shear[0];
-        shearpartner[j][m][1] = -shear[1];
-        shearpartner[j][m][2] = -shear[2];
+        shearpartner3[j][m][0] = -shear[0];
+        shearpartner3[j][m][1] = -shear[1];
+        shearpartner3[j][m][2] = -shear[2];
       }
     }
   }
@@ -1726,7 +1730,7 @@ int FixShearHistory::pack_reverse_comm_size(int n, int first)
   last = first + n;
 
   for (i = first; i < last; i++)
-    m += 1 + 4*npartner[i];
+    m += 1 + (num_quants+1)*npartner[i];
 
   return m;
 }
@@ -1749,11 +1753,134 @@ int FixShearHistory::pack_reverse_comm(int n, int first, double *buf)
   } else if (commflag == PERPARTNER) {
     for (i = first; i < last; i++) {
       buf[m++] = npartner[i];
-      for (int k = 0; k < npartner[i]; k++) {
-        buf[m++] = partner[i][k];
-        buf[m++] = shearpartner[i][k][0];
-        buf[m++] = shearpartner[i][k][1];
-        buf[m++] = shearpartner[i][k][2];
+
+      switch (num_quants) {
+      case 4: //~ 4 is the most likely num_quants
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 4; l++)
+	    buf[m++] = shearpartner4[i][k][l];
+	}
+	break;
+      case 3:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 3; l++)
+	    buf[m++] = shearpartner3[i][k][l];
+	}
+	break;
+      case 5:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 5; l++)
+	    buf[m++] = shearpartner5[i][k][l];
+	}
+	break;
+      case 7:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 7; l++)
+	    buf[m++] = shearpartner7[i][k][l];
+	}
+	break;
+      case 8:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 8; l++)
+	    buf[m++] = shearpartner8[i][k][l];
+	}
+	break;
+      case 9:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 9; l++)
+	    buf[m++] = shearpartner9[i][k][l];
+	}
+	break;
+      case 18:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 18; l++)
+	    buf[m++] = shearpartner18[i][k][l];
+	}
+	break;
+      case 19:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 19; l++)
+	    buf[m++] = shearpartner19[i][k][l];
+	}
+	break;
+      case 22:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 22; l++)
+	    buf[m++] = shearpartner22[i][k][l];
+	}
+	break;
+      case 23:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 23; l++)
+	    buf[m++] = shearpartner23[i][k][l];
+	}
+	break;
+      case 24:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 24; l++)
+	    buf[m++] = shearpartner24[i][k][l];
+	}
+	break;
+      case 25:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 25; l++)
+	    buf[m++] = shearpartner25[i][k][l];
+	}
+	break;
+      case 26:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 26; l++)
+	    buf[m++] = shearpartner26[i][k][l];
+	}
+	break;
+      case 28:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 28; l++)
+	    buf[m++] = shearpartner28[i][k][l];
+	}
+	break;
+      case 29:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 29; l++)
+	    buf[m++] = shearpartner29[i][k][l];
+	}
+	break;
+      case 30:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 30; l++)
+	    buf[m++] = shearpartner30[i][k][l];
+	}
+	break;
+      case 46:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 46; l++)
+	    buf[m++] = shearpartner46[i][k][l];
+	}
+	break;
+      case 50:
+	for (int k = 0; k < npartner[i]; k++) {
+	  buf[m++] = partner[i][k];
+	  for (int l = 0; l < 50; l++)
+	    buf[m++] = shearpartner50[i][k][l];
+	}
+	break;
       }
     }
   }
@@ -1783,9 +1910,81 @@ void FixShearHistory::unpack_reverse_comm(int n, int *list, double *buf)
       for (int k = 0; k < ncount; k++) {
         kk = npartner[j]++;
         partner[j][kk] = static_cast<tagint> (buf[m++]);
-        shearpartner[j][kk][0] = buf[m++];
-        shearpartner[j][kk][1] = buf[m++];
-        shearpartner[j][kk][2] = buf[m++];
+	
+	switch (num_quants) {
+	case 4: //~ 4 is the most likely num_quants
+	  for (int l = 0; l < 4; l++)
+	    shearpartner4[j][kk][l] = buf[m++];
+	  break;
+	case 3:
+	  for (int l = 0; l < 3; l++)
+	    shearpartner3[j][kk][l] = buf[m++];
+	  break;
+	case 5:
+	  for (int l = 0; l < 5; l++)
+	    shearpartner5[j][kk][l] = buf[m++];
+	  break;
+	case 7:
+	  for (int l = 0; l < 7; l++)
+	    shearpartner7[j][kk][l] = buf[m++];
+	  break;
+	case 8:
+	  for (int l = 0; l < 8; l++)
+	    shearpartner8[j][kk][l] = buf[m++];
+	  break;
+	case 9:
+	  for (int l = 0; l < 9; l++)
+	    shearpartner9[j][kk][l] = buf[m++];
+	  break;
+	case 18:
+	  for (int l = 0; l < 18; l++)
+	    shearpartner18[j][kk][l] = buf[m++];
+	  break;
+	case 19:
+	  for (int l = 0; l < 19; l++)
+	    shearpartner19[j][kk][l] = buf[m++];
+	  break;
+	case 22:
+	  for (int l = 0; l < 22; l++)
+	    shearpartner22[j][kk][l] = buf[m++];
+	  break;
+	case 23:
+	  for (int l = 0; l < 23; l++)
+	    shearpartner23[j][kk][l] = buf[m++];
+	  break;
+	case 24:
+	  for (int l = 0; l < 24; l++)
+	    shearpartner24[j][kk][l] = buf[m++];
+	  break;
+	case 25:
+	  for (int l = 0; l < 25; l++)
+	    shearpartner25[j][kk][l] = buf[m++];
+	  break;
+	case 26:
+	  for (int l = 0; l < 26; l++)
+	    shearpartner26[j][kk][l] = buf[m++];
+	  break;
+	case 28:
+	  for (int l = 0; l < 28; l++)
+	    shearpartner28[j][kk][l] = buf[m++];
+	  break;
+	case 29:
+	  for (int l = 0; l < 29; l++)
+	    shearpartner29[j][kk][l] = buf[m++];
+	  break;
+	case 30:
+	  for (int l = 0; l < 30; l++)
+	    shearpartner30[j][kk][l] = buf[m++];
+	  break;
+	case 46:
+	  for (int l = 0; l < 46; l++)
+	    shearpartner46[j][kk][l] = buf[m++];
+	  break;
+	case 50:
+	  for (int l = 0; l < 50; l++)
+	    shearpartner50[j][kk][l] = buf[m++];
+	  break;
+	}
       }
     }
   }
