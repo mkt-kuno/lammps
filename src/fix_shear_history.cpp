@@ -393,7 +393,7 @@ void FixShearHistory::pre_exchange_onesided()
   for (i = 0; i < nlocal_neigh; i++) npartner[i] = 0;
 
   ipage->reset();
-  dpage->reset();
+  dpage3->reset();
 
   // 1st loop over neighbor list, I = sphere, J = tri
   // only calculate npartner for owned spheres
@@ -424,8 +424,8 @@ void FixShearHistory::pre_exchange_onesided()
     i = ilist[ii];
     n = npartner[i];
     partner[i] = ipage->get(n);
-    shearpartner[i] = dpage->get(n);
-    if (partner[i] == NULL || shearpartner[i] == NULL)
+    shearpartner3[i] = dpage3->get(n);
+    if (partner[i] == NULL || shearpartner3[i] == NULL)
       error->one(FLERR,"Shear history overflow, boost neigh_modify one");
   }
 
@@ -449,9 +449,9 @@ void FixShearHistory::pre_exchange_onesided()
         j &= NEIGHMASK;
         m = npartner[i];
         partner[i][m] = tag[j];
-        shearpartner[i][m][0] = shear[0];
-        shearpartner[i][m][1] = shear[1];
-        shearpartner[i][m][2] = shear[2];
+        shearpartner3[i][m][0] = shear[0];
+        shearpartner3[i][m][1] = shear[1];
+        shearpartner3[i][m][2] = shear[2];
         npartner[i]++;
       }
     }
