@@ -426,6 +426,7 @@ FixWallGran::~FixWallGran()
   // delete locally stored arrays
 
   memory->destroy(shear);
+  delete [] fstr;
   memory->destroy(mass_rigid);
 }
 
@@ -3052,7 +3053,7 @@ double FixWallGran::memory_usage()
 
 void FixWallGran::grow_arrays(int nmax)
 {
-  memory->grow(shear,nmax,numshearquants,"fix_wall_gran:shear"); //~ [KH - 30 October 2013]
+  if (history) memory->grow(shear,nmax,numshearquants,"fix_wall_gran:shear"); //~ [KH - 30 October 2013]
 }
 
 /* ----------------------------------------------------------------------
@@ -3061,8 +3062,9 @@ void FixWallGran::grow_arrays(int nmax)
 
 void FixWallGran::copy_arrays(int i, int j, int delflag)
 {
-  for (int q = 0; q < numshearquants; q++)
-    shear[j][q] = shear[i][q]; //~ [KH - 30 October 2013]
+  if (history)
+    for (int q = 0; q < numshearquants; q++)
+      shear[j][q] = shear[i][q]; //~ [KH - 30 October 2013]
 }
 
 /* ----------------------------------------------------------------------
@@ -3071,8 +3073,9 @@ void FixWallGran::copy_arrays(int i, int j, int delflag)
 
 void FixWallGran::set_arrays(int i)
 {
-  for (int q = 0; q < numshearquants; q++)
-    shear[i][q] = 0.0; //~ [KH - 30 October 2013]
+  if (history)
+    for (int q = 0; q < numshearquants; q++)
+      shear[i][q] = 0.0; //~ [KH - 30 October 2013]
 }
 
 /* ----------------------------------------------------------------------
@@ -3081,6 +3084,8 @@ void FixWallGran::set_arrays(int i)
 
 int FixWallGran::pack_exchange(int i, double *buf)
 {
+  if (!history) return 0;
+  
   for (int q = 0; q < numshearquants; q++)
     buf[q] = shear[i][q]; //~ [KH - 30 October 2013]
 
@@ -3093,6 +3098,8 @@ int FixWallGran::pack_exchange(int i, double *buf)
 
 int FixWallGran::unpack_exchange(int nlocal, double *buf)
 {
+  if (!history) return 0;
+  
   for (int q = 0; q < numshearquants; q++)
     shear[nlocal][q] = buf[q]; //~ [KH - 30 October 2013]
   
@@ -3105,6 +3112,8 @@ int FixWallGran::unpack_exchange(int nlocal, double *buf)
 
 int FixWallGran::pack_restart(int i, double *buf)
 {
+  if (!history) return 0;
+  
   int m = 0;
   buf[m++] = numshearquants + 1; //~ [KH - 30 October 2013]
   for (int q = 0; q < numshearquants; q++)
@@ -3121,6 +3130,8 @@ void FixWallGran::unpack_restart(int nlocal, int nth)
 {
   double **extra = atom->extra;
 
+  if (!history) return 0;
+  
   // skip to Nth set of extra values
 
   int m = 0;
@@ -3137,6 +3148,7 @@ void FixWallGran::unpack_restart(int nlocal, int nth)
 
 int FixWallGran::maxsize_restart()
 {
+  if (!history) return 0;
   int y = numshearquants + 1;
   return y;
 }
@@ -3147,6 +3159,7 @@ int FixWallGran::maxsize_restart()
 
 int FixWallGran::size_restart(int nlocal)
 {
+  if (!history) return 0;
   int y = numshearquants + 1;
   return y;
 }
