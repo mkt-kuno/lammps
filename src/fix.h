@@ -52,6 +52,8 @@ class Fix : protected Pointers {
   int dof_flag;                  // 1 if has dof() method (not min_dof())
   int special_alter_flag;        // 1 if has special_alter() meth for spec lists
   int enforce2d_flag;            // 1 if has enforce2d method
+  int respa_level_support;       // 1 if fix supports fix_modify respa
+  int respa_level;               // which respa level to apply fix (1-Nrespa)
 
   int scalar_flag;               // 0/1 if compute_scalar() function exists
   int vector_flag;               // 0/1 if compute_vector() function exists
@@ -134,6 +136,7 @@ class Fix : protected Pointers {
   virtual void set_arrays(int) {}
   virtual void update_arrays(int, int) {}
   virtual void set_molecule(int, tagint, int, double *, double *, double *) {}
+  virtual void clear_bonus() {}
 
   virtual int pack_border(int, int *, double *) {return 0;}
   virtual int unpack_border(int, int, double *) {return 0;}

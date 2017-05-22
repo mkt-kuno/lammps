@@ -76,8 +76,6 @@ void AtomVecDPD::grow(int n)
   uChem = memory->grow(atom->uChem,nmax,"atom:uChem");
   uCG = memory->grow(atom->uCG,nmax,"atom:uCG");
   uCGnew = memory->grow(atom->uCGnew,nmax,"atom:uCGnew");
-  duCond = memory->grow(atom->duCond,nmax,"atom:duCond");
-  duMech = memory->grow(atom->duMech,nmax,"atom:duMech");
   duChem = memory->grow(atom->duChem,nmax,"atom:duChem");
 
   if (atom->nextra_grow)
@@ -101,8 +99,6 @@ void AtomVecDPD::grow_reset()
   uChem = atom->uChem;
   uCG = atom->uCG;
   uCGnew = atom->uCGnew;
-  duCond = atom->duCond;
-  duMech = atom->duMech;
   duChem = atom->duChem;
 }
 
@@ -220,10 +216,10 @@ int AtomVecDPD::pack_comm_vel(int n, int *list, double *buf,
         buf[m++] = v[j][0];
         buf[m++] = v[j][1];
         buf[m++] = v[j][2];
-	buf[m++] = dpdTheta[j];
-	buf[m++] = uCond[j];
-	buf[m++] = uMech[j];
-	buf[m++] = uChem[j];
+        buf[m++] = dpdTheta[j];
+        buf[m++] = uCond[j];
+        buf[m++] = uMech[j];
+        buf[m++] = uChem[j];
       }
     } else {
       dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -243,10 +239,10 @@ int AtomVecDPD::pack_comm_vel(int n, int *list, double *buf,
           buf[m++] = v[j][1];
           buf[m++] = v[j][2];
         }
-	buf[m++] = dpdTheta[j];
-	buf[m++] = uCond[j];
-	buf[m++] = uMech[j];
-	buf[m++] = uChem[j];
+        buf[m++] = dpdTheta[j];
+        buf[m++] = uCond[j];
+        buf[m++] = uMech[j];
+        buf[m++] = uChem[j];
       }
     }
   }
@@ -428,18 +424,18 @@ int AtomVecDPD::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = x[j][0] + dx;
         buf[m++] = x[j][1] + dy;
         buf[m++] = x[j][2] + dz;
-	buf[m++] = ubuf(tag[j]).d;
-	buf[m++] = ubuf(type[j]).d;
-	buf[m++] = ubuf(mask[j]).d;
+        buf[m++] = ubuf(tag[j]).d;
+        buf[m++] = ubuf(type[j]).d;
+        buf[m++] = ubuf(mask[j]).d;
         buf[m++] = v[j][0];
         buf[m++] = v[j][1];
         buf[m++] = v[j][2];
-	buf[m++] = dpdTheta[j];
-	buf[m++] = uCond[j];
-	buf[m++] = uMech[j];
-	buf[m++] = uChem[j];
-	buf[m++] = uCG[j];
-	buf[m++] = uCGnew[j];
+        buf[m++] = dpdTheta[j];
+        buf[m++] = uCond[j];
+        buf[m++] = uMech[j];
+        buf[m++] = uChem[j];
+        buf[m++] = uCG[j];
+        buf[m++] = uCGnew[j];
       }
     } else {
       dvx = pbc[0]*h_rate[0] + pbc[5]*h_rate[5] + pbc[4]*h_rate[4];
@@ -450,9 +446,9 @@ int AtomVecDPD::pack_border_vel(int n, int *list, double *buf,
         buf[m++] = x[j][0] + dx;
         buf[m++] = x[j][1] + dy;
         buf[m++] = x[j][2] + dz;
-	buf[m++] = ubuf(tag[j]).d;
-	buf[m++] = ubuf(type[j]).d;
-	buf[m++] = ubuf(mask[j]).d;
+        buf[m++] = ubuf(tag[j]).d;
+        buf[m++] = ubuf(type[j]).d;
+        buf[m++] = ubuf(mask[j]).d;
         if (mask[i] & deform_groupbit) {
           buf[m++] = v[j][0] + dvx;
           buf[m++] = v[j][1] + dvy;
@@ -462,12 +458,12 @@ int AtomVecDPD::pack_border_vel(int n, int *list, double *buf,
           buf[m++] = v[j][1];
           buf[m++] = v[j][2];
         }
-	buf[m++] = dpdTheta[j];
-	buf[m++] = uCond[j];
-	buf[m++] = uMech[j];
-	buf[m++] = uChem[j];
-	buf[m++] = uCG[j];
-	buf[m++] = uCGnew[j];
+        buf[m++] = dpdTheta[j];
+        buf[m++] = uCond[j];
+        buf[m++] = uMech[j];
+        buf[m++] = uChem[j];
+        buf[m++] = uCG[j];
+        buf[m++] = uCGnew[j];
       }
     }
   }
@@ -802,8 +798,6 @@ void AtomVecDPD::create_atom(int itype, double *coord)
   uChem[nlocal] = 0.0;
   uCG[nlocal] = 0.0;
   uCGnew[nlocal] = 0.0;
-  duCond[nlocal] = 0.0;
-  duMech[nlocal] = 0.0;
   duChem[nlocal] = 0.0;
 
   atom->nlocal++;
@@ -900,9 +894,9 @@ void AtomVecDPD::write_data(FILE *fp, int n, double **buf)
   for (int i = 0; i < n; i++)
     fprintf(fp,TAGINT_FORMAT " %d %-1.16e %-1.16e %-1.16e %-1.16e %d %d %d\n",
             (tagint) ubuf(buf[i][0]).i,(int) ubuf(buf[i][1]).i,
-	    buf[i][2],buf[i][3],buf[i][4],buf[i][5],
+            buf[i][2],buf[i][3],buf[i][4],buf[i][5],
             (int) ubuf(buf[i][6]).i,(int) ubuf(buf[i][7]).i,
-	    (int) ubuf(buf[i][8]).i);
+            (int) ubuf(buf[i][8]).i);
 }
 
 /* ----------------------------------------------------------------------
@@ -937,8 +931,6 @@ bigint AtomVecDPD::memory_usage()
   if (atom->memcheck("uChem")) bytes += memory->usage(uChem,nmax);
   if (atom->memcheck("uCG")) bytes += memory->usage(uCG,nmax);
   if (atom->memcheck("uCGnew")) bytes += memory->usage(uCGnew,nmax);
-  if (atom->memcheck("duCond")) bytes += memory->usage(duCond,nmax);
-  if (atom->memcheck("duMech")) bytes += memory->usage(duMech,nmax);
   if (atom->memcheck("duChem")) bytes += memory->usage(duChem,nmax);
 
   return bytes;

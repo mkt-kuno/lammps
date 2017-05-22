@@ -53,6 +53,7 @@ class PairExp6rx : public Pair {
     int ispecies;
     char *name, *potential;      // names of unique molecules and interaction type
     char *tablename;             // name of interaction table
+   int potentialType;              // enumerated interaction potential type.
   };
   Param *params;                // parameter set for an I-J-K interaction
 
@@ -60,13 +61,13 @@ class PairExp6rx : public Pair {
   void read_file(char *);
   void setup();
 
+  int isite1, isite2;
   char *site1, *site2;
   double fuchslinR, fuchslinEpsilon;
-  void getParamsEXP6(int, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &);
-  double func_rin(double &);
-  double expValue(double);
+  void getParamsEXP6(int, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &, double &) const;
 
-/*   class FixRX *fixRX; */
+  inline double func_rin(const double &) const;
+  inline double expValue(const double) const;
 };
 
 }
@@ -78,7 +79,7 @@ class PairExp6rx : public Pair {
 
 E:  alpha_ij is 6.0 in pair exp6
 
-Self-explanator
+Self-explanatory
 
 E: Illegal ... command
 
@@ -130,7 +131,7 @@ Self-explanatory
 E:  The number of molecules in CG particle is less than 1e-8.
 
 Self-explanatory.  Check the species concentrations have been properly set
-and check the reaction kinetic solver parameters in fix rx to more for 
+and check the reaction kinetic solver parameters in fix rx to more for
 sufficient accuracy.
 
 

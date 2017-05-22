@@ -57,6 +57,9 @@ FixViscous::FixViscous(LAMMPS *lmp, int narg, char **arg) :
 
   //~ Initialise the energy dissipated by damping [KH - 9 April 2014]
   energy_dissip = 0.0;
+  
+  respa_level_support = 1;
+  ilevel_respa = 0;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -81,8 +84,12 @@ int FixViscous::setmask()
 
 void FixViscous::init()
 {
-  if (strstr(update->integrate_style,"respa"))
-    nlevels_respa = ((Respa *) update->integrate)->nlevels;
+  int max_respa = 0;
+
+  if (strstr(update->integrate_style,"respa")) {
+    ilevel_respa = max_respa = ((Respa *) update->integrate)->nlevels-1;
+    if (respa_level >= 0) ilevel_respa = MIN(respa_level,max_respa);
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -92,9 +99,9 @@ void FixViscous::setup(int vflag)
   if (strstr(update->integrate_style,"verlet"))
     post_force(vflag);
   else {
-    ((Respa *) update->integrate)->copy_flevel_f(nlevels_respa-1);
-    post_force_respa(vflag,nlevels_respa-1,0);
-    ((Respa *) update->integrate)->copy_f_flevel(nlevels_respa-1);
+    ((Respa *) update->integrate)->copy_flevel_f(ilevel_respa);
+    post_force_respa(vflag,ilevel_respa,0);
+    ((Respa *) update->integrate)->copy_f_flevel(ilevel_respa);
   }
 
   /*~ Ascertain whether compute energy/gran is active or not. If
@@ -147,7 +154,7 @@ void FixViscous::post_force(int vflag)
 
 void FixViscous::post_force_respa(int vflag, int ilevel, int iloop)
 {
-  if (ilevel == nlevels_respa-1) post_force(vflag);
+  if (ilevel == ilevel_respa) post_force(vflag);
 }
 
 /* ---------------------------------------------------------------------- */

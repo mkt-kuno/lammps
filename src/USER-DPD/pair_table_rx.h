@@ -71,9 +71,9 @@ class PairTableRX : public Pair {
 
   int nspecies;
   char *site1, *site2;
+  int isite1, isite2;
   void getParams(int, double &, double &, double &, double &);
 
-/*   class FixRX *fixRX; */
 };
 
 }
@@ -166,7 +166,7 @@ long-range solver starts at that cutoff.
 E:  The number of molecules in CG particle is less than 1e-8
 
 Self-explanatory.  Check the species concentrations have been properly set
-and check the reaction kinetic solver parameters in fix rx to more for 
+and check the reaction kinetic solver parameters in fix rx to more for
 sufficient accuracy.
 
 */

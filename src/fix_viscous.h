@@ -41,7 +41,7 @@ class FixViscous : public Fix {
 
  protected:
   double *gamma;
-  int nlevels_respa;
+  int ilevel_respa;
 
   int energy_calc; //~ 0 if energy not computed; else 1 [KH - 9 April 2014]
   double energy_dissip; //~ Energy dissipated by damping
