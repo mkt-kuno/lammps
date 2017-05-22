@@ -602,6 +602,7 @@ void PairGranHookeHistory::init_style()
     delete [] fixarg;
     fix_history = (FixShearHistory *) modify->fix[modify->nfix-1];
     fix_history->pair = this;
+    neighbor->requests[irequest]->fix_history = fix_history;
   }
 
   /*~ If rolling resistance is active, implicitly set up a fix,
