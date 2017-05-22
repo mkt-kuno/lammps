@@ -302,7 +302,68 @@ void Neighbor::skip_from_granular(NeighList *list)
     npartner = fix_history->npartner;
     partner = fix_history->partner;
     num_quants = fix_history->num_quants; //~ [KH - 22 May 2017]
-    shearpartner = fix_history->shearpartner;
+
+    //~ Use a switch-case structure [KH - 22 May 2017]
+    switch (num_quants) {
+    case 4: //~ 4 is the most likely num_quants
+      shearpartner4 = fix_history->shearpartner4;
+      break;
+    case 3: //~ 3 is next most likely
+      shearpartner3 = fix_history->shearpartner3;
+      break;
+    case 5: 
+      shearpartner5 = fix_history->shearpartner5;
+      break;
+    case 18:
+      shearpartner18 = fix_history->shearpartner18;
+      break;
+    case 19:
+      shearpartner19 = fix_history->shearpartner19;
+      break;
+    case 24:
+      shearpartner24 = fix_history->shearpartner24;
+      break;
+    case 25:
+      shearpartner25 = fix_history->shearpartner25;
+      break;
+    case 26:
+      shearpartner26 = fix_history->shearpartner26;
+      break;
+    case 46:
+      shearpartner46 = fix_history->shearpartner46;
+      break;
+    case 8:
+      shearpartner8 = fix_history->shearpartner8;
+      break;
+    case 9:
+      shearpartner9 = fix_history->shearpartner9;
+      break;
+    case 7:
+      shearpartner7 = fix_history->shearpartner7;
+      break;
+    case 22:
+      shearpartner22 = fix_history->shearpartner22;
+      break;
+    case 23:
+      shearpartner23 = fix_history->shearpartner23;
+      break;
+    case 28:
+      shearpartner28 = fix_history->shearpartner28;
+      break;
+    case 29:
+      shearpartner29 = fix_history->shearpartner29;
+      break;
+    case 30:
+      shearpartner30 = fix_history->shearpartner30;
+      break;
+    case 50:
+      shearpartner50 = fix_history->shearpartner50;
+      break;  
+    default:
+      //~ If no cases matched, there is a problem
+      error->all(FLERR,"Incorrect number of shear quantities");
+    }
+    
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -518,7 +579,68 @@ void Neighbor::skip_from_granular_off2on(NeighList *list)
     npartner = fix_history->npartner;
     partner = fix_history->partner;
     num_quants = fix_history->num_quants; //~ [KH - 22 May 2017]
-    shearpartner = fix_history->shearpartner;
+
+    //~ Use a switch-case structure [KH - 22 May 2017]
+    switch (num_quants) {
+    case 4: //~ 4 is the most likely num_quants
+      shearpartner4 = fix_history->shearpartner4;
+      break;
+    case 3: //~ 3 is next most likely
+      shearpartner3 = fix_history->shearpartner3;
+      break;
+    case 5: 
+      shearpartner5 = fix_history->shearpartner5;
+      break;
+    case 18:
+      shearpartner18 = fix_history->shearpartner18;
+      break;
+    case 19:
+      shearpartner19 = fix_history->shearpartner19;
+      break;
+    case 24:
+      shearpartner24 = fix_history->shearpartner24;
+      break;
+    case 25:
+      shearpartner25 = fix_history->shearpartner25;
+      break;
+    case 26:
+      shearpartner26 = fix_history->shearpartner26;
+      break;
+    case 46:
+      shearpartner46 = fix_history->shearpartner46;
+      break;
+    case 8:
+      shearpartner8 = fix_history->shearpartner8;
+      break;
+    case 9:
+      shearpartner9 = fix_history->shearpartner9;
+      break;
+    case 7:
+      shearpartner7 = fix_history->shearpartner7;
+      break;
+    case 22:
+      shearpartner22 = fix_history->shearpartner22;
+      break;
+    case 23:
+      shearpartner23 = fix_history->shearpartner23;
+      break;
+    case 28:
+      shearpartner28 = fix_history->shearpartner28;
+      break;
+    case 29:
+      shearpartner29 = fix_history->shearpartner29;
+      break;
+    case 30:
+      shearpartner30 = fix_history->shearpartner30;
+      break;
+    case 50:
+      shearpartner50 = fix_history->shearpartner50;
+      break;  
+    default:
+      //~ If no cases matched, there is a problem
+      error->all(FLERR,"Incorrect number of shear quantities");
+    }
+    
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -743,7 +865,67 @@ void Neighbor::skip_from_granular_off2on_onesided(NeighList *list)
     npartner = fix_history->npartner;
     partner = fix_history->partner;
     num_quants = fix_history->num_quants; //~ [KH - 22 May 2017]
-    shearpartner = fix_history->shearpartner;
+
+    //~ Use a switch-case structure [KH - 22 May 2017]
+    switch (num_quants) {
+    case 4: //~ 4 is the most likely num_quants
+      shearpartner4 = fix_history->shearpartner4;
+      break;
+    case 3: //~ 3 is next most likely
+      shearpartner3 = fix_history->shearpartner3;
+      break;
+    case 5: 
+      shearpartner5 = fix_history->shearpartner5;
+      break;
+    case 18:
+      shearpartner18 = fix_history->shearpartner18;
+      break;
+    case 19:
+      shearpartner19 = fix_history->shearpartner19;
+      break;
+    case 24:
+      shearpartner24 = fix_history->shearpartner24;
+      break;
+    case 25:
+      shearpartner25 = fix_history->shearpartner25;
+      break;
+    case 26:
+      shearpartner26 = fix_history->shearpartner26;
+      break;
+    case 46:
+      shearpartner46 = fix_history->shearpartner46;
+      break;
+    case 8:
+      shearpartner8 = fix_history->shearpartner8;
+      break;
+    case 9:
+      shearpartner9 = fix_history->shearpartner9;
+      break;
+    case 7:
+      shearpartner7 = fix_history->shearpartner7;
+      break;
+    case 22:
+      shearpartner22 = fix_history->shearpartner22;
+      break;
+    case 23:
+      shearpartner23 = fix_history->shearpartner23;
+      break;
+    case 28:
+      shearpartner28 = fix_history->shearpartner28;
+      break;
+    case 29:
+      shearpartner29 = fix_history->shearpartner29;
+      break;
+    case 30:
+      shearpartner30 = fix_history->shearpartner30;
+      break;
+    case 50:
+      shearpartner50 = fix_history->shearpartner50;
+      break;  
+    default:
+      //~ If no cases matched, there is a problem
+      error->all(FLERR,"Incorrect number of shear quantities");
+    }
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
