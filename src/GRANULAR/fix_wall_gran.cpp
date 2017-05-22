@@ -3130,7 +3130,7 @@ void FixWallGran::unpack_restart(int nlocal, int nth)
 {
   double **extra = atom->extra;
 
-  if (!history) return 0;
+  if (!history) return;
   
   // skip to Nth set of extra values
 
