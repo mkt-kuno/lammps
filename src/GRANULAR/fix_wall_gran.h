@@ -52,10 +52,9 @@ class FixWallGran : public Fix {
   void restart(char *); //~ [KH - 20 February 2014]
 
  protected:
-
   int sfound; // added to fetch meanstress in stresscontrol [MO - 13 August 2015]
   class Compute *stressatom; // added to fetch meanstress in stresscontrol [MO - 13 August 2015]
-  int wallstyle,pairstyle,wiggle,wshear,axis,dampflag;
+  int wallstyle,pairstyle,history,wiggle,wshear,axis,dampflag;
   double wcoordnos[1],wcoordnos_all[1]; // coordination number of wall [MO - 12 March 2014]
   int wtranslate,wscontrol; //flags for wall movement and wall stress control respectively
   double kn,kt,gamman,gammat,xmu,Geq,Poiseq,RMSf,Hp; // increased for CM & CMD models [MO - 18 July 2014]
@@ -88,8 +87,17 @@ class FixWallGran : public Fix {
   class Fix *deffix;
   
   int *touch;
+
+  // shear history values
+
   double **shear;
   int shearupdate;
+
+  // rigid body masses for use in granular interactions
+
+  class Fix *fix_rigid;    // ptr to rigid body fix, NULL if none
+  double *mass_rigid;      // rigid mass for owned+ghost atoms
+  int nmax;                // allocated size of mass_rigid
 
   void hooke(double, double, double, double, double *,
              double *, double *, double *, double *, double, double, int);
