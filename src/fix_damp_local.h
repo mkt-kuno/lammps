@@ -40,7 +40,7 @@ class FixDampLocal : public Fix {
 
  protected:
   double alpha;
-  int nlevels_respa;
+  int ilevel_respa;
 
   double signofnum(double);
 
