@@ -241,15 +241,15 @@ void FixWallGranRegion::post_force(int vflag)
         
         if (pairstyle == HOOKE)
           hooke(rsq,dx,dy,dz,vwall,v[i],f[i],
-                omega[i],torque[i],radius[i],meff);
+                omega[i],torque[i],radius[i],meff,i);
         else if (pairstyle == HOOKE_HISTORY)
           hooke_history(rsq,dx,dy,dz,vwall,v[i],f[i],
                         omega[i],torque[i],radius[i],meff,
-                        shearmany[i][c2r[ic]]);
+                        shearmany[i][c2r[ic]],i);
         else if (pairstyle == HERTZ_HISTORY)
           hertz_history(rsq,dx,dy,dz,vwall,region->contact[ic].radius,
                         v[i],f[i],omega[i],torque[i],
-                        radius[i],meff,shearmany[i][c2r[ic]]);
+                        radius[i],meff,shearmany[i][c2r[ic]],i);
         else if (pairstyle == BONDED_HISTORY)
           bonded_history(rsq,dx,dy,dz,vwall,region->contact[ic].radius,
                          v[i],f[i],omega[i],torque[i],

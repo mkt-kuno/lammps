@@ -207,9 +207,6 @@ class Fix : protected Pointers {
 
   virtual double memory_usage() {return 0.0;}
 
-  virtual unsigned int data_mask() {return datamask;}
-  virtual unsigned int data_mask_ext() {return datamask_ext;}
-
   /*~ Added the virtual function param_export. The function itself
     is declared only in the fix_multistress and fix_deform derived
     classes, and is used to export the strain rates to any calling
