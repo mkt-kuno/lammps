@@ -103,8 +103,8 @@ void PairGranCMHistory::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firsttouch = list->listgranhistory->firstneigh;
-  firstshear = list->listgranhistory->firstdouble;
+  firsttouch = list->listhistory->firstneigh;
+  firstshear = list->listhistory->firstdouble;
 
   /*~ The following piece of code was added to determine whether or not
     any periodic boundaries, if present, are moving either via fix_
@@ -592,7 +592,7 @@ double PairGranCMHistory::single(int i, int j, int itype, int jtype,
 
   int *jlist = list->firstneigh[i];
   int jnum = list->numneigh[i];
-  double *allshear = list->listgranhistory->firstdouble[i];
+  double *allshear = list->listhistory->firstdouble[i];
 
   for (int jj = 0; jj < jnum; jj++) {
     neighprev++;
@@ -750,13 +750,11 @@ void PairGranCMHistory::init_style()
   // need a granular neigh list and optionally a granular history neigh list
 
   int irequest = neighbor->request(this,instance_me);
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->gran = 1;
+  neighbor->requests[irequest]->size = 1;
   if (history) {
     irequest = neighbor->request(this,instance_me);
     neighbor->requests[irequest]->id = 1;
-    neighbor->requests[irequest]->half = 0;
-    neighbor->requests[irequest]->granhistory = 1;
+    neighbor->requests[irequest]->history = 1;
     neighbor->requests[irequest]->dnum = numshearquants;
   }
 

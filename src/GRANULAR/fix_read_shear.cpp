@@ -175,13 +175,13 @@ void FixReadShear::setup_pre_force(int vflag)
 
   int dim;
   NeighList *list = (NeighList *) pair->extract("list",dim);
-  NeighList *listgranhistory = (NeighList *) pair->extract("listgranhistory",dim);
+  NeighList *listhistory = (NeighList *) pair->extract("listhistory",dim);
   
   inum = list->inum;
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firstshear = listgranhistory->firstdouble;
+  firstshear = listhistory->firstdouble;
  
   // loop over neighbors of my atoms
 

@@ -1638,7 +1638,7 @@ void *PairGranHookeHistory::extract(const char *str, int &dim)
   dim = 0;  
   if (strcmp(str,"history") == 0) return (void *) fix_history;
   else if (strcmp(str,"list") == 0) return (void *) list;
-  else if (strcmp(str,"listgranhistory") == 0) return (void *) listgranhistory;
+  else if (strcmp(str,"listhistory") == 0) return (void *) listhistory;
   else if (strcmp(str,"rolling") == 0) return (void *) &rolling;
   // Added for D_spin model [MO - 13 November 2014]
   else if (strcmp(str,"D_spin") == 0) return (void *) &D_spin;

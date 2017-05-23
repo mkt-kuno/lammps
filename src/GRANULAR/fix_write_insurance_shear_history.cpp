@@ -83,7 +83,7 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
 
   int dim;  
   NeighList *list = (NeighList *) pair->extract("list",dim);
-  NeighList *listgranhistory = (NeighList *) pair->extract("listgranhistory",dim);
+  NeighList *listhistory = (NeighList *) pair->extract("listhistory",dim);
   
   //~ Find the number of shear quantities
   int numshearquants = 3;
@@ -114,7 +114,7 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firstshear = listgranhistory->firstdouble;
+  firstshear = listhistory->firstdouble;
  
   /*~ Create a dynamic array for storing information regarding the contact
     forces*/
