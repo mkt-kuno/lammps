@@ -50,7 +50,7 @@ ComputeCoordGran::ComputeCoordGran(LAMMPS *lmp, int narg, char **arg) :
     ncol = 0;
     int iarg = 3;
     while (iarg < narg) {
-      force->bounds(arg[iarg],ntypes,typelo[ncol],typehi[ncol]);
+      force->bounds(FLERR,arg[iarg],ntypes,typelo[ncol],typehi[ncol]);
       if (typelo[ncol] > typehi[ncol])
         error->all(FLERR,"Illegal compute coord/gran command");
       ncol++;
