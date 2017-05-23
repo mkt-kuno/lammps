@@ -8,19 +8,21 @@ VENV          = $(BUILDDIR)/docenv
 TXT2RST       = $(VENV)/bin/txt2rst
 
 PYTHON        = $(shell which python3)
+HAS_PYTHON3    = NO
+HAS_VIRTUALENV = NO
 
-ifeq ($(shell which python3 >/dev/null 2>&1; echo $$?), 1)
-$(error Python3 was not found! Please check README.md for further instructions)
+ifeq ($(shell which python3 >/dev/null 2>&1; echo $$?), 0)
+HAS_PYTHON3 = YES
 endif
 
-ifeq ($(shell which virtualenv >/dev/null 2>&1; echo $$?), 1)
-$(error virtualenv was not found! Please check README.md for further instructions)
+ifeq ($(shell which virtualenv >/dev/null 2>&1; echo $$?), 0)
+HAS_VIRTUALENV = YES
 endif
 
 SOURCES=$(wildcard src/*.txt)
 OBJECTS=$(SOURCES:src/%.txt=$(RSTDIR)/%.rst)
 
-.PHONY: help clean-all clean html pdf old venv
+.PHONY: help clean-all clean epub html pdf old venv
 
 # ------------------------------------------
 
@@ -30,6 +32,7 @@ help:
 	@echo "  pdf        create Manual.pdf and Developer.pdf in this dir"
 	@echo "  old        create old-style HTML doc pages in old dir"
 	@echo "  fetch      fetch HTML and PDF files from LAMMPS web site"
+	@echo "  epub       create ePUB format manual for e-book readers"
 	@echo "  clean      remove all intermediate RST files"
 	@echo "  clean-all  reset the entire build environment"
 	@echo "  txt2html   build txt2html tool"
@@ -40,7 +43,7 @@ clean-all:
 	rm -rf $(BUILDDIR)/* utils/txt2html/txt2html.exe
 
 clean:
-	rm -rf $(RSTDIR)
+	rm -rf $(RSTDIR) html
 
 html: $(OBJECTS)
 	@(\
@@ -60,6 +63,20 @@ html: $(OBJECTS)
 	@rm -rf html/USER/*/.[sg]*
 	@rm -rf html/USER/*/*.[sg]*
 	@echo "Build finished. The HTML pages are in doc/html."
+
+epub: $(OBJECTS)
+	@mkdir -p epub
+	@rm -f LAMMPS.epub
+	@cp src/JPG/lammps-logo.png epub/
+	@(\
+		. $(VENV)/bin/activate ;\
+		cp -r src/* $(RSTDIR)/ ;\
+		sphinx-build -j 8 -b epub -c utils/sphinx-config -d $(BUILDDIR)/doctrees $(RSTDIR) epub ;\
+		deactivate ;\
+	)
+	@mv  epub/LAMMPS.epub .
+	@rm -rf epub
+	@echo "Build finished. The ePUB manual file is created."
 
 pdf: utils/txt2html/txt2html.exe
 	@(\
@@ -109,6 +126,8 @@ $(RSTDIR)/%.rst : src/%.txt $(TXT2RST)
 	)
 
 $(VENV):
+	@if [ "$(HAS_PYTHON3)" == "NO" ] ; then echo "Python3 was not found! Please check README.md for further instructions" 1>&2; exit 1; fi
+	@if [ "$(HAS_VIRTUALENV)" == "NO" ] ; then echo "virtualenv was not found! Please check README.md for further instructions" 1>&2; exit 1; fi
 	@( \
 		virtualenv -p $(PYTHON) $(VENV); \
 		. $(VENV)/bin/activate; \

@@ -15,7 +15,7 @@ pair_style snap :pre
 [Examples:]
 
 pair_style snap
-pair_coeff * * snap InP.snapcoeff In P InP.snapparam In In P P :pre
+pair_coeff * * InP.snapcoeff In P InP.snapparam In In P P :pre
 
 [Description:]
 
@@ -27,9 +27,9 @@ it uses bispectrum components
 to characterize the local neighborhood of each atom
 in a very general way. The mathematical definition of the
 bispectrum calculation used by SNAP is identical
-to that used of "compute sna/atom"_compute_sna_atom.html.
+to that used by "compute sna/atom"_compute_sna_atom.html.
 In SNAP, the total energy is decomposed into a sum over
-atom energies. The energy of atom {i} is
+atom energies. The energy of atom {i } is
 expressed as a weighted sum over bispectrum components.
 
 :c,image(Eqs/pair_snap.jpg)
@@ -96,15 +96,15 @@ tantalum potential provided in the LAMMPS potentials directory
 combines the {snap} and {zbl} pair styles. It is invoked
 by the following commands:
 
-	variable zblcutinner equal 4
-	variable zblcutouter equal 4.8
-	variable zblz equal 73
-	pair_style hybrid/overlay &
-	zbl $\{zblcutinner\} $\{zblcutouter\} snap
-	pair_coeff * * zbl 0.0
-	pair_coeff 1 1 zbl $\{zblz\}
-	pair_coeff * * snap ../potentials/Ta06A.snapcoeff Ta &
-	../potentials/Ta06A.snapparam Ta :pre
+        variable zblcutinner equal 4
+        variable zblcutouter equal 4.8
+        variable zblz equal 73
+        pair_style hybrid/overlay &
+        zbl $\{zblcutinner\} $\{zblcutouter\} snap
+        pair_coeff * * zbl 0.0
+        pair_coeff 1 1 zbl $\{zblz\}
+        pair_coeff * * snap ../potentials/Ta06A.snapcoeff Ta &
+        ../potentials/Ta06A.snapparam Ta :pre
 
 It is convenient to keep these commands in a separate file that can
 be inserted in any LAMMPS input script using the "include"_include.html
@@ -183,8 +183,7 @@ LAMMPS"_Section_start.html#start_3 section for more info.
 :line
 
 :link(Thompson2014)
-[(Thompson)] Thompson, Swiler, Trott, Foiles, Tucker, under review, preprint
-available at "arXiv:1409.3880"_http://arxiv.org/abs/1409.3880
+[(Thompson)] Thompson, Swiler, Trott, Foiles, Tucker, J Comp Phys, 285, 316 (2015).
 
 :link(Bartok2010)
 [(Bartok2010)] Bartok, Payne, Risi, Csanyi, Phys Rev Lett, 104, 136403 (2010).

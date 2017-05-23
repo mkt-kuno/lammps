@@ -12,7 +12,8 @@
 ------------------------------------------------------------------------- */
 
 /* ----------------------------------------------------------------------
-  Contributing authors: Leo Silbert (SNL), Gary Grest (SNL)
+   Contributing authors: Leo Silbert (SNL), Gary Grest (SNL),
+                         Dan Bolintineanu (SNL)
 ------------------------------------------------------------------------- */
 
 #include <math.h>
@@ -39,25 +40,26 @@
 //~ Added compute header files for energy tracing [KH - 20 February 2014]
 #include "compute.h"
 #include "compute_energy_gran.h"
-//#include "integrate.h" // Added to prevent "core dumped" with stresscontrol using fff boundaries [MO based on KH 10 September 2015]
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
 using namespace MathConst;
 
-enum{XPLANE=0,YPLANE=1,ZPLANE=2,ZCYLINDER};    // XYZ PLANE need to be 0,1,2
-enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,SHM_HISTORY,CM_HISTORY,HMD_HISTORY,CMD_HISTORY}; //~ Added SHM_HISTORY option [KH - 30 October 2013] other three were added [MO - 30 November 2014]] 
+// XYZ PLANE need to be 0,1,2
+
+enum{XPLANE=0,YPLANE=1,ZPLANE=2,ZCYLINDER,REGION};
+enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,BONDED_HISTORY,SHM_HISTORY,CM_HISTORY,HMD_HISTORY,CMD_HISTORY}; //~ Added SHM_HISTORY option [KH - 30 October 2013] other three were added [MO - 30 November 2014]] 
+enum{NONE,CONSTANT,EQUAL};
 
 #define BIG 1.0e20
 
 /* ---------------------------------------------------------------------- */
 
 FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg), idregion(NULL), shearone(NULL), fix_rigid(NULL), mass_rigid(NULL)
 {
   virial_flag = 1; // this fix can contribute to compute stress/atom
-  //~ Reduced from 10 for shm pairstyle [KH - 30 October 2013]
-  if (narg < 8) error->all(FLERR,"Illegal fix wall/gran command");
+  if (narg < 4) error->all(FLERR,"Illegal fix wall/gran command");
 
   if (!atom->sphere_flag)
     error->all(FLERR,"Fix wall/gran requires atom style sphere");
@@ -65,9 +67,11 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   //~ Global information is saved to restart file [KH - 20 February 2014]
   restart_global = 1;
   restart_peratom = 1;
+  
   create_attribute = 1;
 
   // set interaction style
+  // disable bonded/history option for now
 
   if (strcmp(arg[3],"hooke") == 0) pairstyle = HOOKE;
   else if (strcmp(arg[3],"hooke/history") == 0) pairstyle = HOOKE_HISTORY;
@@ -76,11 +80,14 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   else if (strcmp(arg[3],"HMD/history") == 0) pairstyle = HMD_HISTORY;
   else if (strcmp(arg[3],"CM/history") == 0) pairstyle = CM_HISTORY;
   else if (strcmp(arg[3],"CMD/history") == 0) pairstyle = CMD_HISTORY;
+  //else if (strcmp(arg[3],"bonded/history") == 0) pairstyle = BONDED_HISTORY;
   else error->all(FLERR,"Invalid fix wall/gran interaction style");
 
-  history = 1;
-  if (pairstyle == HOOKE) history = 0;
+  history = restart_peratom = 1;
+  if (pairstyle == HOOKE) history = restart_peratom = 0;
 
+  // wall/particle coefficients
+  
   vector_flag = 1;
   size_vector = 6;  // increased from 5 to 6 [MO - 12 March 2015]
   global_freq = 1;
@@ -105,7 +112,7 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     gamman = gammat = 0.0;
     dampflag = 0;
     iarg = 7; //~ Reduce number of args for SHM pairstyle [KH - 10 June 2014]
-  } else if (pairstyle == CM_HISTORY) {     
+  } else if (pairstyle == CM_HISTORY) {
     Geq = force->numeric(FLERR,arg[4]);
     Poiseq = force->numeric(FLERR,arg[5]);
     xmu = force->numeric(FLERR,arg[6]);
@@ -157,12 +164,26 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     gamman = gammat = 0.0;
     dampflag = 0;
     iarg = 11; //~ Change number of args for CMD pairstyle [MO - 12 Sep 2014]
-  }
-  else {
+  } else if (pairstyle == BONDED_HISTORY) {
+    if (narg < 10) error->all(FLERR,"Illegal fix wall/gran command");
+
+    E = force->numeric(FLERR,arg[4]);
+    G = force->numeric(FLERR,arg[5]);
+    SurfEnergy = force->numeric(FLERR,arg[6]);
+    // Note: this doesn't get used, check w/ Jeremy?
+    gamman = force->numeric(FLERR,arg[7]);
+
+    xmu = force->numeric(FLERR,arg[8]);
+    // pois = E/(2.0*G) - 1.0;
+    // kn = 2.0*E/(3.0*(1.0+pois)*(1.0-pois));
+    // gammat=0.5*gamman;
+
+    iarg = 9;
+  } else {
     kn = force->numeric(FLERR,arg[4]);
     if (strcmp(arg[5],"NULL") == 0) kt = kn * 2.0/7.0;
     else kt = force->numeric(FLERR,arg[5]);
-
+    
     gamman = force->numeric(FLERR,arg[6]);
     if (strcmp(arg[7],"NULL") == 0) gammat = 0.5 * gamman;
     else gammat = force->numeric(FLERR,arg[7]);
@@ -171,7 +192,7 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     int dampflag = force->inumeric(FLERR,arg[9]);
     if (dampflag == 0) gammat = 0.0;
   }
-
+  
   if (kn < 0.0 || kt < 0.0 || gamman < 0.0 || gammat < 0.0 ||
       xmu < 0.0 || xmu > 10000.0 || dampflag < 0 || dampflag > 1)
     error->all(FLERR,"Illegal fix wall/gran command");
@@ -184,6 +205,9 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   }
   
   // wallstyle args
+
+  idregion = NULL;
+
   if (strcmp(arg[iarg],"xplane") == 0) {
     if (narg < iarg+3) error->all(FLERR,"Illegal fix wall/gran command");
     wallstyle = XPLANE;
@@ -212,11 +236,18 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     if (narg < iarg+2) error->all(FLERR,"Illegal fix wall/gran command");
     wallstyle = ZCYLINDER;
     lo = hi = 0.0;
-    cylradius = force->numeric(FLERR,arg[iarg+1]);
+    cylradius = force->numeric(FLERR,arg[iarg+3]);
+    iarg += 2;
+  } else if (strcmp(arg[iarg],"region") == 0) {
+    if (narg < iarg+2) error->all(FLERR,"Illegal fix wall/gran command");
+    wallstyle = REGION;
+    int n = strlen(arg[iarg+1]) + 1;
+    idregion = new char[n];
+    strcpy(idregion,arg[iarg+1]);
     iarg += 2;
   }
 
-  // check for trailing keyword/values
+  // optional args
 
   wiggle = 0;
   wshear = 0;
@@ -224,7 +255,7 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   wscontrol = 0;
   ftvarying = 0;
   fstr = NULL;
-  velwall[0] = velwall[1] = velwall[2] = 0.0;
+  vwall[0] = vwall[1] = vwall[2] = 0.0;
 
   while (iarg < narg) {
     if (strcmp(arg[iarg],"wiggle") == 0) {
@@ -253,9 +284,9 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
       iarg += 3;
     } else if (strcmp(arg[iarg],"translate") == 0) {
       wtranslate = 1;
-      velwall[0] = force->numeric(FLERR,arg[iarg+1]);
-      velwall[1] = force->numeric(FLERR,arg[iarg+2]);
-      velwall[2] = force->numeric(FLERR,arg[iarg+3]);
+      vwall[0] = force->numeric(FLERR,arg[iarg+1]);
+      vwall[1] = force->numeric(FLERR,arg[iarg+2]);
+      vwall[2] = force->numeric(FLERR,arg[iarg+3]);
       iarg += 4;
     } else if (strcmp(arg[iarg],"stresscontrol") == 0) {
       wscontrol = 1;
@@ -300,26 +331,39 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"Cannot use translate with cylinder fix wall/gran");
   if ((wtranslate || wscontrol) && (wiggle || wshear)) // added wscontrol [MO - 28 Aug 2015]
     error->all(FLERR,"Cannot translate and wiggle or shear fix wall/gran");
+  if ((wiggle || wshear) && wallstyle == REGION)
+    error->all(FLERR,"Cannot wiggle or shear with fix wall/gran/region");
 
   // setup oscillations
 
   if (wiggle) omega = 2.0*MY_PI / period;
 
-  //~ Find the number of shear quantities required [KH - 30 October 2013]
-  numshearquants = 3;
+  // perform initial allocation of atom-based arrays
+  // register with Atom class
+
+  if (pairstyle == BONDED_HISTORY) sheardim = 7;
+  else sheardim = 3;
 
   //~ pair/gran/shm/history has 4 shear quantities
-  if (pairstyle == SHM_HISTORY) numshearquants++;
+  if (pairstyle == SHM_HISTORY) sheardim++;
 
-  //~ pair/gran/CM/history has 5 shear quantities [MO - 18 July 2014] (,1) means exact match
-  if (pairstyle == CM_HISTORY) numshearquants += 2;
+  //~ pair/gran/CM/history has 5 shear quantities [MO - 18 July 2014]
+  if (pairstyle == CM_HISTORY) sheardim += 2;
   
   //~ pair/gran/HMD/history has 26 shear quantities [MO - 21 July 2014]
-  if (pairstyle == HMD_HISTORY) numshearquants += 23;
+  if (pairstyle == HMD_HISTORY) sheardim += 23;
 
   //~ pair/gran/CMD/history has 26 shear quantities [MO - 30 November 2014]
-  if (pairstyle == CMD_HISTORY) numshearquants += 23;
+  if (pairstyle == CMD_HISTORY) sheardim += 23;
 
+  shearone = NULL;
+  grow_arrays(atom->nmax);
+  atom->add_callback(0);
+  atom->add_callback(1);
+
+  nmax = 0;
+  mass_rigid = NULL;
+  
   /*~ Adding a rolling resistance model causes the number of shear 
     history quantities to be increased by 15 [KH - 29 July 2014]*/
   // 20 quantities for Deresiewicz1954_spin model [MO - 30 November 2014]
@@ -341,14 +385,14 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
 
   if (dim) { // if(dim) {} was modified [KH&MO - 04 December 2014]
     rolling = (int *) pair->extract("rolling",dim);
-    if (*rolling) numshearquants += 15;
+    if (*rolling) sheardim += 15;
 
     // Option of D_spin was added [MO - 4 December 2014]
     D_spin = (int *) pair->extract("D_spin",dim);
-    if (*D_spin) numshearquants += 20;
+    if (*D_spin) sheardim += 20;
 
     trace_energy = (int *) pair->extract("trace_energy",dim);
-    if (*trace_energy) numshearquants += 4;
+    if (*trace_energy) sheardim += 4;
   }
 
   // parameters of the particle [MO - 05 December 2014]
@@ -373,14 +417,6 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   // D_switch == 1 or 0 mean D_spin is on or off. [MO - 05 December 2014]  
   if (*D_spin) D_switch = (int *) pair->extract("D_switch",dim);
 
-  // perform initial allocation of atom-based arrays
-  // register with Atom class
-
-  shear = NULL;
-  grow_arrays(atom->nmax);
-  atom->add_callback(0);
-  atom->add_callback(1);
-
   /*~ Note that there is no need to set up fix_old_omega as the pairstyle
     will do this automatically*/
 
@@ -392,17 +428,15 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   if (*D_spin && wallstyle == ZCYLINDER)
     error->all(FLERR,"Not permitted to use D_spin resistance with cylindrical walls");
 
-  // initialize as if particle is not touching wall
+  // initialize shear history as if particle is not touching region
+  // shearone will be NULL for wallstyle = REGION
 
-  if (history) {
+  if (history && shearone) {
     int nlocal = atom->nlocal;
     for (int i = 0; i < nlocal; i++)
-      for (int q = 0; q < numshearquants; q++)
-	shear[i][q] = 0.0; //~ [KH - 30 October 2013]
+      for (int j = 0; j < sheardim; j++)
+        shearone[i][j] = 0.0;
   }
-  
-  nmax = 0;
-  mass_rigid = NULL;
 
   time_origin = update->ntimestep;
 
@@ -423,10 +457,10 @@ FixWallGran::~FixWallGran()
   atom->delete_callback(id,0);
   atom->delete_callback(id,1);
 
-  // delete locally stored arrays
+  // delete local storage
 
-  memory->destroy(shear);
-  delete [] fstr;
+  delete [] idregion;
+  memory->destroy(shearone);
   memory->destroy(mass_rigid);
 }
 
@@ -447,21 +481,6 @@ void FixWallGran::init()
   int i;
 
   dt = update->dt;
-
-  /*~ Force pair::ev_setup to be run with a vflag value of 4 so that
-    vflag_atom will be set equal to 1 and hence vatom will be zeroed
-    at the start of a simulation [MO based on KH 10 September 2015] */
-  //if (update->integrate->vflag <= 2) update->integrate->vflag += 4;
-  //force->pair->ev_setup(update->integrate->eflag, update->integrate->vflag);
-
-  // check variables for Ftarget
-
-  if (fstr) {
-    fvar = input->variable->find(fstr);
-    if (fvar < 0)
-      error->all(FLERR,"Variable name for fix wall/gran does not exist");
-    if (!input->variable->equalstyle(fvar)) error->all(FLERR,"Variable for fix wall/gran is invalid style");
-  }
 
   if (strstr(update->integrate_style,"respa"))
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
@@ -527,9 +546,8 @@ void FixWallGran::setup(int vflag)
 
 void FixWallGran::post_force(int vflag)
 {
-  int i;
-  double dx,dy,dz,del1,del2,delxy,delr,rsq,meff;
-  double vwall[3];
+  int i,j;
+  double dx,dy,dz,del1,del2,delxy,delr,rsq,rwall,meff;
 
   // do not update shear history during setup
 
@@ -558,16 +576,16 @@ void FixWallGran::post_force(int vflag)
   }
 
   // if wiggle or shear, set wall position and velocity accordingly
-  // if wtranslate lo and hi track the wall position and velwall is set in the constructor
+  // if wtranslate lo and hi track the wall position and vwall is set in the constructor
 
   if (wiggle) { 
     double arg = omega * (update->ntimestep - time_origin) * dt;
-    if (wiggletype == 1) velwall[axis] = amplitude*omega*sin(arg); // same as before [MO - 09 May 2016]
-    else                 velwall[axis] = amplitude*omega*cos(arg); // newly added [MO - 09 May 2016]
+    if (wiggletype == 1) vwall[axis] = amplitude*omega*sin(arg); // same as before [MO - 09 May 2016]
+    else                 vwall[axis] = amplitude*omega*cos(arg); // newly added [MO - 09 May 2016]
     if (shearupdate && wallstyle == axis) move_wall(); // move_wall will update hi & lo
   } 
   else if (wtranslate && shearupdate) move_wall(); // move_wall will update hi & lo
-  else if (wshear) velwall[axis] = vshear;
+  else if (wshear) vwall[axis] = vshear;
 
   fwall[0] = fwall[1] = fwall[2] = 0.0; //per-processor force// fwall_all[0] = fwall_all[1] = fwall_all[2] = 0.0;
   wcoordnos[0] = 0.0; // coordination number of wall [MO - 12 March 2015]
@@ -616,6 +634,8 @@ void FixWallGran::post_force(int vflag)
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
 
+  rwall = 0.0;
+
   for (int i = 0; i < nlocal; i++) {
     if (mask[i] & groupbit) {
 
@@ -639,14 +659,18 @@ void FixWallGran::post_force(int vflag)
       } else if (wallstyle == ZCYLINDER) {
         delxy = sqrt(x[i][0]*x[i][0] + x[i][1]*x[i][1]);
         delr = cylradius - delxy;
-        if (delr > radius[i]) dz = cylradius;
-        else {
+        if (delr > radius[i]) {
+          dz = cylradius;
+          rwall = 0.0;
+        } else {
           dx = -delr/delxy * x[i][0];
           dy = -delr/delxy * x[i][1];
+          // rwall = -2r_c if inside cylinder, 2r_c outside
+          rwall = (delxy < cylradius) ? -2*cylradius : 2*cylradius;
           if (wshear && axis != 2) {
-            velwall[0] = vshear * x[i][1]/delxy;
-            velwall[1] = -vshear * x[i][0]/delxy;
-            velwall[2] = 0.0;
+            vwall[0] += vshear * x[i][1]/delxy;
+            vwall[1] += -vshear * x[i][0]/delxy;
+            vwall[2] = 0.0;
           }
         }
       }
@@ -654,10 +678,10 @@ void FixWallGran::post_force(int vflag)
       rsq = dx*dx + dy*dy + dz*dz;
 
       if (rsq > radius[i]*radius[i]) {
-        if (pairstyle != HOOKE) {
-	  for (int q = 0; q < numshearquants; q++)
-	    shear[i][q] = 0.0; //~ Added the 'for' loop [KH - 4 November 2013]
-        }
+        if (history)
+          for (j = 0; j < sheardim; j++)
+            shearone[i][j] = 0.0;
+
       } else {
 	// meff = effective mass of sphere
 	// if I is part of rigid body, use body mass
@@ -668,26 +692,29 @@ void FixWallGran::post_force(int vflag)
 	wcoordnos[0] += 1.0; // accumulate coordination number [MO - 12 March 2015]
 
         if (pairstyle == HOOKE)
-          hooke(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
+          hooke(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
                 radius[i],meff,i);
         else if (pairstyle == HOOKE_HISTORY)
-          hooke_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
-                        radius[i],meff,shear[i],i);
+          hooke_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
+                        radius[i],meff,shearone[i],i);
         else if (pairstyle == HERTZ_HISTORY)
-          hertz_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
-                        radius[i],meff,shear[i],i);
+          hertz_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
+                        radius[i],meff,shearone[i],i);
 	else if (pairstyle == SHM_HISTORY) //~ [KH - 30 October 2013]
-          shm_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
-		      radius[i],meff,shear[i],i);
+          shm_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
+		      radius[i],meff,shearone[i],i);
 	else if (pairstyle == CM_HISTORY) //~ [MO - 18 July 2014]
-          CM_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
-		     radius[i],meff,shear[i],i);
+          CM_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
+		     radius[i],meff,shearone[i],i);
 	else if (pairstyle == HMD_HISTORY) //~ [MO - 21 July 2014]
-          HMD_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
-		      radius[i],meff,shear[i],i);
-	else if (pairstyle == CMD_HISTORY) //~ [MO - 30 N0vember 2014]
-          CMD_history(rsq,dx,dy,dz,velwall,v[i],f[i],omega[i],torque[i],
-		      radius[i],meff,shear[i],i);
+          HMD_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
+		      radius[i],meff,shearone[i],i);
+	else if (pairstyle == CMD_HISTORY) //~ [MO - 30 November 2014]
+          CMD_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
+		      radius[i],meff,shearone[i],i);
+        else if (pairstyle == BONDED_HISTORY)
+          bonded_history(rsq,dx,dy,dz,vwall,rwall,v[i],f[i],
+                         omega[i],torque[i],radius[i],meff,shearone[i]);
       }
     }
   } 
@@ -919,7 +946,7 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
   //~ Call function for rolling resistance model [KH - 30 October 2013]
   double db[3], localdM[3], globaldM[3]; //~ Pass by reference
   if (*rolling && shearupdate)
-    rolling_resistance(i,numshearquants,dx,dy,dz,r,radius,ccel,fslim,
+    rolling_resistance(i,sheardim,dx,dy,dz,r,radius,ccel,fslim,
 		       kt,torque,shear,db,localdM,globaldM);
 
   //~ Add contributions to traced energy [KH - 20 February 2014]
@@ -959,7 +986,7 @@ void FixWallGran::hooke_history(double rsq, double dx, double dy, double dz,
 /* ---------------------------------------------------------------------- */
 
 void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
-                                double *vwall, double *v,
+                                double *vwall, double rwall, double *v,
                                 double *f, double *omega, double *torque,
                                 double radius, double meff, double *shear, int i)
 {
@@ -994,10 +1021,15 @@ void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
   // relative rotational velocity - removed
 
   // normal forces = Hertzian contact + normal velocity damping
+  // rwall = 0 is flat wall case
+  // rwall positive or negative is curved wall
+  //   will break (as it should) if rwall is negative and
+  //   its absolute value < radius of particle
 
   damp = meff*gamman*vnnr*rsqinv;
   ccel = kn*(radius-r)*rinv - damp;
-  polyhertz = sqrt((radius-r)*radius);
+  if (rwall == 0.0) polyhertz = sqrt((radius-r)*radius);
+  else polyhertz = sqrt((radius-r)*radius*rwall/(rwall+radius));
   ccel *= polyhertz;
 
   // relative velocities
@@ -1075,7 +1107,7 @@ void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
   double effectivekt = kt*polyhertz;
   double db[3], localdM[3], globaldM[3]; //~ Pass by reference
   if (*rolling && shearupdate)
-    rolling_resistance(i,numshearquants,dx,dy,dz,r,radius,ccel,fn,
+    rolling_resistance(i,sheardim,dx,dy,dz,r,radius,ccel,fn,
 		       effectivekt,torque,shear,db,localdM,globaldM);
 
   //~ Add contributions to traced energy [KH - 20 February 2014]
@@ -1115,6 +1147,248 @@ void FixWallGran::hertz_history(double rsq, double dx, double dy, double dz,
   fwall[1] += fy;
   fwall[2] += fz;
   if (evflag) ev_tally_wall(i,fx,fy,fz,dx,dy,dz,radius);
+}
+
+/* ---------------------------------------------------------------------- */
+
+void FixWallGran::bonded_history(double rsq, double dx, double dy, double dz,
+                                 double *vwall, double rwall, double *v,
+                                 double *f, double *omega, double *torque,
+                                 double radius, double meff, double *shear)
+{
+  double r,vr1,vr2,vr3,vnnr,vn1,vn2,vn3,vt1,vt2,vt3;
+  double wr1,wr2,wr3,damp,ccel,vtr1,vtr2,vtr3,vrel;
+  double fn,fs,fs1,fs2,fs3,fx,fy,fz,tor1,tor2,tor3;
+  double shrmag,rsht,polyhertz,rinv,rsqinv;
+
+  double pois,E_eff,G_eff,rad_eff;
+  double a0,Fcrit,delcrit,delcritinv;
+  double overlap,olapsq,olapcubed,sqrtterm,tmp,keyterm,keyterm2,keyterm3;
+  double aovera0,foverFc;
+  double gammatsuji;
+
+  double ktwist,kroll,twistcrit,rollcrit;
+  double relrot1,relrot2,relrot3,vrl1,vrl2,vrl3,vrlmag,vrlmaginv;
+  double magtwist,magtortwist;
+  double magrollsq,magroll,magrollinv,magtorroll;
+
+  //~ Note that this function has not been revised at all [KH - 23 May 2017]
+  
+  r = sqrt(rsq);
+  rinv = 1.0/r;
+  rsqinv = 1.0/rsq;
+
+  // relative translational velocity
+
+  vr1 = v[0] - vwall[0];
+  vr2 = v[1] - vwall[1];
+  vr3 = v[2] - vwall[2];
+
+  // normal component
+
+  vnnr = vr1*dx + vr2*dy + vr3*dz;
+  vn1 = dx*vnnr / rsq;
+  vn2 = dy*vnnr / rsq;
+  vn3 = dz*vnnr / rsq;
+
+  // tangential component
+
+  vt1 = vr1 - vn1;
+  vt2 = vr2 - vn2;
+  vt3 = vr3 - vn3;
+
+  // relative rotational velocity
+
+  wr1 = radius*omega[0] * rinv;
+  wr2 = radius*omega[1] * rinv;
+  wr3 = radius*omega[2] * rinv;
+
+  // normal forces = Hertzian contact + normal velocity damping
+  // material properties: currently assumes identical materials
+
+  pois = E/(2.0*G) - 1.0;
+  E_eff=0.5*E/(1.0-pois*pois);
+  G_eff=G/(4.0-2.0*pois);
+
+  // rwall = 0 is infinite wall radius of curvature (flat wall)
+
+  if (rwall == 0) rad_eff = radius;
+  else rad_eff = radius*rwall/(radius+rwall);
+
+  Fcrit = rad_eff * (3.0 * M_PI * SurfEnergy);
+  a0=pow(9.0*M_PI*SurfEnergy*rad_eff*rad_eff/E_eff,1.0/3.0);
+  delcrit = 1.0/rad_eff*(0.5 * a0*a0/pow(6.0,1.0/3.0));
+  delcritinv = 1.0/delcrit;
+
+  overlap = (radius-r) * delcritinv;
+  olapsq = overlap*overlap;
+  olapcubed = olapsq*overlap;
+  sqrtterm = sqrt(1.0 + olapcubed);
+  tmp = 2.0 + olapcubed + 2.0*sqrtterm;
+  keyterm = pow(tmp,THIRD);
+  keyterm2 = olapsq/keyterm;
+  keyterm3 = sqrt(overlap + keyterm2 + keyterm);
+  aovera0 = pow(6.0,-TWOTHIRDS) * (keyterm3 +
+            sqrt(2.0*overlap - keyterm2 - keyterm + 4.0/keyterm3));
+  foverFc = 4.0*((aovera0*aovera0*aovera0) - pow(aovera0,1.5));
+  ccel = Fcrit*foverFc*rinv;
+
+  // damp = meff*gamman*vnnr*rsqinv;
+  // ccel = kn*(radius-r)*rinv - damp;
+  // polyhertz = sqrt((radius-r)*radius);
+  // ccel *= polyhertz;
+
+  // use Tsuji et al form
+
+  polyhertz = 1.2728- 4.2783*0.9 + 11.087*0.9*0.9 - 22.348*0.9*0.9*0.9 +
+    27.467*0.9*0.9*0.9*0.9 - 18.022*0.9*0.9*0.9*0.9*0.9 +
+    4.8218*0.9*0.9*0.9*0.9*0.9*0.9;
+
+  gammatsuji = 0.2*sqrt(meff*kn);
+  damp = gammatsuji*vnnr/rsq;
+  ccel = ccel - polyhertz * damp;
+
+  // relative velocities
+
+  vtr1 = vt1 - (dz*wr2-dy*wr3);
+  vtr2 = vt2 - (dx*wr3-dz*wr1);
+  vtr3 = vt3 - (dy*wr1-dx*wr2);
+  vrel = vtr1*vtr1 + vtr2*vtr2 + vtr3*vtr3;
+  vrel = sqrt(vrel);
+
+  // shear history effects
+
+  if (shearupdate) {
+    shear[0] += vtr1*dt;
+    shear[1] += vtr2*dt;
+    shear[2] += vtr3*dt;
+  }
+  shrmag = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
+
+  // rotate shear displacements
+
+  rsht = shear[0]*dx + shear[1]*dy + shear[2]*dz;
+  rsht = rsht*rsqinv;
+  if (shearupdate) {
+    shear[0] -= rsht*dx;
+    shear[1] -= rsht*dy;
+    shear[2] -= rsht*dz;
+  }
+
+  // tangential forces = shear + tangential velocity damping
+
+  fs1 = -polyhertz * (kt*shear[0] + meff*gammat*vtr1);
+  fs2 = -polyhertz * (kt*shear[1] + meff*gammat*vtr2);
+  fs3 = -polyhertz * (kt*shear[2] + meff*gammat*vtr3);
+
+  kt=8.0*G_eff*a0*aovera0;
+
+  // shear damping uses Tsuji et al form also
+
+  fs1 = -kt*shear[0] - polyhertz*gammatsuji*vtr1;
+  fs2 = -kt*shear[1] - polyhertz*gammatsuji*vtr2;
+  fs3 = -kt*shear[2] - polyhertz*gammatsuji*vtr3;
+
+  // rescale frictional displacements and forces if needed
+
+  fs = sqrt(fs1*fs1 + fs2*fs2 + fs3*fs3);
+  fn = xmu * fabs(ccel*r + 2.0*Fcrit);
+
+  if (fs > fn) {
+    if (shrmag != 0.0) {
+      shear[0] = (fn/fs) * (shear[0] + polyhertz*gammatsuji*vtr1/kt) -
+      polyhertz*gammatsuji*vtr1/kt;
+      shear[1] = (fn/fs) * (shear[1] + polyhertz*gammatsuji*vtr2/kt) -
+      polyhertz*gammatsuji*vtr2/kt;
+      shear[2] = (fn/fs) * (shear[2] + polyhertz*gammatsuji*vtr3/kt) -
+      polyhertz*gammatsuji*vtr3/kt;
+      fs1 *= fn/fs ;
+      fs2 *= fn/fs;
+      fs3 *= fn/fs;
+    } else fs1 = fs2 = fs3 = 0.0;
+  }
+
+  // calculate twisting and rolling components of torque
+  // NOTE: this assumes spheres!
+
+  relrot1 = omega[0];
+  relrot2 = omega[1];
+  relrot3 = omega[2];
+
+  // rolling velocity
+  // NOTE: this assumes mondisperse spheres!
+
+  vrl1 = -rad_eff*rinv * (relrot2*dz - relrot3*dy);
+  vrl2 = -rad_eff*rinv * (relrot3*dx - relrot1*dz);
+  vrl3 = -rad_eff*rinv * (relrot1*dy - relrot2*dx);
+  vrlmag = sqrt(vrl1*vrl1+vrl2*vrl2+vrl3*vrl3);
+  if (vrlmag != 0.0) vrlmaginv = 1.0/vrlmag;
+  else vrlmaginv = 0.0;
+
+  // bond history effects
+
+  shear[3] += vrl1*dt;
+  shear[4] += vrl2*dt;
+  shear[5] += vrl3*dt;
+
+  // rotate bonded displacements correctly
+
+  double rlt = shear[3]*dx + shear[4]*dy + shear[5]*dz;
+  rlt /= rsq;
+  shear[3] -= rlt*dx;
+  shear[4] -= rlt*dy;
+  shear[5] -= rlt*dz;
+
+  // twisting torque
+
+  magtwist = rinv*(relrot1*dx + relrot2*dy + relrot3*dz);
+  shear[6] += magtwist*dt;
+
+  ktwist = 0.5*kt*(a0*aovera0)*(a0*aovera0);
+  magtortwist = -ktwist*shear[6] -
+    0.5*polyhertz*gammatsuji*(a0*aovera0)*(a0*aovera0)*magtwist;
+
+  twistcrit=TWOTHIRDS*a0*aovera0*Fcrit;
+  if (fabs(magtortwist) > twistcrit)
+    magtortwist = -twistcrit * magtwist/fabs(magtwist);
+
+  // rolling torque
+
+  magrollsq = shear[3]*shear[3] + shear[4]*shear[4] + shear[5]*shear[5];
+  magroll = sqrt(magrollsq);
+  if (magroll != 0.0) magrollinv = 1.0/magroll;
+  else magrollinv = 0.0;
+
+  kroll = 1.0*4.0*Fcrit*pow(aovera0,1.5);
+  magtorroll = -kroll*magroll - 0.1*gammat*vrlmag;
+
+  rollcrit = 0.01;
+  if (magroll > rollcrit) magtorroll = -kroll*rollcrit;
+
+  // forces & torques
+
+  fx = dx*ccel + fs1;
+  fy = dy*ccel + fs2;
+  fz = dz*ccel + fs3;
+
+  f[0] += fx;
+  f[1] += fy;
+  f[2] += fz;
+
+  tor1 = rinv * (dy*fs3 - dz*fs2);
+  tor2 = rinv * (dz*fs1 - dx*fs3);
+  tor3 = rinv * (dx*fs2 - dy*fs1);
+  torque[0] -= radius*tor1;
+  torque[1] -= radius*tor2;
+  torque[2] -= radius*tor3;
+
+  torque[0] += magtortwist * dx*rinv;
+  torque[1] += magtortwist * dy*rinv;
+  torque[2] += magtortwist * dz*rinv;
+
+  torque[0] += magtorroll * (shear[4]*dz - shear[5]*dy)*rinv*magrollinv;
+  torque[1] += magtorroll * (shear[5]*dx - shear[3]*dz)*rinv*magrollinv;
+  torque[2] += magtorroll * (shear[3]*dy - shear[4]*dx)*rinv*magrollinv;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1190,7 +1464,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
       shear[2] *= shratio;
     }
   }
-
+  
   // then perform rotation for rigid-body SPIN
   omdel=omega[0]*dx+omega[1]*dy+omega[2]*dz;
   wspinx=0.5*rsqinv*dx*omdel;
@@ -1215,7 +1489,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
   }
 
   // rescale frictional forces if needed
-
+  
   fs = sqrt(shear[0]*shear[0] + shear[1]*shear[1] + shear[2]*shear[2]);
   fslim = xmu * fabs(ccel*r);
 
@@ -1230,7 +1504,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
   }
 
   // forces & torques
-
+  
   fx = dx*ccel + shear[0];
   fy = dy*ccel + shear[1];
   fz = dz*ccel + shear[2];
@@ -1247,7 +1521,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
   double effectivekt = kt*polyhertz;
   double db[3], localdM[3], globaldM[3]; //~ Pass by reference
   if (*rolling && shearupdate)
-    rolling_resistance(i,numshearquants,dx,dy,dz,r,radius,ccel,fslim,
+    rolling_resistance(i,sheardim,dx,dy,dz,r,radius,ccel,fslim,
 		       effectivekt,torque,shear,db,localdM,globaldM);
   //~ Call function for D_spin resistance model [MO - 30 November 2013]
 
@@ -1255,7 +1529,7 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
   a = polyhertz;
   N = ccel*r;
   if (*D_spin && shearupdate) 
-    Deresiewicz1954_spin(i,numshearquants,dx,dy,dz,radius,r,torque,shear,dspin_i,
+    Deresiewicz1954_spin(i,sheardim,dx,dy,dz,radius,r,torque,shear,dspin_i,
 			 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
 			 M_limit,Geq,Poiseq,Dspin_energy,a,N);
 
@@ -1524,7 +1798,7 @@ void FixWallGran::CM_history(double rsq, double dx, double dy, double dz,
   a = polyhertz_effective;
 
   if (*D_spin && shearupdate) 
-    Deresiewicz1954_spin(i,numshearquants,dx,dy,dz,radius,r,torque,shear,dspin_i,
+    Deresiewicz1954_spin(i,sheardim,dx,dy,dz,radius,r,torque,shear,dspin_i,
 			 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
 			 M_limit,Geq,Poiseq,Dspin_energy,a,N);
 
@@ -1693,7 +1967,7 @@ void FixWallGran::HMD_history(double rsq, double dx, double dy, double dz,
   }
   
   //*************************************************************************************
-  /* The main part of the HMD model is wrriten down below as of 13th August 2014 [MO]*/ 
+  /* The main part of the HMD model is written down below as of 13th August 2014 [MO]*/ 
   //*************************************************************************************
 
   double tolerance = 1.0e-20;
@@ -2106,7 +2380,7 @@ void FixWallGran::HMD_history(double rsq, double dx, double dy, double dz,
 
   //~~ Call function for twisting resistance model [MO - 04 November 2014]   
   if (*D_spin && shearupdate) 
-    Deresiewicz1954_spin(i,numshearquants,dx,dy,dz,radius,r,torque,shear,dspin_i,
+    Deresiewicz1954_spin(i,sheardim,dx,dy,dz,radius,r,torque,shear,dspin_i,
 			 dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
 			 M_limit,Geq,Poiseq,Dspin_energy,a,N);
   
@@ -2844,7 +3118,7 @@ void FixWallGran::CMD_history(double rsq, double dx, double dy, double dz,
   //~ Add contributions to traced energy [KH - 20 February 2014]
   //~~ Call function for twisting resistance model [MO - 04 November 2014]
   if (*D_spin && shearupdate) { 
-    Deresiewicz1954_spin(i,numshearquants,dx,dy,dz,radius,r,torque,shear,dspin_i,
+    Deresiewicz1954_spin(i,sheardim,dx,dy,dz,radius,r,torque,shear,dspin_i,
 			   dspin_stm,spin_stm,dM_i,dM,K_spin,theta_r,
 			   M_limit,Geq,Poiseq,Dspin_energy,a,N);
   }
@@ -3041,9 +3315,8 @@ double FixWallGran::memory_usage()
 {
   int nmax = atom->nmax;
   double bytes = 0.0;
-  //~ Now have additional shear parameters [KH - 30 October 2013]
-  if (history) bytes += numshearquants*nmax * sizeof(double);
-  if (fix_rigid) bytes += nmax * sizeof(int);      // mass_rigid
+  if (history) bytes += nmax*sheardim * sizeof(double);   // shear history
+  if (fix_rigid) bytes += nmax * sizeof(int);             // mass_rigid
   return bytes;
 }
 
@@ -3053,29 +3326,29 @@ double FixWallGran::memory_usage()
 
 void FixWallGran::grow_arrays(int nmax)
 {
-  if (history) memory->grow(shear,nmax,numshearquants,"fix_wall_gran:shear"); //~ [KH - 30 October 2013]
+  if (history) memory->grow(shearone,nmax,sheardim,"fix_wall_gran:shearone");
 }
 
 /* ----------------------------------------------------------------------
-  copy values within local atom-based arrays
+   copy values within local atom-based arrays
 ------------------------------------------------------------------------- */
 
 void FixWallGran::copy_arrays(int i, int j, int delflag)
 {
   if (history)
-    for (int q = 0; q < numshearquants; q++)
-      shear[j][q] = shear[i][q]; //~ [KH - 30 October 2013]
+    for (int m = 0; m < sheardim; m++)
+      shearone[j][m] = shearone[i][m];
 }
 
 /* ----------------------------------------------------------------------
-  initialize one atom's array values, called when atom is created
+   initialize one atom's array values, called when atom is created
 ------------------------------------------------------------------------- */
 
 void FixWallGran::set_arrays(int i)
 {
   if (history)
-    for (int q = 0; q < numshearquants; q++)
-      shear[i][q] = 0.0; //~ [KH - 30 October 2013]
+    for (int m = 0; m < sheardim; m++)
+      shearone[i][m] = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -3085,11 +3358,11 @@ void FixWallGran::set_arrays(int i)
 int FixWallGran::pack_exchange(int i, double *buf)
 {
   if (!history) return 0;
-  
-  for (int q = 0; q < numshearquants; q++)
-    buf[q] = shear[i][q]; //~ [KH - 30 October 2013]
 
-  return numshearquants;
+  int n = 0;
+  for (int m = 0; m < sheardim; m++)
+    buf[n++] = shearone[i][m];
+  return n;
 }
 
 /* ----------------------------------------------------------------------
@@ -3099,11 +3372,11 @@ int FixWallGran::pack_exchange(int i, double *buf)
 int FixWallGran::unpack_exchange(int nlocal, double *buf)
 {
   if (!history) return 0;
-  
-  for (int q = 0; q < numshearquants; q++)
-    shear[nlocal][q] = buf[q]; //~ [KH - 30 October 2013]
-  
-  return numshearquants;
+
+  int n = 0;
+  for (int m = 0; m < sheardim; m++)
+    shearone[nlocal][m] = buf[n++];
+  return n;
 }
 
 /* ----------------------------------------------------------------------
@@ -3113,13 +3386,12 @@ int FixWallGran::unpack_exchange(int nlocal, double *buf)
 int FixWallGran::pack_restart(int i, double *buf)
 {
   if (!history) return 0;
-  
-  int m = 0;
-  buf[m++] = numshearquants + 1; //~ [KH - 30 October 2013]
-  for (int q = 0; q < numshearquants; q++)
-    buf[m++] = shear[i][q];
 
-  return m;
+  int n = 0;
+  buf[n++] = sheardim + 1;
+  for (int m = 0; m < sheardim; m++)
+    buf[n++] = shearone[i][m];
+  return n;
 }
 
 /* ----------------------------------------------------------------------
@@ -3128,18 +3400,18 @@ int FixWallGran::pack_restart(int i, double *buf)
 
 void FixWallGran::unpack_restart(int nlocal, int nth)
 {
+  if (!history) return;
+
   double **extra = atom->extra;
 
-  if (!history) return;
-  
   // skip to Nth set of extra values
 
   int m = 0;
   for (int i = 0; i < nth; i++) m += static_cast<int> (extra[nlocal][m]);
   m++;
 
-  for (int q = 0; q < numshearquants; q++) //~ [KH - 30 October 2013]
-    shear[nlocal][q] = extra[nlocal][m++];
+  for (int i = 0; i < sheardim; i++)
+    shearone[nlocal][i] = extra[nlocal][m++];
 }
 
 /* ----------------------------------------------------------------------
@@ -3149,8 +3421,7 @@ void FixWallGran::unpack_restart(int nlocal, int nth)
 int FixWallGran::maxsize_restart()
 {
   if (!history) return 0;
-  int y = numshearquants + 1;
-  return y;
+  return 1 + sheardim;
 }
 
 /* ----------------------------------------------------------------------
@@ -3160,8 +3431,7 @@ int FixWallGran::maxsize_restart()
 int FixWallGran::size_restart(int nlocal)
 {
   if (!history) return 0;
-  int y = numshearquants + 1;
-  return y;
+  return 1 + sheardim;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -3208,16 +3478,16 @@ int FixWallGran::modify_param(int narg, char **arg)
   else if (strcmp(arg[argsread],"translate") == 0) {
     if (strcmp(arg[argsread+1],"off") == 0) {
       wtranslate=0;
-      velwall[0]=velwall[1]=velwall[2]=0.0;
+      vwall[0]=vwall[1]=vwall[2]=0.0;
       argsread+=2;
       fprintf(screen, "stopped wall translation\n");
     } else {
       wtranslate = 1;
-      velwall[0] = force->numeric(FLERR,arg[argsread+1]);
-      velwall[1] = force->numeric(FLERR,arg[argsread+2]);
-      velwall[2] = force->numeric(FLERR,arg[argsread+3]);
+      vwall[0] = force->numeric(FLERR,arg[argsread+1]);
+      vwall[1] = force->numeric(FLERR,arg[argsread+2]);
+      vwall[2] = force->numeric(FLERR,arg[argsread+3]);
       argsread+= 4;
-      fprintf(screen, "changed wall velocity to [ %e %e %e ]\n",velwall[0],velwall[1],velwall[2]);
+      fprintf(screen, "changed wall velocity to [ %e %e %e ]\n",vwall[0],vwall[1],vwall[2]);
     }
   }
   // Added for wave propagation simulation [MO - 10 March 2015]
@@ -3302,12 +3572,12 @@ void FixWallGran::move_wall() {
   //~ Only update lo or hi if not NULL [KH - 27 November 2013]
   // Upate w_boxlo & w_boxhi in Domain.cpp [MO -02 Sep 2015]
   if (lo != -BIG) { 
-    lo+=velwall[wallstyle]*dt;
+    lo+=vwall[wallstyle]*dt;
     domain->w_boxlo[wallstyle] = lo;
     //MPI_Bcast(&domain->w_boxlo[wallstyle],1,MPI_DOUBLE,0,world);
   }
   if (hi != BIG) {
-    hi+=velwall[wallstyle]*dt; 
+    hi+=vwall[wallstyle]*dt; 
     domain->w_boxhi[wallstyle] = hi;
     //MPI_Bcast(&domain->w_boxhi[wallstyle],1,MPI_DOUBLE,0,world);
   }
@@ -3327,7 +3597,7 @@ void FixWallGran::velscontrol() {
     //modify->addstep_compute(update->ntimestep + 1);needed???
   }
   //if (update->ntimestep != time_origin)
-  //velwall[wallstyle] = gain * (targetf - fwall_all[wallstyle]);
+  //vwall[wallstyle] = gain * (targetf - fwall_all[wallstyle]);
 
 
   //*****************************
@@ -3351,10 +3621,10 @@ void FixWallGran::velscontrol() {
   double boxlength_start = fabs(domain->w_boxhi_start[wallstyle] - domain->w_boxlo_start[wallstyle]);
   double boxlength = fabs(domain->w_boxhi[wallstyle] - domain->w_boxlo[wallstyle]);
     
-  if (tmeans[wallstyle] < 0.5 * targetf) velwall[wallstyle] = 0.5 * gain * boxlength_start; // max. engineering velocity
-  else velwall[wallstyle] = 2 * 0.5 * gain * boxlength_start * (1.0 - tmeans[wallstyle]/targetf);
+  if (tmeans[wallstyle] < 0.5 * targetf) vwall[wallstyle] = 0.5 * gain * boxlength_start; // max. engineering velocity
+  else vwall[wallstyle] = 2 * 0.5 * gain * boxlength_start * (1.0 - tmeans[wallstyle]/targetf);
     
-  w_ierates[wallstyle] = velwall[wallstyle] / boxlength; // true strain rate
+  w_ierates[wallstyle] = vwall[wallstyle] / boxlength; // true strain rate
              
   //****************************
 }
@@ -3412,7 +3682,6 @@ void FixWallGran::ev_tally_wall(int i, double fx, double fy, double fz,
     //}
   }
   //}
-
 }
 
 /* ---------------------------------------------------------------------- */
@@ -3959,9 +4228,9 @@ void *FixWallGran::extract(const char *str, int &dim)
   else if (strcmp(str,"wtranslate") == 0) return (void *) &wtranslate;
   else if (strcmp(str,"wscontrol") == 0) return (void *) &wscontrol;
   else if (strcmp(str,"wallstyle") == 0) return (void *) &wallstyle;
-  // velwall[axis]/fwall_all[axis] are used for wiggle command [MO - 21 Aug 2015] 
+  // vwall[axis]/fwall_all[axis] are used for wiggle command [MO - 21 Aug 2015] 
   else if (strcmp(str,"axis") == 0) return (void *) &axis;
-  else if (strcmp(str,"velwall") == 0) return (void *) &velwall[axis];
+  else if (strcmp(str,"velwall") == 0) return (void *) &vwall[axis];
   else if (strcmp(str,"fwall_all") == 0) return (void *) &fwall_all[axis];
   // w_ierates is used for stresscontrol command [MO - 21 Aug 2015]
   else if (strcmp(str,"w_ierates") == 0) return (void *) &w_ierates[wallstyle];

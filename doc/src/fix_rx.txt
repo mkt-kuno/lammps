@@ -75,7 +75,7 @@ but no more than max_steps will be taken. If max_steps is reached, an error warn
 is printed and the simulation is stopped.
 
 After each ODE step, the solution error {e} is tested and weighted using the absTol
-and relTol values. The error vector is weighted as {e} / (relTol * | {u} | + absTol)
+and relTol values. The error vector is weighted as {e} / (relTol * |{u}| + absTol)
 where {u} is the solution vector. If the norm of the error is <= 1, the solution is
 accepted, {h} is increased by a proportional amount, and the next ODE step is begun.
 Otherwise, {h} is shrunk and the ODE step is repeated.
@@ -87,7 +87,7 @@ end of each run. A positive value N means that the diagnostics are reported once
 per N time-steps.
 
 The diagnostics report the average # of integrator steps and RHS function evaluations
-and run-time per ODE as well as the the average/RMS/min/max per process. If the
+and run-time per ODE as well as the average/RMS/min/max per process. If the
 reporting frequency is 1, the RMS/min/max per ODE are also reported. The per ODE
 statistics can be used to adjust the tolerance and min/max step parameters. The
 statistics per MPI process can be useful to examine any load imbalance caused by the
