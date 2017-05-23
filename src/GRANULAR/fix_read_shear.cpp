@@ -33,7 +33,7 @@ using namespace FixConst;
 /* ---------------------------------------------------------------------- */
 
 FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg) 
+  Fix(lmp, narg, arg)
 {
   /*~ This fix takes only one non-standard argument: the name
     of the file containing the shear data [KH - 23 May 2013]*/
@@ -66,9 +66,9 @@ FixReadShear::FixReadShear(LAMMPS *lmp, int narg, char **arg) :
     pair = force->pair_match("gran/shm/history",1);
   else if (force->pair_match("gran/CM/history",1))
     pair = force->pair_match("gran/CM/history",1);
-  else if (force->pair_match("gran/HMD/history",1)) // Addded [MO - 21 July 2014]
+  else if (force->pair_match("gran/HMD/history",1)) // Added [MO - 21 July 2014]
     pair = force->pair_match("gran/HMD/history",1);
-  else if (force->pair_match("gran/CMD/history",1)) // Addded [MO - 18 November 2014]
+  else if (force->pair_match("gran/CMD/history",1)) // Added [MO - 18 November 2014]
     pair = force->pair_match("gran/CMD/history",1);
   else error->all(FLERR,"fix_read_shear not defined for the chosen pairstyle");
 

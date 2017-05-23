@@ -72,7 +72,8 @@ fix ID group crushing outputflag seed m sigma0 d0 a b chi alpha redtype {reducti
  ---------------------------------------------------------------------- */
 
 FixCrushing::FixCrushing(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  cparams(NULL)
 {
   restart_global = 1; //~ Global information is saved to the restart file
   restart_peratom = 1; //~ As is per-atom information
@@ -164,7 +165,6 @@ FixCrushing::FixCrushing(LAMMPS *lmp, int narg, char **arg) :
 
   // perform initial allocation of atom-based array
   // register with Atom class
-  cparams = NULL;
   grow_arrays(atom->nmax);
   atom->add_callback(0);
   atom->add_callback(1);

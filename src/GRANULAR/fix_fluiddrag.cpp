@@ -35,7 +35,8 @@ enum{CHUTE,SPHERICAL,GRADIENT,VECTOR};
 /* ---------------------------------------------------------------------- */
 
 FixFluidDrag::FixFluidDrag(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  fddata(NULL)
 {
   if (narg < 5) error->all(FLERR,"Illegal fix fluiddrag command");
 
@@ -55,7 +56,6 @@ FixFluidDrag::FixFluidDrag(LAMMPS *lmp, int narg, char **arg) :
   if (compmethod < 0 || compmethod > 1)
     error->all(FLERR,"Only 0 and 1 are defined for the computational method in fix fluiddrag");
 
-  fddata = NULL; //~ Added to initialise the array for data storage
   grow_arrays(atom->nmax);
   atom->add_callback(0); //~ Add a callback to grow the array if necessary
 

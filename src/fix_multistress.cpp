@@ -40,7 +40,8 @@ using namespace FixConst;
 
 /* ---------------------------------------------------------------------- */
 
-FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
+  Fix(lmp, narg, arg)
 {
   /*~ The syntax for the fix multistress command is as follows, where
     those keywords in brackets are optional:

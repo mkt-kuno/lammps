@@ -41,7 +41,8 @@ final_integrate function is called) [KH - 24 October 2013]
  ---------------------------------------------------------------------- */
 
 FixOldOmega::FixOldOmega(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  oldomegas(NULL)
 {
   restart_peratom = 1; //~ Per-atom information is saved to the restart file
   peratom_flag = 1;
@@ -51,7 +52,6 @@ FixOldOmega::FixOldOmega(LAMMPS *lmp, int narg, char **arg) :
 
   // perform initial allocation of atom-based array
   // register with Atom class
-  oldomegas = NULL;
   grow_arrays(atom->nmax);
   atom->add_callback(0);
   atom->add_callback(1);
