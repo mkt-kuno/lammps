@@ -1092,16 +1092,14 @@ void PairGranHMDHistory::init_style()
   // if first init, create Fix needed for storing shear history
 
   if (history && fix_history == NULL) {
-    char **fixarg = new char*[4]; //~ Also increased [KH - 23 November 2012]
+    char dnumstr[16];
+    sprintf(dnumstr,"%d",numshearquants); //~ Now variable [KH - 23 May 2017]
+    char **fixarg = new char*[4];
     fixarg[0] = (char *) "SHEAR_HISTORY";
     fixarg[1] = (char *) "all";
     fixarg[2] = (char *) "SHEAR_HISTORY";
-
-    //~ Carry out the necessary string conversion [KH - 6 March 2014]
-    char nsq[5] = {0};
-    sprintf(nsq,"%i",numshearquants);
-    fixarg[3] = nsq; //~ Changed this condition
-    modify->add_fix(4,fixarg,1); //~ Increased to 4
+    fixarg[3] = dnumstr;
+    modify->add_fix(4,fixarg,1);
     delete [] fixarg;
     fix_history = (FixShearHistory *) modify->fix[modify->nfix-1];
     fix_history->pair = this;

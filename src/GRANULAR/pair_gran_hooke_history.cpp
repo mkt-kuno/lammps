@@ -585,7 +585,7 @@ void PairGranHookeHistory::init_style()
 
   if (history && fix_history == NULL) {
     char dnumstr[16];
-    sprintf(dnumstr,"%d",numshearquants);
+    sprintf(dnumstr,"%d",numshearquants); //~ Now variable [KH - 23 May 2017]
     char **fixarg = new char*[4];
     fixarg[0] = (char *) "SHEAR_HISTORY";
     fixarg[1] = (char *) "all";
