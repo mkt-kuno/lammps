@@ -960,39 +960,6 @@ void PairGranHookeHistory::unpack_forward_comm(int n, int first, double *buf)
 
 /* ---------------------------------------------------------------------- */
 
-void *PairGranHookeHistory::extract(const char *str, int &dim)
-{
-  dim = 0;
-  if (strcmp(str,"list") == 0) return (void *) list;
-  else if (strcmp(str,"listgranhistory") == 0) return (void *) listgranhistory;
-  else if (strcmp(str,"rolling") == 0) return (void *) &rolling;
-  // Added for D_spin model [MO - 13 November 2014]
-  else if (strcmp(str,"D_spin") == 0) return (void *) &D_spin;
-  else if (strcmp(str,"D_switch") == 0) return (void *) &D_switch;
-  else if (strcmp(str,"model_type") == 0) return (void *) &model_type;
-  else if (strcmp(str,"rolling_delta") == 0) return (void *) &rolling_delta;
-  else if (strcmp(str,"kappa") == 0) return (void *) &kappa;
-  else if (strcmp(str,"post_limit_index") == 0) return (void *) &post_limit_index;
-  else if (strcmp(str,"dissipfriction") == 0) return (void *) &dissipfriction;
-  else if (strcmp(str,"normalstrain") == 0) return (void *) &normalstrain;
-  else if (strcmp(str,"shearstrain") == 0) return (void *) &shearstrain;
-  // Added for D_spin model [MO - 13 November 2014]
-  else if (strcmp(str,"spinenergy") == 0) return (void *) &spinenergy;
-  else if (strcmp(str,"trace_energy") == 0) return (void *) &trace_energy;
-  // Added for particle information [MO - 05 December 2014]
-  else if (strcmp(str,"Geq") == 0) return (void *) &Geq;
-  else if (strcmp(str,"Poiseq") == 0) return (void *) &Poiseq;
-  else if (strcmp(str,"xmu") == 0) return (void *) &xmu; 
-  else if (strcmp(str,"RMSf") == 0) return (void *) &RMSf;
-  else if (strcmp(str,"Hp") == 0) return (void *) &Hp; 
-  else if (strcmp(str,"Model") == 0) return (void *) &Model; 
-  // Added for new HMD [MO - 12 Sep 2015]
-  else if (strcmp(str,"THETA1") == 0) return (void *) &THETA1; 
-  return NULL;
-}
-
-/* ---------------------------------------------------------------------- */
-
 void PairGranHookeHistory::rolling_resistance(int issingle, int i, int j, int numshearq, double delx, double dely, double delz, double r, double rinv, double ccel, double maxshear, double effectivekt, double **torque, double *shear, double *dur, double *dus, double *localdM, double *globaldM)
 {
   /*~ This rolling resistance model was developed by Xin Huang during
@@ -1668,6 +1635,32 @@ double PairGranHookeHistory::memory_usage()
 
 void *PairGranHookeHistory::extract(const char *str, int &dim)
 {
+  dim = 0;  
   if (strcmp(str,"history") == 0) return (void *) fix_history;
+  else if (strcmp(str,"list") == 0) return (void *) list;
+  else if (strcmp(str,"listgranhistory") == 0) return (void *) listgranhistory;
+  else if (strcmp(str,"rolling") == 0) return (void *) &rolling;
+  // Added for D_spin model [MO - 13 November 2014]
+  else if (strcmp(str,"D_spin") == 0) return (void *) &D_spin;
+  else if (strcmp(str,"D_switch") == 0) return (void *) &D_switch;
+  else if (strcmp(str,"model_type") == 0) return (void *) &model_type;
+  else if (strcmp(str,"rolling_delta") == 0) return (void *) &rolling_delta;
+  else if (strcmp(str,"kappa") == 0) return (void *) &kappa;
+  else if (strcmp(str,"post_limit_index") == 0) return (void *) &post_limit_index;
+  else if (strcmp(str,"dissipfriction") == 0) return (void *) &dissipfriction;
+  else if (strcmp(str,"normalstrain") == 0) return (void *) &normalstrain;
+  else if (strcmp(str,"shearstrain") == 0) return (void *) &shearstrain;
+  // Added for D_spin model [MO - 13 November 2014]
+  else if (strcmp(str,"spinenergy") == 0) return (void *) &spinenergy;
+  else if (strcmp(str,"trace_energy") == 0) return (void *) &trace_energy;
+  // Added for particle information [MO - 05 December 2014]
+  else if (strcmp(str,"Geq") == 0) return (void *) &Geq;
+  else if (strcmp(str,"Poiseq") == 0) return (void *) &Poiseq;
+  else if (strcmp(str,"xmu") == 0) return (void *) &xmu; 
+  else if (strcmp(str,"RMSf") == 0) return (void *) &RMSf;
+  else if (strcmp(str,"Hp") == 0) return (void *) &Hp; 
+  else if (strcmp(str,"Model") == 0) return (void *) &Model; 
+  // Added for new HMD [MO - 12 Sep 2015]
+  else if (strcmp(str,"THETA1") == 0) return (void *) &THETA1; 
   return NULL;
 }
