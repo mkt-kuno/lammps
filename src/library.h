@@ -39,9 +39,16 @@ void *lammps_extract_fix(void *, char *, int, int, int, int);
 void *lammps_extract_variable(void *, char *, char *);
 
 int lammps_set_variable(void *, char *, char *);
+double lammps_get_thermo(void *, char *);
 int lammps_get_natoms(void *);
+
 void lammps_gather_atoms(void *, char *, int, int, void *);
 void lammps_scatter_atoms(void *, char *, int, int, void *);
+
+#ifdef LAMMPS_EXCEPTIONS
+int lammps_has_error(void *);
+int lammps_get_last_error_message(void *, char *, int);
+#endif
 
 #ifdef __cplusplus
 }

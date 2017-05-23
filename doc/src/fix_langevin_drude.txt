@@ -64,15 +64,15 @@ Masses:
 The Langevin forces are computed as
 \begin\{equation\} F' = - \frac \{M'\} \{\mathtt\{damp\_com\}\}\, V' + F_r' \end\{equation\}
 \begin\{equation\} f' = - \frac \{m'\} \{\mathtt\{damp\_drude\}\}\, v' + f_r' \end\{equation\}
-\(F_r'\) is a random force proportional to 
-\(\sqrt \{ \frac \{2\, k_B \mathtt\{Tcom\}\, m'\} 
-                 \{\mathrm dt\, \mathtt\{damp\_com\} \} 
+\(F_r'\) is a random force proportional to
+\(\sqrt \{ \frac \{2\, k_B \mathtt\{Tcom\}\, m'\}
+                 \{\mathrm dt\, \mathtt\{damp\_com\} \}
         \} \). :b
-\(f_r'\) is a random force proportional to 
-\(\sqrt \{ \frac \{2\, k_B \mathtt\{Tdrude\}\, m'\} 
-                 \{\mathrm dt\, \mathtt\{damp\_drude\} \} 
+\(f_r'\) is a random force proportional to
+\(\sqrt \{ \frac \{2\, k_B \mathtt\{Tdrude\}\, m'\}
+                 \{\mathrm dt\, \mathtt\{damp\_drude\} \}
         \} \). :b
-Then the real forces acting on the particles are computed from the inverse 
+Then the real forces acting on the particles are computed from the inverse
 transform:
 \begin\{equation\} F = \frac M \{M'\}\, F' - f' \end\{equation\}
 \begin\{equation\} f = \frac m \{M'\}\, F' + f' \end\{equation\}
@@ -229,7 +229,8 @@ computes the global pressure even if its group is {ATOMS}. This is
 what we want. If we thermostated {ATOMS} using {npt}, the pressure
 should be the global one, but the temperature should be only that of
 the cores. That's why the command {fix_modify} should be called in
-that case. :l,ule
+that case. :l
+:ule
 
 
 :line

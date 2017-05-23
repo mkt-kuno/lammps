@@ -78,7 +78,7 @@ Modify::Modify(LAMMPS *lmp) : Pointers(lmp)
 
   // fill map with fixes listed in style_fix.h
 
-  fix_map = new std::map<std::string,FixCreator>();
+  fix_map = new FixCreatorMap();
 
 #define FIX_CLASS
 #define FixStyle(key,Class) \
@@ -89,7 +89,7 @@ Modify::Modify(LAMMPS *lmp) : Pointers(lmp)
 
   // fill map with computes listed in style_compute.h
 
-  compute_map = new std::map<std::string,ComputeCreator>();
+  compute_map = new ComputeCreatorMap();
 
 #define COMPUTE_CLASS
 #define ComputeStyle(key,Class) \
@@ -909,6 +909,7 @@ void Modify::delete_fix(const char *id)
 
 int Modify::find_fix(const char *id)
 {
+  if(id==NULL) return -1;
   int ifix;
   for (ifix = 0; ifix < nfix; ifix++)
     if (strcmp(id,fix[ifix]->id) == 0) break;
@@ -1038,6 +1039,7 @@ void Modify::delete_compute(const char *id)
 
 int Modify::find_compute(const char *id)
 {
+  if(id==NULL) return -1;
   int icompute;
   for (icompute = 0; icompute < ncompute; icompute++)
     if (strcmp(id,compute[icompute]->id) == 0) break;

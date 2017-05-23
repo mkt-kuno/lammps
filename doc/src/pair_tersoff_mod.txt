@@ -107,9 +107,9 @@ additional elements not being used in a particular simulation; LAMMPS
 ignores those entries.
 
 For a single-element simulation, only a single entry is required
-(e.g. SiSiSi). As annotated above, the first element in the entry is 
-the center atom in a three-body interaction and it is bonded to the 
-2nd atom and the bond is influenced by the 3rd atom.  Thus an entry 
+(e.g. SiSiSi). As annotated above, the first element in the entry is
+the center atom in a three-body interaction and it is bonded to the
+2nd atom and the bond is influenced by the 3rd atom.  Thus an entry
 for SiSiSi means Si bonded to a Si with another Si atom influencing the bond.
 
 :line
@@ -117,7 +117,7 @@ for SiSiSi means Si bonded to a Si with another Si atom influencing the bond.
 Styles with a {gpu}, {intel}, {kk}, {omp}, or {opt} suffix are
 functionally the same as the corresponding style without the suffix.
 They have been optimized to run faster, depending on your available
-hardware, as discussed in "Section_accelerate"_Section_accelerate.html
+hardware, as discussed in "Section 5"_Section_accelerate.html
 of the manual.  The accelerated styles take the same arguments and
 should produce the same results, except for round-off and precision
 issues.
@@ -132,7 +132,7 @@ by including their suffix, or you can use the "-suffix command-line
 switch"_Section_start.html#start_7 when you invoke LAMMPS, or you can
 use the "suffix"_suffix.html command in your input script.
 
-See "Section_accelerate"_Section_accelerate.html of the manual for
+See "Section 5"_Section_accelerate.html of the manual for
 more instructions on how to use the accelerated styles effectively.
 
 :line
@@ -181,13 +181,13 @@ appropriate units if your simulation doesn't use "metal" units.
 Comp. Mat. Science, 39, 457 (2007).
 
 :link(Tersoff_1)
-[(Tersoff_1)] J. Tersoff, Phys Rev B, 37, 6991 (1988). 
+[(Tersoff_1)] J. Tersoff, Phys Rev B, 37, 6991 (1988).
 
 :link(Tersoff_2)
-[(Tersoff_2)] J. Tersoff, Phys Rev B, 38, 9902 (1988). 
+[(Tersoff_2)] J. Tersoff, Phys Rev B, 38, 9902 (1988).
 
 :link(Murty)
-[(Murty)] M.V.R. Murty, H.A. Atwater, Phys Rev B, 51, 4889 (1995). 
+[(Murty)] M.V.R. Murty, H.A. Atwater, Phys Rev B, 51, 4889 (1995).
 
 :link(Schelling)
 [(Schelling)] Patrick K. Schelling, Comp. Mat. Science, 44, 274 (2008).

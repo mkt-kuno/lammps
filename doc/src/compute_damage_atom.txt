@@ -44,7 +44,7 @@ group.
 
 This compute calculates a per-atom vector, which can be accessed by
 any command that uses per-atom values from a compute as input.  See
-"Section_howto 15"_Section_howto.html#howto_15 for an overview of
+"Section 6.15"_Section_howto.html#howto_15 for an overview of
 LAMMPS output options.
 
 The per-atom vector values are unitlesss numbers (damage) >= 0.0.
@@ -57,7 +57,7 @@ LAMMPS"_Section_start.html#start_3 section for more info.
 
 [Related commands:]
 
-"compute dilatation"_compute_dilatation.html, "compute
-plasticity"_compute_plasticity.html
+"compute dilatation/atom"_compute_dilatation_atom.html,
+"compute plasticity/atom"_compute_plasticity_atom.html
 
 [Default:] none

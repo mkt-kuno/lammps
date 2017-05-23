@@ -187,7 +187,7 @@ class Pair : protected Pointers {
   virtual void unpack_reverse_comm(int, int *, double *) {}
   virtual double memory_usage();
 
-  void set_copymode(int value) { copymode = value; }
+  void set_copymode(int value) {copymode = value;}
 
   // specific child-class methods for certain Pair styles
 
@@ -197,9 +197,6 @@ class Pair : protected Pointers {
   virtual void min_xf_pointers(int, double **, double **) {}
   virtual void min_xf_get(int) {}
   virtual void min_x_set(int) {}
-
-  virtual unsigned int data_mask() {return datamask;}
-  virtual unsigned int data_mask_ext() {return datamask_ext;}
 
   // management of callbacks to be run from ev_tally()
 

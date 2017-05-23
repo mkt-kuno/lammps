@@ -40,7 +40,8 @@ enum{DIAMETER,CHARGE};
 
 /* ---------------------------------------------------------------------- */
 
-FixAdapt::FixAdapt(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+FixAdapt::FixAdapt(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg),
+nadapt(0), id_fix_diam(NULL), id_fix_chg(NULL), adapt(NULL)
 {
   if (narg < 5) error->all(FLERR,"Illegal fix adapt command");
   nevery = force->inumeric(FLERR,arg[3]);
@@ -159,8 +160,6 @@ FixAdapt::FixAdapt(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   for (int m = 0; m < nadapt; m++)
     if (adapt[m].which == PAIR)
       memory->create(adapt[m].array_orig,n+1,n+1,"adapt:array_orig");
-
-  id_fix_diam = id_fix_chg = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -322,7 +321,8 @@ void FixAdapt::init()
         delete[] psuffix;
       }
       if (ad->pair == NULL) ad->pair = force->pair_match(pstyle,1,nsub);
-      if (ad->pair == NULL) error->all(FLERR,"Fix adapt pair style does not exist");
+      if (ad->pair == NULL)
+        error->all(FLERR,"Fix adapt pair style does not exist");
 
       void *ptr = ad->pair->extract(ad->pparam,ad->pdim);
       if (ptr == NULL)
@@ -330,11 +330,12 @@ void FixAdapt::init()
 
       // for pair styles only parameters that are 2-d arrays in atom types or
       // scalars are supported
+
       if (ad->pdim != 2 && ad->pdim != 0)
         error->all(FLERR,"Fix adapt pair style param is not compatible");
 
-      if(ad->pdim == 2) ad->array = (double **) ptr;
-      if(ad->pdim == 0) ad->scalar = (double *) ptr;
+      if (ad->pdim == 2) ad->array = (double **) ptr;
+      if (ad->pdim == 0) ad->scalar = (double *) ptr;
 
       // if pair hybrid, test that ilo,ihi,jlo,jhi are valid for sub-style
 
@@ -368,6 +369,7 @@ void FixAdapt::init()
   }
 
   // make copy of original pair array values
+
   for (int m = 0; m < nadapt; m++) {
     Adapt *ad = &adapt[m];
     if (ad->which == PAIR && ad->pdim == 2) {

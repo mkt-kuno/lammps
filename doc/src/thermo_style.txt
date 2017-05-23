@@ -71,13 +71,13 @@ args = list of arguments for a particular style :l
       fnorm = length of force vector for all atoms
       nbuild = # of neighbor list builds
       ndanger = # of dangerous neighbor list builds
-      cella,cellb,cellc = periodic cell lattice constants a,b,c 
+      cella,cellb,cellc = periodic cell lattice constants a,b,c
       cellalpha, cellbeta, cellgamma = periodic cell angles alpha,beta,gamma
       c_ID = global scalar value calculated by a compute with ID
-      c_ID\[I\] = Ith component of global vector calculated by a compute with ID
+      c_ID\[I\] = Ith component of global vector calculated by a compute with ID, I can include wildcard (see below)
       c_ID\[I\]\[J\] = I,J component of global array calculated by a compute with ID
       f_ID = global scalar value calculated by a fix with ID
-      f_ID\[I\] = Ith component of global vector calculated by a fix with ID
+      f_ID\[I\] = Ith component of global vector calculated by a fix with ID, I can include wildcard (see below)
       f_ID\[I\]\[J\] = I,J component of global array calculated by a fix with ID
       v_name = value calculated by an equal-style variable with name
       v_name\[I\] = value calculated by a vector-style variable with name :pre
@@ -87,7 +87,8 @@ args = list of arguments for a particular style :l
 
 thermo_style multi
 thermo_style custom step temp pe etotal press vol
-thermo_style custom step temp etotal c_myTemp v_abc :pre
+thermo_style custom step temp etotal c_myTemp v_abc
+thermo_style custom step temp etotal c_myTemp\[*\] v_abc :pre
 
 [Description:]
 
@@ -109,7 +110,7 @@ thermodynamic timestep.  Note that the keywords c_ID, f_ID, v_name are
 references to "computes"_compute.html, "fixes"_fix.html, and
 equal-style "variables"_variable.html" that have been defined
 elsewhere in the input script or can even be new styles which users
-have added to LAMMPS (see the "Section_modify"_Section_modify.html
+have added to LAMMPS (see the "Section 10"_Section_modify.html
 section of the documentation).  Thus the {custom} style provides a
 flexible means of outputting essentially any desired quantity as a
 simulation proceeds.
@@ -253,9 +254,9 @@ proceed for the maximum number of allowed iterations.
 The {part} keyword is useful for multi-replica or multi-partition
 simulations to indicate which partition this output and this file
 corresponds to, or for use in a "variable"_variable.html to append to
-a filename for output specific to this partition.  See "Section_start
-7"_Section_start.html#start_7 of the manual for details on running in
-multi-partition mode.
+a filename for output specific to this partition.  See "Section
+2.7"_Section_start.html#start_7 of the manual for details on running
+in multi-partition mode.
 
 The {timeremain} keyword returns the remaining seconds when a
 timeout has been configured via the "timer timeout"_timer.html command.
@@ -294,13 +295,40 @@ of these quantities in terms of the internal LAMMPS cell dimensions
 
 :line
 
+For output values from a compute or fix, the bracketed index I used to
+index a vector, as in {c_ID\[I\]} or {f_ID\[I\]}, can be specified
+using a wildcard asterisk with the index to effectively specify
+multiple values.  This takes the form "*" or "*n" or "n*" or "m*n".
+If N = the size of the vector (for {mode} = scalar) or the number of
+columns in the array (for {mode} = vector), then an asterisk with no
+numeric values means all indices from 1 to N.  A leading asterisk
+means all indices from 1 to n (inclusive).  A trailing asterisk means
+all indices from n to N (inclusive).  A middle asterisk means all
+indices from m to n (inclusive).
+
+Using a wildcard is the same as if the individual elements of the
+vector had been listed one by one.  E.g. these 2 thermo_style commands
+are equivalent, since the "compute temp"_compute_temp.html command
+creates a global vector with 6 values.
+
+compute myTemp all temp
+thermo_style custom step temp etotal c_myTemp\[*\]
+thermo_style custom step temp etotal &
+             c_myTemp\[1\] c_myTemp\[2\] c_myTemp\[3\] &
+             c_myTemp\[4\] c_myTemp\[5\] c_myTemp\[6\] :pre
+
+:line
+
 The {c_ID} and {c_ID\[I\]} and {c_ID\[I\]\[J\]} keywords allow global
 values calculated by a compute to be output.  As discussed on the
 "compute"_compute.html doc page, computes can calculate global,
 per-atom, or local values.  Only global values can be referenced by
-this command.  However, per-atom compute values can be referenced in a
-"variable"_variable.html and the variable referenced by thermo_style
-custom, as discussed below.
+this command.  However, per-atom compute values for an individual atom
+can be referenced in a "variable"_variable.html and the variable
+referenced by thermo_style custom, as discussed below.  See the
+discussion above for how the I in {c_ID\[I\]} can be specified with a
+wildcard asterisk to effectively specify multiple values from a global
+compute vector.
 
 The ID in the keyword should be replaced by the actual ID of a compute
 that has been defined elsewhere in the input script.  See the
@@ -321,9 +349,11 @@ The {f_ID} and {f_ID\[I\]} and {f_ID\[I\]\[J\]} keywords allow global
 values calculated by a fix to be output.  As discussed on the
 "fix"_fix.html doc page, fixes can calculate global, per-atom, or
 local values.  Only global values can be referenced by this command.
-However, per-atom fix values can be referenced in a
-"variable"_variable.html and the variable referenced by thermo_style
-custom, as discussed below.
+However, per-atom fix values can be referenced for an individual atom
+in a "variable"_variable.html and the variable referenced by
+thermo_style custom, as discussed below.  See the discussion above for
+how the I in {f_ID\[I\]} can be specified with a wildcard asterisk to
+effectively specify multiple values from a global fix vector.
 
 The ID in the keyword should be replaced by the actual ID of a fix
 that has been defined elsewhere in the input script.  See the
@@ -345,11 +375,14 @@ output.  The name in the keyword should be replaced by the variable
 name that has been defined elsewhere in the input script.  Only
 equal-style and vector-style variables can be referenced; the latter
 requires a bracketed term to specify the Ith element of the vector
-calculated by the variable.  See the "variable"_variable.html command
-for details.  Variables of style {equal} and {vector} define a formula
-which can reference per-atom properties or thermodynamic keywords, or
-they can invoke other computes, fixes, or variables when evaluated, so
-this is a very general means of creating thermodynamic output.
+calculated by the variable.  However, an atom-style variable can be
+referenced for an individual atom by an equal-style variable and that
+variable referenced.  See the "variable"_variable.html command for
+details.  Variables of style {equal} and {vector} and {atom} define a
+formula which can reference per-atom properties or thermodynamic
+keywords, or they can invoke other computes, fixes, or variables when
+evaluated, so this is a very general means of creating thermodynamic
+output.
 
 Note that equal-style and vector-style variables are assumed to
 produce "intensive" global quantities, which are thus printed as-is,

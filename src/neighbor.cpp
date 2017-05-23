@@ -83,6 +83,7 @@ Neighbor::Neighbor(LAMMPS *lmp) : Pointers(lmp)
   build_once = 0;
   cluster_check = 0;
   binatomflag = 1;
+  ago = -1;
 
   cutneighmax = 0.0;
   cutneighsq = NULL;
@@ -722,6 +723,9 @@ void Neighbor::init()
     }
 
 #ifdef NEIGH_LIST_DEBUG
+    for (i = 0; i < nrequest; i++)
+      if (comm->me == 0) printf("Build/stencil methods: %d: %p %p\n",
+                                i,pair_build[i],stencil_create[i]);
     for (i = 0; i < nrequest; i++) lists[i]->print_attributes();
 #endif
 
@@ -1654,6 +1658,7 @@ void Neighbor::build_topology()
 void Neighbor::build_one(class NeighList *mylist, int preflag)
 {
   // check if list structure is initialized
+
   if (mylist == NULL)
     error->all(FLERR,"Trying to build an occasional neighbor list "
                "before initialization completed");
@@ -1925,6 +1930,17 @@ void Neighbor::set(int narg, char **arg)
   else error->all(FLERR,"Illegal neighbor command");
 
   if (style == MULTI && lmp->citeme) lmp->citeme->add(cite_neigh_multi);
+}
+
+/* ----------------------------------------------------------------------
+   reset timestamps in all NeighList classes
+   so that neighbor lists will rebuild properly with timestep change
+------------------------------------------------------------------------- */
+
+void Neighbor::reset_timestep(bigint ntimestep)
+{
+  for (int i = 0; i < nlist; i++)
+    lists[i]->last_build = -1;
 }
 
 /* ----------------------------------------------------------------------

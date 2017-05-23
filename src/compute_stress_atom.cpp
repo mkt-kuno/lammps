@@ -38,7 +38,8 @@ enum{NOBIAS,BIAS};
 /* ---------------------------------------------------------------------- */
 
 ComputeStressAtom::ComputeStressAtom(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  id_temp(NULL), stress(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal compute stress/atom command");
 
@@ -104,7 +105,6 @@ ComputeStressAtom::ComputeStressAtom(LAMMPS *lmp, int narg, char **arg) :
     error->warning(FLERR,"Spurious kinetic energy terms may be included by ComputeStressAtom unless additional arguments are provided");
 
   nmax = 0;
-  stress = NULL;
 }
 
 /* ---------------------------------------------------------------------- */

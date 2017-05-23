@@ -26,7 +26,9 @@ keyword = {append} or {buffer} or {element} or {every} or {fileper} or {first} o
   {fileper} arg = Np
     Np = write one file for every this many processors
   {first} arg = {yes} or {no}
-  {format} arg = C-style format string for one line of output
+  {format} args = {line} string, {int} string, {float} string, M string, or {none}
+    string = C-style format string
+    M = integer from 1 to N, where N = # of per-atom quantities being output
   {flush} arg = {yes} or {no}
   {image} arg = {yes} or {no}
   {label} arg = string
@@ -34,6 +36,7 @@ keyword = {append} or {buffer} or {element} or {every} or {fileper} or {first} o
   {nfile} arg = Nf
     Nf = write this many files, one from each of Nf processors
   {pad} arg = Nchar = # of characters to convert timestep to
+  {pbc} arg = {yes} or {no} = remap atoms via periodic boundary conditions
   {precision} arg = power-of-10 value from 10 to 1000000
   {region} arg = region-ID or "none"
   {scale} arg = {yes} or {no}
@@ -46,12 +49,12 @@ keyword = {append} or {buffer} or {element} or {every} or {fileper} or {first} o
      -N = sort per-atom lines in descending order by the Nth column
   {thresh} args = attribute operation value
     attribute = same attributes (x,fy,etotal,sxx,etc) used by dump custom style
-    operation = "<" or "<=" or ">" or ">=" or "==" or "!="
-    value = numeric value to compare to
+    operation = "<" or "<=" or ">" or ">=" or "==" or "!=" or "|^"
+    value = numeric value to compare to, or LAST
     these 3 args can be replaced by the word "none" to turn off thresholding
   {unwrap} arg = {yes} or {no} :pre
 these keywords apply only to the {image} and {movie} "styles"_dump_image.html :l
-keyword = {acolor} or {adiam} or {amap} or {backcolor} or {bcolor} or {bdiam} or {boxcolor} or {color} or {bitrate} or {framerate} :l 
+keyword = {acolor} or {adiam} or {amap} or {backcolor} or {bcolor} or {bdiam} or {boxcolor} or {color} or {bitrate} or {framerate} :l
   {acolor} args = type color
     type = atom type or range of types (see below)
     color = name of color or color1/color2/...
@@ -99,7 +102,8 @@ keyword = {acolor} or {adiam} or {amap} or {backcolor} or {bcolor} or {bdiam} or
 
 [Examples:]
 
-dump_modify 1 format "%d %d %20.15g %g %g" scale yes
+dump_modify 1 format line "%d %d %20.15g %g %g" scale yes
+dump_modify 1 format float %20.15g scale yes
 dump_modify myDump image yes scale no flush yes
 dump_modify 1 region mySphere thresh x < 0.0 thresh epair >= 3.2
 dump_modify xtcdump precision 10000 sfactor 0.1
@@ -254,15 +258,42 @@ performed with dump style {xtc}.
 
 :line
 
-The text-based dump styles have a default C-style format string which
-simply specifies %d for integers and %g for floating-point values.
-The {format} keyword can be used to override the default with a new
-C-style format string.  Do not include a trailing "\\n" newline
-character in the format string.  This option has no effect on the
-{dcd} and {xtc} dump styles since they write binary files.  Note that
-for the {cfg} style, the first two fields (atom id and type) are not
-actually written into the CFG file, though you must include formats
-for them in the format string.
+The {format} keyword can be used to change the default numeric format
+output by the text-based dump styles: {atom}, {custom}, {cfg}, and
+{xyz} styles, and their MPIIO variants.  Only the {line} or {none}
+options can be used with the {atom} and {xyz} styles.
+
+All the specified format strings are C-style formats, e.g. as used by
+the C/C++ printf() command.  The {line} keyword takes a single
+argument which is the format string for an entire line of output for
+each atom (do not include a trailing "\n"), with N fields, which you
+must enclose in quotes if it is more than one field.  The {int} and
+{float} keywords take a single format argument and are applied to all
+integer or floating-point quantities output.  The setting for {M
+string} also takes a single format argument which is used for the Mth
+value output in each line, e.g. the 5th column is output in high
+precision for "format 5 %20.15g".
+
+NOTE: When using the {line} keyword for the {cfg} style, the first two
+fields (atom ID and type) are not actually written into the CFG file,
+however you must include formats for them in the format string.
+
+The {format} keyword can be used multiple times.  The precedence is
+that for each value in a line of output, the {M} format (if specified)
+is used, else the {int} or {float} setting (if specified) is used,
+else the {line} setting (if specified) for that value is used, else
+the default setting is used.  A setting of {none} clears all previous
+settings, reverting all values to their default format.
+
+NOTE: Atom and molecule IDs are stored internally as 4-byte or 8-byte
+signed integers, depending on how LAMMPS was compiled.  When
+specifying the {format int} option you can use a "%d"-style format
+identifier in the format string and LAMMPS will convert this to the
+corresponding 8-byte form it it is needed when outputting those
+values.  However, when specifying the {line} option or {format M
+string} option for those values, you should specify a format string
+appropriate for an 8-byte signed integer, e.g. one with "%ld", if
+LAMMPS was compiled with the -DLAMMPS_BIGBIG option for 8-byte IDs.
 
 NOTE: Any value written to a text-based dump file that is a per-atom
 quantity calculated by a "compute"_compute.html or "fix"_fix.html is
@@ -347,6 +378,19 @@ timestep order.
 
 :line
 
+The {pbc} keyword applies to all the dump styles.  As explained on the
+"dump"_dump.html doc page, atom coordinates in a dump file may be
+slightly outside the simulation box.  This is because periodic
+boundary conditions are enforced only on timesteps when neighbor lists
+are rebuilt, which will not typically coincide with the timesteps dump
+snapshots are written.  If the setting of this keyword is set to
+{yes}, then all atoms will be remapped to the periodic box before the
+snapshot is written, then restored to their original position.  If it
+is set to {no} they will not be.  The {no} setting is the default
+because it requires no extra computation.
+
+:line
+
 The {precision} keyword only applies to the dump {xtc} style.  A
 specified value of N means that coordinates are stored to 1/N
 nanometer accuracy, e.g. for N = 1000, the coordinates are written to
@@ -414,16 +458,59 @@ as well as memory, versus unsorted output.
 
 The {thresh} keyword only applies to the dump {custom}, {cfg},
 {image}, and {movie} styles.  Multiple thresholds can be specified.
-Specifying "none" turns off all threshold criteria.  If thresholds are
+Specifying {none} turns off all threshold criteria.  If thresholds are
 specified, only atoms whose attributes meet all the threshold criteria
 are written to the dump file or included in the image.  The possible
 attributes that can be tested for are the same as those that can be
 specified in the "dump custom"_dump.html command, with the exception
 of the {element} attribute, since it is not a numeric value.  Note
-that different attributes can be output by the dump custom command
-than are used as threshold criteria by the dump_modify command.
-E.g. you can output the coordinates and stress of atoms whose energy
-is above some threshold.
+that a different attributes can be used than those output by the "dump
+custom"_dump.html command.  E.g. you can output the coordinates and
+stress of atoms whose energy is above some threshold.
+
+If an atom-style variable is used as the attribute, then it can
+produce continuous numeric values or effective Boolean 0/1 values
+which may be useful for the comparision operation.  Boolean values can
+be generated by variable formulas that use comparison or Boolean math
+operators or special functions like gmask() and rmask() and grmask().
+See the "variable"_variable.html command doc page for details.
+
+NOTE: The LAST option, discussed below, is not yet implemented.  It
+will be soon.
+
+The specified value must be a simple numeric value or the word LAST.
+If LAST is used, it refers to the value of the attribute the last time
+the dump command was invoked to produce a snapshot.  This is a way to
+only dump atoms whose attribute has changed (or not changed).
+Three examples follow.
+
+dump_modify ... thresh ix != LAST :pre
+
+This will dump atoms which have crossed the periodic x boundary of the
+simulation box since the last dump.  (Note that atoms that crossed
+once and then crossed back between the two dump timesteps would not be
+included.)
+
+region foo sphere 10 20 10 15
+variable inregion atom rmask(foo)
+dump_modify ... thresh v_inregion |^ LAST
+
+This will dump atoms which crossed the boundary of the spherical
+region since the last dump.
+
+variable charge atom "(q > 0.5) || (q < -0.5)"
+dump_modify ... thresh v_charge |^ LAST
+
+This will dump atoms whose charge has changed from an absolute value
+less than 1/2 to greater than 1/2 (or vice versa) since the last dump.
+E.g. due to reactions and subsequent charge equilibration in a
+reactive force field.
+
+The choice of operations are the usual comparison operators.  The XOR
+operation (exclusive or) is also included as "|^".  In this context,
+XOR means that if either the attribute or value is 0.0 and the other
+is non-zero, then the result is "true" and the threshold criterion is
+met.  Otherwise it is not met.
 
 :line
 
@@ -725,6 +812,7 @@ image = no
 label = ENTRIES
 nfile = 1
 pad = 0
+pbc = no
 precision = 1000
 region = none
 scale = yes

@@ -45,7 +45,9 @@ enum{IGNORE,END,EXTRA};
 /* ---------------------------------------------------------------------- */
 
 FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  nvalues(0), which(NULL), argindex(NULL), value2index(NULL), ids(NULL), fp(NULL), stats_list(NULL), 
+  bin(NULL), bin_total(NULL), bin_all(NULL), bin_list(NULL), coord(NULL), vector(NULL)
 {
   if (narg < 10) error->all(FLERR,"Illegal fix ave/histo command");
 
@@ -92,146 +94,98 @@ FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
     } else break;
   }
 
-  options(narg,arg);
+  if (nvalues == 0) error->all(FLERR,"No values in fix ave/histo command");
 
-  // parse values until one isn't recognized
-  // if mode = VECTOR and value is a global array:
-  //   expand it as if columns listed one by one
-  //   adjust nvalues accordingly via maxvalues
+  options(iarg,narg,arg);
 
-  which = argindex = value2index = NULL;
-  ids = NULL;
-  int maxvalues = nvalues;
-  allocate_values(maxvalues);
-  nvalues = 0;
+  // expand args if any have wildcard character "*"
+  // this can reset nvalues
 
-  iarg = 9;
-  while (iarg < narg) {
-    if (strcmp(arg[iarg],"x") == 0) {
-      which[nvalues] = X;
-      argindex[nvalues] = 0;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
-    } else if (strcmp(arg[iarg],"y") == 0) {
-      which[nvalues] = X;
-      argindex[nvalues] = 1;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
-    } else if (strcmp(arg[iarg],"z") == 0) {
-      which[nvalues] = X;
-      argindex[nvalues] = 2;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
+  int expand = 0;
+  char **earg;
+  nvalues = input->expand_args(nvalues,&arg[9],mode,earg);
 
-    } else if (strcmp(arg[iarg],"vx") == 0) {
-      which[nvalues] = V;
-      argindex[nvalues] = 0;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
-    } else if (strcmp(arg[iarg],"vy") == 0) {
-      which[nvalues] = V;
-      argindex[nvalues] = 1;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
-    } else if (strcmp(arg[iarg],"vz") == 0) {
-      which[nvalues] = V;
-      argindex[nvalues] = 2;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
+  if (earg != &arg[9]) expand = 1;
+  arg = earg;
 
-    } else if (strcmp(arg[iarg],"fx") == 0) {
-      which[nvalues] = F;
-      argindex[nvalues] = 0;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
-    } else if (strcmp(arg[iarg],"fy") == 0) {
-      which[nvalues] = F;
-      argindex[nvalues] = 1;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
-    } else if (strcmp(arg[iarg],"fz") == 0) {
-      which[nvalues] = F;
-      argindex[nvalues] = 2;
-      ids[nvalues] = NULL;
-      nvalues++;
-      iarg++;
+  // parse values
 
-    } else if ((strncmp(arg[iarg],"c_",2) == 0) ||
-        (strncmp(arg[iarg],"f_",2) == 0) ||
-        (strncmp(arg[iarg],"v_",2) == 0)) {
-      if (arg[iarg][0] == 'c') which[nvalues] = COMPUTE;
-      else if (arg[iarg][0] == 'f') which[nvalues] = FIX;
-      else if (arg[iarg][0] == 'v') which[nvalues] = VARIABLE;
+  which = new int[nvalues];
+  argindex = new int[nvalues];
+  value2index = new int[nvalues];
+  ids = new char*[nvalues];
 
-      int n = strlen(arg[iarg]);
+  for (int i = 0; i < nvalues; i++) {
+    if (strcmp(arg[i],"x") == 0) {
+      which[i] = X;
+      argindex[i] = 0;
+      ids[i] = NULL;
+    } else if (strcmp(arg[i],"y") == 0) {
+      which[i] = X;
+      argindex[i] = 1;
+      ids[i] = NULL;
+    } else if (strcmp(arg[i],"z") == 0) {
+      which[i] = X;
+      argindex[i] = 2;
+      ids[i] = NULL;
+
+    } else if (strcmp(arg[i],"vx") == 0) {
+      which[i] = V;
+      argindex[i] = 0;
+      ids[i] = NULL;
+    } else if (strcmp(arg[i],"vy") == 0) {
+      which[i] = V;
+      argindex[i] = 1;
+      ids[i] = NULL;
+    } else if (strcmp(arg[i],"vz") == 0) {
+      which[i] = V;
+      argindex[i] = 2;
+      ids[i] = NULL;
+
+    } else if (strcmp(arg[i],"fx") == 0) {
+      which[i] = F;
+      argindex[i] = 0;
+      ids[i] = NULL;
+    } else if (strcmp(arg[i],"fy") == 0) {
+      which[i] = F;
+      argindex[i] = 1;
+      ids[i] = NULL;
+    } else if (strcmp(arg[i],"fz") == 0) {
+      which[i] = F;
+      argindex[i] = 2;
+      ids[i] = NULL;
+
+    } else if ((strncmp(arg[i],"c_",2) == 0) ||
+        (strncmp(arg[i],"f_",2) == 0) ||
+        (strncmp(arg[i],"v_",2) == 0)) {
+      if (arg[i][0] == 'c') which[i] = COMPUTE;
+      else if (arg[i][0] == 'f') which[i] = FIX;
+      else if (arg[i][0] == 'v') which[i] = VARIABLE;
+
+      int n = strlen(arg[i]);
       char *suffix = new char[n];
-      strcpy(suffix,&arg[iarg][2]);
+      strcpy(suffix,&arg[i][2]);
 
       char *ptr = strchr(suffix,'[');
       if (ptr) {
         if (suffix[strlen(suffix)-1] != ']')
           error->all(FLERR,"Illegal fix ave/histo command");
-        argindex[nvalues] = atoi(ptr+1);
+        argindex[i] = atoi(ptr+1);
         *ptr = '\0';
-      } else argindex[nvalues] = 0;
+      } else argindex[i] = 0;
 
       n = strlen(suffix) + 1;
-      ids[nvalues] = new char[n];
-      strcpy(ids[nvalues],suffix);
+      ids[i] = new char[n];
+      strcpy(ids[i],suffix);
       delete [] suffix;
+    }
+  }
 
-      if (mode == VECTOR && which[nvalues] == COMPUTE &&
-          argindex[nvalues] == 0) {
-        int icompute = modify->find_compute(ids[nvalues]);
-        if (icompute < 0)
-          error->all(FLERR,"Compute ID for fix ave/histo does not exist");
-        if (modify->compute[icompute]->array_flag) {
-          int ncols = modify->compute[icompute]->size_array_cols;
-          maxvalues += ncols-1;
-          allocate_values(maxvalues);
-          argindex[nvalues] = 1;
-          for (int icol = 1; icol < ncols; icol++) {
-            which[nvalues+icol] = which[nvalues];
-            argindex[nvalues+icol] = icol+1;
-            n = strlen(ids[nvalues]) + 1;
-            ids[nvalues+icol] = new char[n];
-            strcpy(ids[nvalues+icol],ids[nvalues]);
-          }
-          nvalues += ncols-1;
-        }
+  // if wildcard expansion occurred, free earg memory from expand_args()
 
-      } else if (mode == VECTOR && which[nvalues] == FIX &&
-                 argindex[nvalues] == 0) {
-        int ifix = modify->find_fix(ids[nvalues]);
-        if (ifix < 0)
-          error->all(FLERR,"Fix ID for fix ave/histo does not exist");
-        if (modify->fix[ifix]->array_flag) {
-          int ncols = modify->fix[ifix]->size_array_cols;
-          maxvalues += ncols-1;
-          allocate_values(maxvalues);
-          argindex[nvalues] = 1;
-          for (int icol = 1; icol < ncols; icol++) {
-            which[nvalues+icol] = which[nvalues];
-            argindex[nvalues+icol] = icol+1;
-            n = strlen(ids[nvalues]) + 1;
-            ids[nvalues+icol] = new char[n];
-            strcpy(ids[nvalues+icol],ids[nvalues]);
-          }
-          nvalues += ncols-1;
-        }
-      }
-
-      nvalues++;
-      iarg++;
-    } else break;
+  if (expand) {
+    for (int i = 0; i < nvalues; i++) delete [] earg[i];
+    memory->sfree(earg);
   }
 
   // setup and error check
@@ -251,14 +205,14 @@ FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
   for (int i = 0; i < nvalues; i++) {
     if (which[i] == X || which[i] == V || which[i] == F) kindflag = PERATOM;
     else if (which[i] == COMPUTE) {
-      Compute *compute = modify->compute[modify->find_compute(ids[0])];
+      Compute *compute = modify->compute[modify->find_compute(ids[i])];
       if (compute->scalar_flag || compute->vector_flag || compute->array_flag)
         kindflag = GLOBAL;
       else if (compute->peratom_flag) kindflag = PERATOM;
       else if (compute->local_flag) kindflag = LOCAL;
       else error->all(FLERR,"Fix ave/histo input is invalid compute");
     } else if (which[i] == FIX) {
-      Fix *fix = modify->fix[modify->find_fix(ids[0])];
+      Fix *fix = modify->fix[modify->find_fix(ids[i])];
       if (fix->scalar_flag || fix->vector_flag || fix->array_flag)
         kindflag = GLOBAL;
       else if (fix->peratom_flag) kindflag = PERATOM;
@@ -489,7 +443,7 @@ FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
   maxatom = 0;
 
   if (ave == WINDOW) {
-    memory->create(stats_list,nwindow,4,"histo:stats_list");
+    memory->create(stats_list,nwindow,4,"ave/histo:stats_list");
     memory->create(bin_list,nwindow,nbins,"ave/histo:bin_list");
   }
 
@@ -534,11 +488,11 @@ FixAveHisto::FixAveHisto(LAMMPS *lmp, int narg, char **arg) :
 
 FixAveHisto::~FixAveHisto()
 {
-  memory->destroy(which);
-  memory->destroy(argindex);
-  memory->destroy(value2index);
+  delete [] which;
+  delete [] argindex;
+  delete [] value2index;
   for (int i = 0; i < nvalues; i++) delete [] ids[i];
-  memory->sfree(ids);
+  delete [] ids;
 
   if (fp && me == 0) fclose(fp);
 
@@ -955,7 +909,7 @@ void FixAveHisto::bin_atoms(double *values, int stride)
    parse optional args
 ------------------------------------------------------------------------- */
 
-void FixAveHisto::options(int narg, char **arg)
+void FixAveHisto::options(int iarg, int narg, char **arg)
 {
   // option defaults
 
@@ -971,7 +925,6 @@ void FixAveHisto::options(int narg, char **arg)
 
   // optional args
 
-  int iarg = 9 + nvalues;
   while (iarg < narg) {
     if (strcmp(arg[iarg],"file") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix ave/histo command");
@@ -1040,18 +993,6 @@ void FixAveHisto::options(int narg, char **arg)
       iarg += 2;
     } else error->all(FLERR,"Illegal fix ave/histo command");
   }
-}
-
-/* ----------------------------------------------------------------------
-   reallocate vectors for each input value, of length N
-------------------------------------------------------------------------- */
-
-void FixAveHisto::allocate_values(int n)
-{
-  memory->grow(which,n,"ave/time:which");
-  memory->grow(argindex,n,"ave/time:argindex");
-  memory->grow(value2index,n,"ave/time:value2index");
-  ids = (char **) memory->srealloc(ids,n*sizeof(char *),"ave/time:ids");
 }
 
 /* ----------------------------------------------------------------------

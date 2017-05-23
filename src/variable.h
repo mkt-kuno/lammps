@@ -37,21 +37,17 @@ class Variable : protected Pointers {
   int atomstyle(int);
   int vectorstyle(int);
   char *pythonstyle(char *, char *);
+  int internalstyle(int);
 
   char *retrieve(char *);
   double compute_equal(int);
   double compute_equal(char *);
   void compute_atom(int, int, double *, int, int);
   int compute_vector(int, double **);
+  void internal_set(int, double);
+
   tagint int_between_brackets(char *&, int);
   double evaluate_boolean(char *);
-
-  void equal_save(int, char *&);
-  void equal_restore(int, char *);
-  void equal_override(int, double);
-
-  unsigned int data_mask(int ivar);
-  unsigned int data_mask(char *str);
 
  private:
   int me;
@@ -64,6 +60,7 @@ class Variable : protected Pointers {
   int *pad;                // 1 = pad loop/uloop variables with 0s, 0 = no pad
   class VarReader **reader;   // variable that reads from file
   char ***data;            // str value of each variable's values
+  double *dvalue;          // single numeric value for internal variables
 
   struct VecVar {
     int n,nmax;
@@ -78,8 +75,8 @@ class Variable : protected Pointers {
   class RanMars *randomequal;   // random number generator for equal-style vars
   class RanMars *randomatom;    // random number generator for atom-style vars
 
-  int precedence[17];      // precedence level of math operators
-                           // set length to include up to OR in enum
+  int precedence[18];      // precedence level of math operators
+                           // set length to include up to XOR in enum
 
   class Python *python;    // ptr to embedded Python interpreter
 

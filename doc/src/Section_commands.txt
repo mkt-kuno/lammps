@@ -37,14 +37,14 @@ simulation with all the settings.  Rather, the input script is read
 one line at a time and each command takes effect when it is read.
 Thus this sequence of commands:
 
-timestep 0.5 
-run      100 
+timestep 0.5
+run      100
 run      100 :pre
 
 does something different than this sequence:
 
-run      100 
-timestep 0.5 
+run      100
+timestep 0.5
 run      100 :pre
 
 In the first case, the specified timestep (0.5 fmsec) is used for two
@@ -97,7 +97,7 @@ single leading "#" will comment out the entire command.
 
 (3) The line is searched repeatedly for $ characters, which indicate
 variables that are replaced with a text string.  See an exception in
-(6).  
+(6).
 
 If the $ is followed by curly brackets, then the variable name is the
 text inside the curly brackets.  If no curly brackets follow the $,
@@ -123,7 +123,7 @@ variable X equal (xlo+xhi)/2+sqrt(v_area)
 region 1 block $X 2 INF INF EDGE EDGE
 variable X delete :pre
 
-can be replaced by 
+can be replaced by
 
 region 1 block $((xlo+xhi)/2+sqrt(v_area)) 2 INF INF EDGE EDGE :pre
 
@@ -195,7 +195,7 @@ allowed, but that should be sufficient for most use cases.
 This section describes the structure of a typical LAMMPS input script.
 The "examples" directory in the LAMMPS distribution contains many
 sample input scripts; the corresponding problems are discussed in
-"Section_example"_Section_example.html, and animated on the "LAMMPS
+"Section 7"_Section_example.html, and animated on the "LAMMPS
 WWW Site"_lws.
 
 A LAMMPS input script typically has 4 parts:
@@ -503,8 +503,13 @@ USER-INTEL, k = KOKKOS, o = USER-OMP, t = OPT.
 "bond/create"_fix_bond_create.html,
 "bond/swap"_fix_bond_swap.html,
 "box/relax"_fix_box_relax.html,
+<<<<<<< HEAD
 "crushing"_fix_crushing.html,
 "damp/local"_fix_damp_local.html,
+=======
+"cmap"_fix_cmap.html,
+"controller"_fix_controller.html,
+>>>>>>> c2134575508a0feb098fab1306b553249fa3bbbe
 "deform (k)"_fix_deform.html,
 "deposit"_fix_deposit.html,
 "drag"_fix_drag.html,
@@ -628,6 +633,7 @@ package"_Section_start.html#start_3.
 "eos/cv"_fix_eos_cv.html,
 "eos/table"_fix_eos_table.html,
 "eos/table/rx"_fix_eos_table_rx.html,
+"flow/gauss"_fix_flow_gauss.html,
 "gle"_fix_gle.html,
 "imd"_fix_imd.html,
 "ipi"_fix_ipi.html,
@@ -665,10 +671,8 @@ package"_Section_start.html#start_3.
 "smd/integrate/ulsph"_fix_smd_integrate_ulsph.html,
 "smd/move/triangulated/surface"_fix_smd_move_triangulated_surface.html,
 "smd/setvel"_fix_smd_setvel.html,
-"smd/tlsph/reference/configuration"_fix_smd_tlsph_reference_configuration.html,
 "smd/wall/surface"_fix_smd_wall_surface.html,
 "temp/rescale/eff"_fix_temp_rescale_eff.html,
-"ti/rs"_fix_ti_rs.html,
 "ti/spring"_fix_ti_spring.html,
 "ttm/mod"_fix_ttm.html :tb(c=6,ea=c)
 
@@ -904,7 +908,7 @@ KOKKOS, o = USER-OMP, t = OPT.
 "lubricate/poly (o)"_pair_lubricate.html,
 "lubricateU"_pair_lubricateU.html,
 "lubricateU/poly"_pair_lubricateU.html,
-"meam (o)"_pair_meam.html,
+"meam"_pair_meam.html,
 "mie/cut (o)"_pair_mie.html,
 "morse (got)"_pair_morse.html,
 "nb3b/harmonic (o)"_pair_nb3b_harmonic.html,
@@ -964,7 +968,7 @@ package"_Section_start.html#start_3.
 "lj/sdk/coul/long (go)"_pair_sdk.html,
 "lj/sdk/coul/msm (o)"_pair_sdk.html,
 "lj/sf (o)"_pair_lj_sf.html,
-"meam/spline"_pair_meam_spline.html,
+"meam/spline (o)"_pair_meam_spline.html,
 "meam/sw/spline"_pair_meam_sw_spline.html,
 "mgpt"_pair_mgpt.html,
 "morse/smooth/linear"_pair_morse.html,

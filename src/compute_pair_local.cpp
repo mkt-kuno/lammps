@@ -31,11 +31,13 @@ using namespace LAMMPS_NS;
 #define DELTA 10000
 
 enum{DIST,ENG,FORCE,FX,FY,FZ,PN};
+enum{TYPE,RADIUS};
 
 /* ---------------------------------------------------------------------- */
 
 ComputePairLocal::ComputePairLocal(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  pstyle(NULL), pindex(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal compute pair/local command");
 
@@ -48,7 +50,8 @@ ComputePairLocal::ComputePairLocal(LAMMPS *lmp, int narg, char **arg) :
   pindex = new int[nvalues];
 
   nvalues = 0;
-  for (int iarg = 3; iarg < narg; iarg++) {
+  int iarg = 3;
+  while (iarg < narg) {
     if (strcmp(arg[iarg],"dist") == 0) pstyle[nvalues++] = DIST;
     else if (strcmp(arg[iarg],"eng") == 0) pstyle[nvalues++] = ENG;
     else if (strcmp(arg[iarg],"force") == 0) pstyle[nvalues++] = FORCE;
@@ -61,8 +64,31 @@ ComputePairLocal::ComputePairLocal(LAMMPS *lmp, int narg, char **arg) :
                              "Invalid keyword in compute pair/local command");
       pstyle[nvalues] = PN;
       pindex[nvalues++] = n-1;
-    } else error->all(FLERR,"Invalid keyword in compute pair/local command");
+
+    } else break;
+
+    iarg++;
   }
+
+  // optional args
+
+  cutstyle = TYPE;
+
+  while (iarg < narg) {
+    if (strcmp(arg[iarg],"cutoff") == 0) {
+      if (iarg+2 > narg) 
+        error->all(FLERR,"Illegal compute pair/local command");
+      if (strcmp(arg[iarg+1],"type") == 0) cutstyle = TYPE;
+      else if (strcmp(arg[iarg+1],"radius") == 0) cutstyle = RADIUS;
+      else error->all(FLERR,"Illegal compute pair/local command");
+      iarg += 2;
+    } else error->all(FLERR,"Illegal compute pair/local command");
+  }
+
+  // error check
+
+  if (cutstyle == RADIUS && !atom->radius_flag)
+    error->all(FLERR,"Compute pair/local requires atom attribute radius");
 
   // set singleflag if need to call pair->single()
 
@@ -71,8 +97,6 @@ ComputePairLocal::ComputePairLocal(LAMMPS *lmp, int narg, char **arg) :
     if (pstyle[i] != DIST) singleflag = 1;
 
   nmax = 0;
-  vector = NULL;
-  array = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -140,11 +164,12 @@ int ComputePairLocal::compute_pairs(int flag)
   int i,j,m,n,ii,jj,inum,jnum,itype,jtype;
   tagint itag,jtag;
   double xtmp,ytmp,ztmp,delx,dely,delz;
-  double rsq,eng,fpair,factor_coul,factor_lj;
+  double rsq,radsum,eng,fpair,factor_coul,factor_lj;
   int *ilist,*jlist,*numneigh,**firstneigh;
   double *ptr;
 
   double **x = atom->x;
+  double *radius = atom->radius;
   tagint *tag = atom->tag;
   int *type = atom->type;
   int *mask = atom->mask;
@@ -221,11 +246,13 @@ int ComputePairLocal::compute_pairs(int flag)
       delz = ztmp - x[j][2];
       rsq = delx*delx + dely*dely + delz*delz;
       jtype = type[j];
-      /*~ Modified the line below to use the same contact condition
-	as in ComputeCoordGran [KH - 14 January 2013]*/
-      //~ if (rsq >= cutsq[itype][jtype]) continue;
-      double *radius = atom->radius; //~ [KH - 03 October 2014]
-      if (rsq > (radius[i] + radius[j])*(radius[i] + radius[j])) continue;
+      
+      if (cutstyle == TYPE) {
+        if (rsq >= cutsq[itype][jtype]) continue;
+      } else {
+        radsum = radius[i] + radius[j];
+        if (rsq >= radsum*radsum) continue;
+      }
 
       if (flag) {
         if (singleflag)

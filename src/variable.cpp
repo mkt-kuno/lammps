@@ -52,15 +52,15 @@ using namespace MathConst;
 #define MYROUND(a) (( a-floor(a) ) >= .5) ? ceil(a) : floor(a)
 
 enum{INDEX,LOOP,WORLD,UNIVERSE,ULOOP,STRING,GETENV,
-     SCALARFILE,ATOMFILE,FORMAT,EQUAL,ATOM,VECTOR,PYTHON};
+     SCALARFILE,ATOMFILE,FORMAT,EQUAL,ATOM,VECTOR,PYTHON,INTERNAL};
 enum{ARG,OP};
 
 // customize by adding a function
-// if add before OR,
+// if add before XOR:
 // also set precedence level in constructor and precedence length in *.h
 
 enum{DONE,ADD,SUBTRACT,MULTIPLY,DIVIDE,CARAT,MODULO,UNARY,
-     NOT,EQ,NE,LT,LE,GT,GE,AND,OR,
+     NOT,EQ,NE,LT,LE,GT,GE,AND,OR,XOR,
      SQRT,EXP,LN,LOG,ABS,SIN,COS,TAN,ASIN,ACOS,ATAN,ATAN2,
      RANDOM,NORMAL,CEIL,FLOOR,ROUND,RAMP,STAGGER,LOGFREQ,LOGFREQ2,
      STRIDE,STRIDE2,VDISPLACE,SWIGGLE,CWIGGLE,GMASK,RMASK,GRMASK,
@@ -92,6 +92,7 @@ Variable::Variable(LAMMPS *lmp) : Pointers(lmp)
   pad = NULL;
   reader = NULL;
   data = NULL;
+  dvalue = NULL;
   vecs = NULL;
 
   eval_in_progress = NULL;
@@ -102,7 +103,7 @@ Variable::Variable(LAMMPS *lmp) : Pointers(lmp)
   // customize by assigning a precedence level
 
   precedence[DONE] = 0;
-  precedence[OR] = 1;
+  precedence[OR] = precedence[XOR] = 1;
   precedence[AND] = 2;
   precedence[EQ] = precedence[NE] = 3;
   precedence[LT] = precedence[LE] = precedence[GT] = precedence[GE] = 4;
@@ -135,6 +136,7 @@ Variable::~Variable()
   memory->destroy(pad);
   memory->sfree(reader);
   memory->sfree(data);
+  memory->sfree(dvalue);
   memory->sfree(vecs);
 
   memory->destroy(eval_in_progress);
@@ -483,9 +485,33 @@ void Variable::set(int narg, char **arg)
       strcpy(data[nvar][1],"(undefined)");
     }
 
+  // INTERNAL
+  // replace pre-existing var if also style INTERNAL (allows it to be reset)
+  // num = 1, for string representation of dvalue, set by retrieve()
+  // dvalue = numeric initialization from 2nd arg, reset by internal_set()
+
+  } else if (strcmp(arg[1],"internal") == 0) {
+    if (narg != 3) error->all(FLERR,"Illegal variable command");
+    int ivar = find(arg[0]);
+    if (ivar >= 0) {
+      if (style[ivar] != INTERNAL)
+        error->all(FLERR,"Cannot redefine variable as a different style");
+      dvalue[nvar] = force->numeric(FLERR,arg[2]);
+      replaceflag = 1;
+    } else {
+      if (nvar == maxvar) grow();
+      style[nvar] = INTERNAL;
+      num[nvar] = 1;
+      which[nvar] = 0;
+      pad[nvar] = 0;
+      data[nvar] = new char*[num[nvar]];
+      data[nvar][0] = new char[VALUELENGTH];
+      dvalue[nvar] = force->numeric(FLERR,arg[2]);
+    }
+
   } else error->all(FLERR,"Illegal variable command");
 
-  // set name of variable, if not replacing (EQUAL/ATOM/STRING/PYTHON)
+  // set name of variable, if not replacing one flagged with replaceflag
   // name must be all alphanumeric chars or underscores
 
   if (replaceflag) return;
@@ -557,12 +583,13 @@ int Variable::next(int narg, char **arg)
       error->all(FLERR,"All variables in next command must be same style");
   }
 
-  // invalid styles: STRING, EQUAL, WORLD, ATOM, VECTOR, GETENV, FORMAT, PYTHON
+  // invalid styles: STRING, EQUAL, WORLD, ATOM, VECTOR, GETENV,
+  //                 FORMAT, PYTHON, INTERNAL
 
   int istyle = style[find(arg[0])];
   if (istyle == STRING || istyle == EQUAL || istyle == WORLD ||
       istyle == GETENV || istyle == ATOM || istyle == VECTOR || 
-      istyle == FORMAT || istyle == PYTHON)
+      istyle == FORMAT || istyle == PYTHON || istyle == INTERNAL)
     error->all(FLERR,"Invalid variable style with next command");
 
   // if istyle = UNIVERSE or ULOOP, insure all such variables are incremented
@@ -683,6 +710,7 @@ int Variable::next(int narg, char **arg)
 
 int Variable::find(char *name)
 {
+  if(name==NULL) return -1;
   for (int i = 0; i < nvar; i++)
     if (strcmp(name,names[i]) == 0) return i;
   return -1;
@@ -713,13 +741,13 @@ void Variable::python_command(int narg, char **arg)
 }
 
 /* ----------------------------------------------------------------------
-   return 1 if variable is EQUAL or PYTHON numeric style, 0 if not
+   return 1 if variable is EQUAL or INTERNAL or PYTHON numeric style, 0 if not
    this is checked before call to compute_equal() to return a double
 ------------------------------------------------------------------------- */
 
 int Variable::equalstyle(int ivar)
 {
-  if (style[ivar] == EQUAL) return 1;
+  if (style[ivar] == EQUAL || style[ivar] == INTERNAL) return 1;
   if (style[ivar] == PYTHON) {
     int ifunc = python->variable_match(data[ivar][0],names[ivar],1);
     if (ifunc < 0) return 0;
@@ -767,6 +795,17 @@ char *Variable::pythonstyle(char *name, char *funcname)
 }
 
 /* ----------------------------------------------------------------------
+   return 1 if variable is INTERNAL style, 0 if not
+   this is checked before call to set_internal() to assure it can be set
+------------------------------------------------------------------------- */
+
+int Variable::internalstyle(int ivar)
+{
+  if (style[ivar] == INTERNAL) return 1;
+  return 0;
+}
+
+/* ----------------------------------------------------------------------
    return ptr to the data text associated with a variable
    if INDEX or WORLD or UNIVERSE or STRING or SCALARFILE,
      return ptr to stored string
@@ -775,6 +814,7 @@ char *Variable::pythonstyle(char *name, char *funcname)
    if FORMAT, evaluate its variable and put formatted result in str
    if GETENV, query environment and put result in str
    if PYTHON, evaluate Python function, it will put result in str
+   if INTERNAL, convert dvalue and put result in str
    if ATOM or ATOMFILE or VECTOR, return NULL
    return NULL if no variable with name, or which value is bad,
      caller must respond
@@ -835,6 +875,9 @@ char *Variable::retrieve(char *name)
       error->all(FLERR,"Python variable does not match Python function");
     python->invoke_function(ifunc,data[ivar][1]);
     str = data[ivar][1];
+  } else if (style[ivar] == INTERNAL) {
+    sprintf(data[ivar][0],"%.15g",dvalue[ivar]);
+    str = data[ivar][0];
   } else if (style[ivar] == ATOM || style[ivar] == ATOMFILE ||
 	     style[ivar] == VECTOR) return NULL;
   
@@ -845,7 +888,7 @@ char *Variable::retrieve(char *name)
 
 /* ----------------------------------------------------------------------
    return result of equal-style variable evaluation
-   can be EQUAL style or PYTHON numeric style
+   can be EQUAL or INTERNAL style or PYTHON numeric style
    for PYTHON, don't need to check python->variable_match() error return,
      since caller will have already checked via equalstyle()
 ------------------------------------------------------------------------- */
@@ -858,6 +901,7 @@ double Variable::compute_equal(int ivar)
 
   double value = 0.0;
   if (style[ivar] == EQUAL) value = evaluate(data[ivar][0],NULL);
+  else if (style[ivar] == INTERNAL) value = dvalue[ivar];
   else if (style[ivar] == PYTHON) {
     int ifunc = python->find(data[ivar][0]);
     if (ifunc < 0) error->all(FLERR,"Python variable has no function");
@@ -1001,43 +1045,12 @@ int Variable::compute_vector(int ivar, double **result)
 }
 
 /* ----------------------------------------------------------------------
-   save copy of EQUAL style ivar formula in copy
-   allocate copy here, later equal_restore() call will free it
-   insure data[ivar][0] is of VALUELENGTH since will be overridden
-   next 3 functions are used by create_atoms to temporarily override variables
+   set value stored by INTERNAL style ivar
 ------------------------------------------------------------------------- */
 
-void Variable::equal_save(int ivar, char *&copy)
+void Variable::internal_set(int ivar, double value)
 {
-  int n = strlen(data[ivar][0]) + 1;
-  copy = new char[n];
-  strcpy(copy,data[ivar][0]);
-  delete [] data[ivar][0];
-  data[ivar][0] = new char[VALUELENGTH];
-}
-
-/* ----------------------------------------------------------------------
-   restore formula string of EQUAL style ivar from copy
-   then free copy, allocated in equal_save()
-------------------------------------------------------------------------- */
-
-void Variable::equal_restore(int ivar, char *copy)
-{
-  delete [] data[ivar][0];
-  int n = strlen(copy) + 1;
-  data[ivar][0] = new char[n];
-  strcpy(data[ivar][0],copy);
-  delete [] copy;
-}
-
-/* ----------------------------------------------------------------------
-   override EQUAL style ivar formula with value converted to string
-   data[ivar][0] was set to length 64 in equal_save()
-------------------------------------------------------------------------- */
-
-void Variable::equal_override(int ivar, double value)
-{
-  sprintf(data[ivar][0],"%.15g",value);
+  dvalue[ivar] = value;
 }
 
 /* ----------------------------------------------------------------------
@@ -1084,6 +1097,7 @@ void Variable::grow()
   for (int i = old; i < maxvar; i++) reader[i] = NULL;
 
   data = (char ***) memory->srealloc(data,maxvar*sizeof(char **),"var:data");
+  memory->grow(dvalue,maxvar,"var:dvalue");
 
   vecs = (VecVar *) memory->srealloc(vecs,maxvar*sizeof(VecVar),"var:vecvar");
   for (int i = old; i < maxvar; i++) {
@@ -1806,10 +1820,26 @@ double Variable::evaluate(char *str, Tree **tree)
           i = ptr-str+1;
         }
 
-        // v_name = scalar from non atom/atomfile and non vector-style variable
+        // v_name = scalar from internal-style variable
+        // access value directly
 
-        if (nbracket == 0 && style[ivar] != ATOM && style[ivar] != ATOMFILE &&
-	    style[ivar] != VECTOR) {
+        if (nbracket == 0 && style[ivar] == INTERNAL) {
+
+          value1 = dvalue[ivar];
+          if (tree) {
+            Tree *newtree = new Tree();
+            newtree->type = VALUE;
+            newtree->value = value1;
+            newtree->first = newtree->second = NULL;
+            newtree->nextra = 0;
+            treestack[ntreestack++] = newtree;
+          } else argstack[nargstack++] = value1;
+
+        // v_name = scalar from non atom/atomfile & non vector-style variable
+        // access value via retrieve()
+
+        } else if (nbracket == 0 && style[ivar] != ATOM && 
+                   style[ivar] != ATOMFILE && style[ivar] != VECTOR) {
 
           char *var = retrieve(word+2);
           if (var == NULL)
@@ -1847,8 +1877,8 @@ double Variable::evaluate(char *str, Tree **tree)
             error->all(FLERR,"Atomfile-style variable in "
                        "equal-style variable formula");
 	  if (treetype == VECTOR)
-            error->all(FLERR,
-                       "Atomfile-style variable in vector-style variable formula");
+            error->all(FLERR,"Atomfile-style variable in "
+                       "vector-style variable formula");
 
           Tree *newtree = new Tree();
           newtree->type = ATOMARRAY;
@@ -2058,9 +2088,9 @@ double Variable::evaluate(char *str, Tree **tree)
         op = AND;
         i++;
       } else if (onechar == '|') {
-        if (str[i+1] != '|')
-          error->all(FLERR,"Invalid syntax in variable formula");
-        op = OR;
+        if (str[i+1] == '|') op = OR;
+        else if (str[i+1] == '^') op = XOR;
+        else error->all(FLERR,"Invalid syntax in variable formula");
         i++;
       } else op = DONE;
 
@@ -2149,6 +2179,10 @@ double Variable::evaluate(char *str, Tree **tree)
             else argstack[nargstack++] = 0.0;
           } else if (opprevious == OR) {
             if (value1 != 0.0 || value2 != 0.0) argstack[nargstack++] = 1.0;
+            else argstack[nargstack++] = 0.0;
+          } else if (opprevious == XOR) {
+            if ((value1 == 0.0 && value2 != 0.0) || 
+                (value1 != 0.0 && value2 == 0.0)) argstack[nargstack++] = 1.0;
             else argstack[nargstack++] = 0.0;
           }
         }
@@ -2356,6 +2390,17 @@ double Variable::collapse_tree(Tree *tree)
     if (tree->first->type != VALUE || tree->second->type != VALUE) return 0.0;
     tree->type = VALUE;
     if (arg1 != 0.0 || arg2 != 0.0) tree->value = 1.0;
+    else tree->value = 0.0;
+    return tree->value;
+  }
+
+  if (tree->type == XOR) {
+    arg1 = collapse_tree(tree->first);
+    arg2 = collapse_tree(tree->second);
+    if (tree->first->type != VALUE || tree->second->type != VALUE) return 0.0;
+    tree->type = VALUE;
+    if ((arg1 == 0.0 && arg2 != 0.0) || (arg1 != 0.0 && arg2 == 0.0))
+      tree->value = 1.0;
     else tree->value = 0.0;
     return tree->value;
   }
@@ -2776,6 +2821,13 @@ double Variable::eval_tree(Tree *tree, int i)
   }
   if (tree->type == OR) {
     if (eval_tree(tree->first,i) != 0.0 || eval_tree(tree->second,i) != 0.0)
+      return 1.0;
+    else return 0.0;
+  }
+  if (tree->type == XOR) {
+    if ((eval_tree(tree->first,i) == 0.0 && eval_tree(tree->second,i) != 0.0) 
+        ||
+        (eval_tree(tree->first,i) != 0.0 && eval_tree(tree->second,i) == 0.0))
       return 1.0;
     else return 0.0;
   }
@@ -4666,9 +4718,9 @@ double Variable::evaluate_boolean(char *str)
         op = AND;
         i++;
       } else if (onechar == '|') {
-        if (str[i+1] != '|')
-          error->all(FLERR,"Invalid Boolean syntax in if command");
-        op = OR;
+        if (str[i+1] == '|') op = OR;
+        else if (str[i+1] == '^') op = XOR;
+        else error->all(FLERR,"Invalid Boolean syntax in if command");
         i++;
       } else op = DONE;
 
@@ -4752,6 +4804,12 @@ double Variable::evaluate_boolean(char *str)
           if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
           if (value1 != 0.0 || value2 != 0.0) argstack[nargstack].value = 1.0;
           else argstack[nargstack].value = 0.0;
+        } else if (opprevious == XOR) {
+          if (flag2) error->all(FLERR,"Invalid Boolean syntax in if command");
+          if ((value1 == 0.0 && value2 != 0.0) ||
+              (value1 != 0.0 && value2 == 0.0))
+            argstack[nargstack].value = 1.0;
+          else argstack[nargstack].value = 0.0;
         }
 
         argstack[nargstack++].flag = 0;
@@ -4771,72 +4829,6 @@ double Variable::evaluate_boolean(char *str)
   if (nopstack) error->all(FLERR,"Invalid Boolean syntax in if command");
   if (nargstack != 1) error->all(FLERR,"Invalid Boolean syntax in if command");
   return argstack[0].value;
-}
-
-/* ---------------------------------------------------------------------- */
-
-unsigned int Variable::data_mask(int ivar)
-{
-  if (eval_in_progress[ivar]) return EMPTY_MASK;
-  eval_in_progress[ivar] = 1;
-  unsigned int datamask = data_mask(data[ivar][0]);
-  eval_in_progress[ivar] = 0;
-  return datamask;
-}
-
-/* ---------------------------------------------------------------------- */
-
-unsigned int Variable::data_mask(char *str)
-{
-  unsigned int datamask = EMPTY_MASK;
-
-  for (unsigned int i = 0; i < strlen(str)-2; i++) {
-    int istart = i;
-    while (isalnum(str[i]) || str[i] == '_') i++;
-    int istop = i-1;
-
-    int n = istop - istart + 1;
-    char *word = new char[n+1];
-    strncpy(word,&str[istart],n);
-    word[n] = '\0';
-
-    // ----------------
-    // compute
-    // ----------------
-
-    if ((strncmp(word,"c_",2) == 0) && (i>0) && (!isalnum(str[i-1]))) {
-      if (domain->box_exist == 0)
-        error->all(FLERR,
-                   "Variable evaluation before simulation box is defined");
-
-      int icompute = modify->find_compute(word+2);
-      if (icompute < 0)
-        error->all(FLERR,"Invalid compute ID in variable formula");
-
-      datamask &= modify->compute[icompute]->data_mask();
-    }
-
-    if ((strncmp(word,"f_",2) == 0) && (i>0) && (!isalnum(str[i-1]))) {
-      if (domain->box_exist == 0)
-        error->all(FLERR,
-                   "Variable evaluation before simulation box is defined");
-
-      int ifix = modify->find_fix(word+2);
-      if (ifix < 0) error->all(FLERR,"Invalid fix ID in variable formula");
-
-      datamask &= modify->fix[ifix]->data_mask();
-    }
-
-    if ((strncmp(word,"v_",2) == 0) && (i>0) && (!isalnum(str[i-1]))) {
-      int ivar = find(word+2);
-      if (ivar < 0) error->all(FLERR,"Invalid variable name in variable formula");
-      datamask &= data_mask(ivar);
-    }
-
-    delete [] word;
-  }
-
-  return datamask;
 }
 
 /* ----------------------------------------------------------------------

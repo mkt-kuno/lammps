@@ -40,7 +40,14 @@ enum{ONE,RUNNING,WINDOW};
 /* ---------------------------------------------------------------------- */
 
 FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  nvalues(0), nrepeat(0),
+  which(NULL), argindex(NULL), value2index(NULL), ids(NULL),
+  fp(NULL), idchunk(NULL), varatom(NULL),
+  count_one(NULL), count_many(NULL), count_sum(NULL),
+  values_one(NULL), values_many(NULL), values_sum(NULL),
+  count_total(NULL), count_list(NULL),
+  values_total(NULL), values_list(NULL)
 {
   if (narg < 7) error->all(FLERR,"Illegal fix ave/chunk command");
 
@@ -57,16 +64,25 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   global_freq = nfreq;
   no_change_box = 1;
 
+  // expand args if any have wildcard character "*"
+
+  int expand = 0;
+  char **earg;
+  int nargnew = input->expand_args(narg-7,&arg[7],1,earg);
+
+  if (earg != &arg[7]) expand = 1;
+  arg = earg;
+
   // parse values until one isn't recognized
 
-  int iarg = 7;
-  which = new int[narg-iarg];
-  argindex = new int[narg-iarg];
-  ids = new char*[narg-iarg];
-  value2index = new int[narg-iarg];
-  nvalues = 0;
+  which = new int[nargnew];
+  argindex = new int[nargnew];
+  ids = new char*[nargnew];
+  value2index = new int[nargnew];
 
-  while (iarg < narg) {
+  int iarg = 0;
+  while (iarg < nargnew) {
+
     ids[nvalues] = NULL;
 
     if (strcmp(arg[iarg],"vx") == 0) {
@@ -139,7 +155,6 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   normflag = ALL;
   scaleflag = ATOM;
   ave = ONE;
-  fp = NULL;
   nwindow = 0;
   biasflag = 0;
   id_bias = NULL;
@@ -152,7 +167,7 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   char *title2 = NULL;
   char *title3 = NULL;
 
-  while (iarg < narg) {
+  while (iarg < nargnew) {
     if (strcmp(arg[iarg],"norm") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix ave/chunk command");
       if (strcmp(arg[iarg+1],"all") == 0) {
@@ -349,7 +364,7 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
         else if (ncoord == 3)
           fprintf(fp,"# Chunk OrigID Coord1 Coord2 Coord3 Ncount");
       }
-      for (int i = 0; i < nvalues; i++) fprintf(fp," %s",arg[7+i]);
+      for (int i = 0; i < nvalues; i++) fprintf(fp," %s",earg[i]);
       fprintf(fp,"\n");
     }
     if (ferror(fp))
@@ -361,6 +376,14 @@ FixAveChunk::FixAveChunk(LAMMPS *lmp, int narg, char **arg) :
   delete [] title1;
   delete [] title2;
   delete [] title3;
+
+  // if wildcard expansion occurred, free earg memory from expand_args()
+  // wait to do this until after file comment lines are printed
+
+  if (expand) {
+    for (int i = 0; i < nargnew; i++) delete [] earg[i];
+    memory->sfree(earg);
+  }
 
   // this fix produces a global array
   // size_array_rows is variable and set by allocate()
@@ -415,7 +438,6 @@ FixAveChunk::~FixAveChunk()
   if (fp && me == 0) fclose(fp);
 
   memory->destroy(varatom);
-
   memory->destroy(count_one);
   memory->destroy(count_many);
   memory->destroy(count_sum);
@@ -439,6 +461,24 @@ FixAveChunk::~FixAveChunk()
   }
 
   delete [] idchunk;
+  which = NULL;
+  argindex = NULL;
+  ids = NULL;
+  value2index = NULL;
+  fp = NULL;
+  varatom = NULL;
+  count_one = NULL;
+  count_many = NULL;
+  count_sum = NULL;
+  count_total = NULL;
+  count_list = NULL;
+  values_one = NULL;
+  values_many = NULL;
+  values_sum = NULL;
+  values_total = NULL;
+  values_list = NULL;
+  idchunk = NULL;
+  cchunk = NULL;
 }
 
 /* ---------------------------------------------------------------------- */

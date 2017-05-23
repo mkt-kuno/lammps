@@ -4,7 +4,7 @@
 :link(ld,Manual.html)
 :link(lc,Section_commands.html#comm)
 
-:line 
+:line
 
 6. How-to discussions :h3
 
@@ -39,7 +39,7 @@ This section describes how to perform common tasks using LAMMPS.
 6.27 "Drude induced dipoles"_#howto_27 :all(b)
 
 The example input scripts included in the LAMMPS distribution and
-highlighted in "Section_example"_Section_example.html also show how to
+highlighted in "Section 7"_Section_example.html also show how to
 setup and run various kinds of simulations.
 
 :line
@@ -180,7 +180,7 @@ used in the CHARMM, AMBER, and DREIDING force fields.  Setting
 coefficients is done in the input data file via the
 "read_data"_read_data.html command or in the input script with
 commands like "pair_coeff"_pair_coeff.html or
-"bond_coeff"_bond_coeff.html.  See "Section_tools"_Section_tools.html
+"bond_coeff"_bond_coeff.html.  See "Section 9"_Section_tools.html
 for additional tools that can use CHARMM or AMBER to assign force
 field coefficients and convert their output into LAMMPS input.
 
@@ -522,7 +522,7 @@ H mass = 1.008
 O charge = -1.040
 H charge = 0.520
 r0 of OH bond = 0.9572
-theta of HOH angle = 104.52 
+theta of HOH angle = 104.52
 OM distance = 0.15
 LJ epsilon of O-O = 0.1550
 LJ sigma of O-O = 3.1536
@@ -629,7 +629,7 @@ the SPC and SPC/E models.
 Wikipedia also has a nice article on "water
 models"_http://en.wikipedia.org/wiki/Water_model.
 
-:line 
+:line
 
 6.10 Coupling LAMMPS to other codes :link(howto_10),h4
 
@@ -673,7 +673,7 @@ processors to start up another program).  In the latter case the
 stand-alone code could communicate with LAMMPS thru files that the
 command writes and reads.
 
-See "Section_modify"_Section_modify.html of the documentation for how
+See "Section 10"_Section_modify.html of the documentation for how
 to add a new command to LAMMPS.
 
 (3) Use LAMMPS as a library called by another code.  In this case the
@@ -695,7 +695,8 @@ MD with quantum forces calculated by a density functional code :l
 
 lammps_spparks: coupling of LAMMPS and "SPPARKS"_spparks, to couple
 a kinetic Monte Carlo model for grain growth using MD to calculate
-strain induced across grain boundaries :l,ule
+strain induced across grain boundaries :l
+:ule
 
 :link(quest,http://dft.sandia.gov/Quest)
 :link(spparks,http://www.sandia.gov/~sjplimp/spparks.html)
@@ -708,12 +709,12 @@ example, from C++ you could create one (or more) "instances" of
 LAMMPS, pass it an input script to process, or execute individual
 commands, all by invoking the correct class methods in LAMMPS.  From C
 or Fortran you can make function calls to do the same things.  See
-"Section_python"_Section_python.html of the manual for a description
+"Section 11"_Section_python.html of the manual for a description
 of the Python wrapper provided with LAMMPS that operates through the
 LAMMPS library interface.
 
 The files src/library.cpp and library.h contain the C-style interface
-to LAMMPS.  See "Section_howto 19"_Section_howto.html#howto_19 of the
+to LAMMPS.  See "Section 6.19"_Section_howto.html#howto_19 of the
 manual for a description of the interface and how to extend it for
 your needs.
 
@@ -728,7 +729,7 @@ LAMMPS and half to the other code and run both codes simultaneously
 before syncing them up periodically.  Or it might instantiate multiple
 instances of LAMMPS to perform different calculations.
 
-:line 
+:line
 
 6.11 Visualizing LAMMPS snapshots :link(howto_11),h4
 
@@ -745,7 +746,7 @@ and atom trajectories.
 
 Several programs included with LAMMPS as auxiliary tools can convert
 native LAMMPS dump files to other formats.  See the
-"Section_tools"_Section_tools.html doc page for details.  The first is
+"Section 9"_Section_tools.html doc page for details.  The first is
 the "ch2lmp tool"_Section_tools.html#charmm, which contains a
 lammps2pdb Perl script which converts LAMMPS dump files into PDB
 files.  The second is the "lmp2arc tool"_Section_tools.html#arc which
@@ -829,9 +830,9 @@ rotation of [A], [B], and [C] and can be computed as follows:
 
 :c,image(Eqs/transform.jpg)
 
-where A = |[A]| indicates the scalar length of [A]. The ^ hat symbol
+where A = | [A] | indicates the scalar length of [A]. The hat symbol (^)
 indicates the corresponding unit vector. {beta} and {gamma} are angles
-between the vectors described below. Note that by construction, 
+between the vectors described below. Note that by construction,
 [a], [b], and [c] have strictly positive x, y, and z components, respectively.
 If it should happen that
 [A], [B], and [C] form a left-handed basis, then the above equations
@@ -840,17 +841,17 @@ to first apply an inversion. This can be achieved
 by interchanging two basis vectors or by changing the sign of one of them.
 
 For consistency, the same rotation/inversion applied to the basis vectors
-must also be applied to atom positions, velocities, 
+must also be applied to atom positions, velocities,
 and any other vector quantities.
-This can be conveniently achieved by first converting to 
+This can be conveniently achieved by first converting to
 fractional coordinates in the
 old basis and then converting to distance coordinates in the new basis.
 The transformation is given by the following equation:
 
 :c,image(Eqs/rotate.jpg)
 
-where {V} is the volume of the box, [X] is the original vector quantity and 
-[x] is the vector in the LAMMPS basis. 
+where {V} is the volume of the box, [X] is the original vector quantity and
+[x] is the vector in the LAMMPS basis.
 
 There is no requirement that a triclinic box be periodic in any
 dimension, though it typically should be in at least the 2nd dimension
@@ -937,17 +938,17 @@ defined above.  The relationship between these 6 quantities
 (a,b,c,alpha,beta,gamma) and the LAMMPS box sizes (lx,ly,lz) =
 (xhi-xlo,yhi-ylo,zhi-zlo) and tilt factors (xy,xz,yz) is as follows:
 
-:c,image(Eqs/box.jpg) 
+:c,image(Eqs/box.jpg)
 
 The inverse relationship can be written as follows:
 
-:c,image(Eqs/box_inverse.jpg) 
+:c,image(Eqs/box_inverse.jpg)
 
-The values of {a}, {b}, {c} , {alpha}, {beta} , and {gamma} can be printed 
-out or accessed by computes using the 
-"thermo_style custom"_thermo_style.html keywords 
+The values of {a}, {b}, {c} , {alpha}, {beta} , and {gamma} can be printed
+out or accessed by computes using the
+"thermo_style custom"_thermo_style.html keywords
 {cella}, {cellb}, {cellc}, {cellalpha}, {cellbeta}, {cellgamma},
-respectively. 
+respectively.
 
 As discussed on the "dump"_dump.html command doc page, when the BOX
 BOUNDS for a snapshot is written to a dump file for a triclinic box,
@@ -1010,7 +1011,7 @@ system.  Fix nvt/sllod uses "compute
 temp/deform"_compute_temp_deform.html to compute a thermal temperature
 by subtracting out the streaming velocity of the shearing atoms.  The
 velocity profile or other properties of the fluid can be monitored via
-the "fix ave/spatial"_fix_ave_spatial.html command.
+the "fix ave/chunk"_fix_ave_chunk.html command.
 
 As discussed in the previous section on non-orthogonal simulation
 boxes, the amount of tilt or skew that can be applied is limited by
@@ -1286,7 +1287,8 @@ print"_fix_print.html for single-line output of
 "variables"_variable.html.  Fix print can also output to the
 screen. :l
 
-"Restart files"_restart.html. :l,ule
+"Restart files"_restart.html. :l
+:ule
 
 A simulation prints one set of thermodynamic output and (optionally)
 restart files.  It can generate any number of dump files and fix
@@ -1698,9 +1700,9 @@ pressure"_compute_pressure.html compute to calculate a current
 pressure.  By default, this compute is created with a simple "compute
 temp"_compute_temp.html (see the last argument of the "compute
 pressure"_compute_pressure.html command), which is used to calculated
-the kinetic componenet of the pressure.  The barostatting fixes can
+the kinetic component of the pressure.  The barostatting fixes can
 also use temperature computes that remove bias for the purpose of
-computing the kinetic componenet which contributes to the current
+computing the kinetic component which contributes to the current
 pressure.  See the doc pages for the individual fixes and for the
 "fix_modify"_fix_modify.html command for instructions on how to assign
 a temperature or pressure compute to a barostatting fix.
@@ -1838,7 +1840,7 @@ converge and requires careful post-processing "(Shinoda)"_#Shinoda
 
 6.19 Library interface to LAMMPS :link(howto_19),h4
 
-As described in "Section_start 5"_Section_start.html#start_5, LAMMPS
+As described in "Section 2.5"_Section_start.html#start_5, LAMMPS
 can be built as a library, so that it can be called by another code,
 used in a "coupled manner"_Section_howto.html#howto_10 with other
 codes, or driven through a "Python interface"_Section_python.html.
@@ -1970,7 +1972,7 @@ on each of two regions to add/subtract specified amounts of energy to
 both regions.  In both cases, the resulting temperatures of the two
 regions can be monitored with the "compute temp/region" command and
 the temperature profile of the intermediate region can be monitored
-with the "fix ave/spatial"_fix_ave_spatial.html and "compute
+with the "fix ave/chunk"_fix_ave_chunk.html and "compute
 ke/atom"_compute_ke_atom.html commands.
 
 The third method is to perform a reverse non-equilibrium MD simulation
@@ -1979,7 +1981,7 @@ command which implements the rNEMD algorithm of Muller-Plathe.
 Kinetic energy is swapped between atoms in two different layers of the
 simulation box.  This induces a temperature gradient between the two
 layers which can be monitored with the "fix
-ave/spatial"_fix_ave_spatial.html and "compute
+ave/chunk"_fix_ave_chunk.html and "compute
 ke/atom"_compute_ke_atom.html commands.  The fix tallies the
 cumulative energy transfer that it performs.  See the "fix
 thermal/conductivity"_fix_thermal_conductivity.html command for
@@ -2036,7 +2038,7 @@ velocity to prevent the fluid from heating up.
 
 In both cases, the velocity profile setup in the fluid by this
 procedure can be monitored by the "fix
-ave/spatial"_fix_ave_spatial.html command, which determines
+ave/chunk"_fix_ave_chunk.html command, which determines
 grad(Vstream) in the equation above.  E.g. the derivative in the
 y-direction of the Vx component of fluid motion or grad(Vstream) =
 dVx/dy.  The Pxy off-diagonal component of the pressure or stress
@@ -2050,7 +2052,7 @@ using the "fix viscosity"_fix_viscosity.html command which implements
 the rNEMD algorithm of Muller-Plathe.  Momentum in one dimension is
 swapped between atoms in two different layers of the simulation box in
 a different dimension.  This induces a velocity gradient which can be
-monitored with the "fix ave/spatial"_fix_ave_spatial.html command.
+monitored with the "fix ave/chunk"_fix_ave_chunk.html command.
 The fix tallies the cummulative momentum transfer that it performs.
 See the "fix viscosity"_fix_viscosity.html command for details.
 
@@ -2121,14 +2123,14 @@ thermo_style custom step temp press v_pxy v_pxz v_pyz v_v11 v_v22 v_v33
 run          100000
 variable     v equal (v_v11+v_v22+v_v33)/3.0
 variable     ndens equal count(all)/vol
-print        "average viscosity: $v \[Pa.s/] @ $T K, $\{ndens\} /A^3" :pre
+print        "average viscosity: $v \[Pa.s\] @ $T K, $\{ndens\} /A^3" :pre
 
 The fifth method is related to the above Green-Kubo method,
 but uses the Einstein formulation, analogous to the Einstein
 mean-square-displacement formulation for self-diffusivity. The
 time-integrated momentum fluxes play the role of Cartesian
 coordinates, whose mean-square displacement increases linearly
-with time at sufficiently long times. 
+with time at sufficiently long times.
 
 :line
 
@@ -2210,7 +2212,7 @@ Note that this compute allows the per-atom output of other
 "variables"_variable.html to be used to define chunk IDs for each
 atom.  This means you can write your own compute or fix to output a
 per-atom quantity to use as chunk ID.  See
-"Section_modify"_Section_modify.html of the documentation for how to
+"Section 10"_Section_modify.html of the documentation for how to
 do this.  You can also define a "per-atom variable"_variable.html in
 the input script that uses a formula to generate a chunk ID for each
 atom.
@@ -2274,7 +2276,8 @@ molecule diffusion rates. :l
 
 As input to special functions of "equal-style
 variables"_variable.html, like sum() and max().  E.g. to find the
-largest cluster or fastest diffusing molecule. :l,ule
+largest cluster or fastest diffusing molecule. :l
+:ule
 
 Example calculations with chunks :h5
 
@@ -2297,14 +2300,14 @@ fix 1 all ave/chunk 100 10 1000 cc1 temp bias vbias file tmp.out :pre
 
 compute cc1 all chunk/atom molecule
 compute myChunk all com/chunk cc1
-fix 1 all ave/time 100 1 100 c_myChunk file tmp.out mode vector :pre
+fix 1 all ave/time 100 1 100 c_myChunk\[*\] file tmp.out mode vector :pre
 
 (4) Total force on each molecule and ave/max across all molecules:
 
 compute cc1 all chunk/atom molecule
 fix 1 all ave/chunk 1000 1 1000 cc1 fx fy fz file tmp.out
-variable xave equal ave(f_1[2])
-variable xmax equal max(f_1[2])
+variable xave equal ave(f_1\[2\])
+variable xmax equal max(f_1\[2\])
 thermo 1000
 thermo_style custom step temp v_xave v_xmax :pre
 
@@ -2430,7 +2433,8 @@ package, :ulb,l
 the adiabatic core-shell method, implemented in the
 "CORESHELL"_#howto_26 package, :l
 the thermalized Drude dipole method, implemented in the
-"USER-DRUDE"_#howto_27 package. :l,ule
+"USER-DRUDE"_#howto_27 package. :l
+:ule
 
 The fluctuating charge method calculates instantaneous charges on
 interacting atoms based on the electronegativity equalization
@@ -2506,8 +2510,8 @@ the electrostatic environment inducing polarizability.
 Technically, shells are attached to the cores by a spring force f =
 k*r where k is a parametrized spring constant and r is the distance
 between the core and the shell. The charges of the core and the shell
-add up to the ion charge, thus q(ion) = q(core) + q(shell). This 
-setup introduces the ion polarizability (alpha) given by 
+add up to the ion charge, thus q(ion) = q(core) + q(shell). This
+setup introduces the ion polarizability (alpha) given by
 alpha = q(shell)^2 / k. In a
 similar fashion the mass of the ion is distributed on the core and the
 shell with the core having the larger mass.
@@ -2522,7 +2526,7 @@ for NaCl, as found in examples/coreshell, has this format:
 432   atoms  # core and shell atoms
 216   bonds  # number of core/shell springs :pre
 
-4     atom types  # 2 cores and 2 shells for Na and Cl 
+4     atom types  # 2 cores and 2 shells for Na and Cl
 2     bond types :pre
 
 0.0 24.09597 xlo xhi
@@ -2541,19 +2545,19 @@ Atoms :pre
 1    1    2   1.5005    0.00000000   0.00000000   0.00000000 # core of core/shell pair 1
 2    1    4  -2.5005    0.00000000   0.00000000   0.00000000 # shell of core/shell pair 1
 3    2    1   1.5056    4.01599500   4.01599500   4.01599500 # core of core/shell pair 2
-4    2    3  -0.5056    4.01599500   4.01599500   4.01599500 # shell of core/shell pair 2 
+4    2    3  -0.5056    4.01599500   4.01599500   4.01599500 # shell of core/shell pair 2
 (...) :pre
 
 Bonds   # Bond topology for spring forces :pre
 
 1     2     1     2   # spring for core/shell pair 1
-2     2     3     4   # spring for core/shell pair 2 
+2     2     3     4   # spring for core/shell pair 2
 (...) :pre
 
 Non-Coulombic (e.g. Lennard-Jones) pairwise interactions are only
 defined between the shells.  Coulombic interactions are defined
 between all cores and shells.  If desired, additional bonds can be
-specified between cores.  
+specified between cores.
 
 The "special_bonds"_special_bonds.html command should be used to
 turn-off the Coulombic interaction within core/shell pairs, since that
@@ -2616,7 +2620,7 @@ Note that to perform thermostatting using this definition of
 temperature, the "fix modify temp"_fix_modify.html command should be
 used to assign the compute to the thermostat fix.  Likewise the
 "thermo_modify temp"_thermo_modify.html command can be used to make
-this temperature be output for the overall system. 
+this temperature be output for the overall system.
 
 For the NaCl example, this can be done as follows:
 
@@ -2628,13 +2632,13 @@ fix thermostatequ all nve                               # integrator as needed f
 fix_modify thermoberendsen temp CSequ
 thermo_modify temp CSequ                                # output of center-of-mass derived temperature :pre
 
-If "compute temp/cs"_compute_temp_cs.html is used, the decoupled 
-relative motion of the core and the shell should in theory be 
+If "compute temp/cs"_compute_temp_cs.html is used, the decoupled
+relative motion of the core and the shell should in theory be
 stable.  However numerical fluctuation can introduce a small
 momentum to the system, which is noticable over long trajectories.
-Therefore it is recomendable to use the "fix 
-momentum"_fix_momentum.html command in combination with "compute 
-temp/cs"_compute_temp_cs.html when equilibrating the system to 
+Therefore it is recomendable to use the "fix
+momentum"_fix_momentum.html command in combination with "compute
+temp/cs"_compute_temp_cs.html when equilibrating the system to
 prevent any drift.
 
 When intializing the velocities of a system with core/shell pairs, it
@@ -2657,17 +2661,17 @@ to the electrostatic environment.  This fast movement also limits the
 timestep size that can be used.
 
 The primary literature of the adiabatic core/shell model suggests that
-the fast relative motion of the core/shell pairs only allows negligible 
+the fast relative motion of the core/shell pairs only allows negligible
 energy transfer to the environment. Therefore it is not intended to
 decouple the core/shell degree of freedom from the physical system
 during production runs. In other words, the "compute
 temp/cs"_compute_temp_cs.html command should not be used during
-production runs and is only required during equilibration. This way one 
-is consistent with literature (based on the code packages DL_POLY or 
+production runs and is only required during equilibration. This way one
+is consistent with literature (based on the code packages DL_POLY or
 GULP for instance).
 
-The mentioned energy transfer will typically lead to a a small drift 
-in total energy over time.  This internal energy can be monitored 
+The mentioned energy transfer will typically lead to a a small drift
+in total energy over time.  This internal energy can be monitored
 using the "compute chunk/atom"_compute_chunk_atom.html and "compute
 temp/chunk"_compute_temp_chunk.html commands.  The internal kinetic
 energies of each core/shell pair can then be summed using the sum()
@@ -2698,14 +2702,14 @@ The additional section in the date file would be formatted like this:
 
 CS-Info         # header of additional section :pre
 
-1   1           # column 1 = atom ID, column 2 = core/shell ID 
-2   1   
-3   2   
-4   2   
-5   3   
-6   3   
-7   4   
-8   4   
+1   1           # column 1 = atom ID, column 2 = core/shell ID
+2   1
+3   2
+4   2
+5   3
+6   3
+7   4
+8   4
 (...) :pre
 
 :line
@@ -2737,7 +2741,8 @@ too much. To avoid this, damping at short range can be done by Thole
 functions (for which there are physical grounds). This Thole damping
 is applied to the point charges composing the induced dipole (the
 charge of the Drude particle and the opposite charge on the core, not
-to the total charge of the core atom). :l,ule
+to the total charge of the core atom). :l
+:ule
 
 A detailed tutorial covering the usage of Drude induced dipoles in
 LAMMPS is "available here"_tutorial_drude.html.

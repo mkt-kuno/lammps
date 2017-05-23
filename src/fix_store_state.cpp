@@ -37,7 +37,9 @@ enum{KEYWORD,COMPUTE,FIX,VARIABLE,DNAME,INAME};
 /* ---------------------------------------------------------------------- */
 
 FixStoreState::FixStoreState(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  nvalues(0), which(NULL), argindex(NULL), value2index(NULL), ids(NULL), values(NULL),
+  vbuf(NULL), pack_choice(NULL)
 {
   if (narg < 5) error->all(FLERR,"Illegal fix store/state command");
 
@@ -545,7 +547,7 @@ void FixStoreState::end_of_step()
   // if any compute/fix/variable and nevery, wrap with clear/add
 
   if (cfv_any && nevery) {
-    int nextstep = (update->ntimestep/nevery)*nevery + nevery;
+    const bigint nextstep = (update->ntimestep/nevery)*nevery + nevery;
     modify->addstep_compute(nextstep);
   }
 }

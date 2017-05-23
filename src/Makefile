@@ -1,6 +1,8 @@
 # LAMMPS multiple-machine -*- Makefile -*-
 
 SHELL = /bin/bash
+PYTHON = python
+
 #.IGNORE:
 
 # Definitions
@@ -90,7 +92,7 @@ help:
 	@echo 'make package-update (pu) replace src files with updated package files'
 	@echo 'make package-overwrite   replace package files with src files'
 	@echo 'make package-diff (pd)   diff src files against package files'
-	@echo 'make package-purge       purge obsolete copies of package sources'
+	@echo 'make purge               purge obsolete copies of source files'
 	@echo ''
 	@echo 'make machine             build LAMMPS for machine'
 	@echo 'make mode=lib machine    build LAMMPS as static lib for machine'
@@ -198,7 +200,7 @@ mpi-stubs:
 # install LAMMPS shared lib and Python wrapper for Python usage
 
 install-python:
-	@python ../python/install.py
+	@$(PYTHON) ../python/install.py
 
 # Create a tarball of src dir and packages
 
@@ -312,7 +314,7 @@ package-diff pd:
 	@echo ''
 	@for p in $(PACKUSERUC); do $(SHELL) Package.sh $$p diff; done
 
-package-purge: Purge.list
+purge: Purge.list
 	@echo 'Purging obsolete and auto-generated source files'
 	@for f in `grep -v '#' Purge.list` ;		\
 	    do test -f $$f && rm $$f && echo $$f || : ;		\

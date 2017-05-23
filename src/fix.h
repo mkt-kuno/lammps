@@ -99,11 +99,6 @@ class Fix : protected Pointers {
   ExecutionSpace execution_space;
   unsigned int datamask_read,datamask_modify;
 
-  // USER-CUDA per-fix data masks
-
-  unsigned int datamask;
-  unsigned int datamask_ext;
-
   Fix(class LAMMPS *, int, char **);
   virtual ~Fix();
   void modify_params(int, char **);

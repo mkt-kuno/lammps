@@ -38,6 +38,10 @@ class DumpCustom : public Dump {
   int *thresh_op;            // threshhold operation for each nthresh
   double *thresh_value;      // threshhold value for each nthresh
 
+  int expand;                // flag for whether field args were expanded
+  char **earg;               // field names with wildcard expansion
+  int nargnew;               // size of earg
+
   int *vtype;                // type of each vector (INT, DOUBLE)
   char **vformat;            // format string for each vector element
 

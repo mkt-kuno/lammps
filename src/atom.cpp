@@ -208,8 +208,14 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   atom_style = NULL;
   avec = NULL;
 
-  datamask = ALL_MASK;
-  datamask_ext = ALL_MASK;
+  avec_map = new AtomVecCreatorMap();
+
+#define ATOM_CLASS
+#define AtomStyle(key,Class) \
+  (*avec_map)[#key] = &avec_creator<Class>;
+#include "style_atom.h"
+#undef AtomStyle
+#undef ATOM_CLASS
 }
 
 /* ---------------------------------------------------------------------- */
@@ -218,6 +224,7 @@ Atom::~Atom()
 {
   delete [] atom_style;
   delete avec;
+  delete avec_map;
 
   delete [] firstgroupname;
   memory->destroy(binhead);
@@ -445,44 +452,41 @@ AtomVec *Atom::new_avec(const char *style, int trysuffix, int &sflag)
       sflag = 1;
       char estyle[256];
       sprintf(estyle,"%s/%s",style,lmp->suffix);
-
-      if (0) return NULL;
-
-#define ATOM_CLASS
-#define AtomStyle(key,Class) \
-      else if (strcmp(estyle,#key) == 0) return new Class(lmp);
-#include "style_atom.h"
-#undef AtomStyle
-#undef ATOM_CLASS
+      if (avec_map->find(estyle) != avec_map->end()) {
+        AtomVecCreator avec_creator = (*avec_map)[estyle];
+        return avec_creator(lmp);
+      }
     }
 
     if (lmp->suffix2) {
       sflag = 2;
       char estyle[256];
       sprintf(estyle,"%s/%s",style,lmp->suffix2);
-
-      if (0) return NULL;
-
-#define ATOM_CLASS
-#define AtomStyle(key,Class) \
-      else if (strcmp(estyle,#key) == 0) return new Class(lmp);
-#include "style_atom.h"
-#undef AtomStyle
-#undef ATOM_CLASS
+      if (avec_map->find(estyle) != avec_map->end()) {
+        AtomVecCreator avec_creator = (*avec_map)[estyle];
+        return avec_creator(lmp);
+      }
     }
   }
 
   sflag = 0;
-  if (0) return NULL;
+  if (avec_map->find(style) != avec_map->end()) {
+    AtomVecCreator avec_creator = (*avec_map)[style];
+    return avec_creator(lmp);
+  }
 
-#define ATOM_CLASS
-#define AtomStyle(key,Class) \
-  else if (strcmp(style,#key) == 0) return new Class(lmp);
-#include "style_atom.h"
-#undef ATOM_CLASS
-
-  else error->all(FLERR,"Unknown atom style");
+  error->all(FLERR,"Unknown atom style");
   return NULL;
+}
+
+/* ----------------------------------------------------------------------
+   one instance per AtomVec style in style_atom.h
+------------------------------------------------------------------------- */
+
+template <typename T>
+AtomVec *Atom::avec_creator(LAMMPS *lmp)
+{
+  return new T(lmp);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1589,6 +1593,7 @@ void Atom::add_molecule(int narg, char **arg)
 
 int Atom::find_molecule(char *id)
 {
+  if(id == NULL) return -1;
   int imol;
   for (imol = 0; imol < nmolecule; imol++)
     if (strcmp(id,molecules[imol]->id) == 0) return imol;
@@ -1913,6 +1918,8 @@ void Atom::add_callback(int flag)
 
 void Atom::delete_callback(const char *id, int flag)
 {
+  if(id==NULL) return;
+
   int ifix;
   for (ifix = 0; ifix < modify->nfix; ifix++)
     if (strcmp(id,modify->fix[ifix]->id) == 0) break;
@@ -1966,8 +1973,10 @@ void Atom::update_callback(int ifix)
    return -1 if not found
 ------------------------------------------------------------------------- */
 
-int Atom::find_custom(char *name, int &flag)
+int Atom::find_custom(const char *name, int &flag)
 {
+  if(name == NULL) return -1;
+
   for (int i = 0; i < nivector; i++)
     if (iname[i] && strcmp(iname[i],name) == 0) {
       flag = 0;
@@ -1989,7 +1998,7 @@ int Atom::find_custom(char *name, int &flag)
    return index in ivector or dvector of its location
 ------------------------------------------------------------------------- */
 
-int Atom::add_custom(char *name, int flag)
+int Atom::add_custom(const char *name, int flag)
 {
   int index;
 

@@ -5,7 +5,7 @@
 :link(lc,Section_commands.html#comm)
 
 :line
-   
+
 dump command :h3
 "dump custom/vtk"_dump_custom_vtk.html command :h3
 "dump h5md"_dump_h5md.html command :h3
@@ -46,16 +46,16 @@ args = list of arguments for a particular style :l
   {molfile} args = discussed on "dump molfile"_dump_molfile.html doc page :pre
 
   {local} args = list of local attributes
-    possible attributes = index, c_ID, c_ID\[N\], f_ID, f_ID\[N\]
+    possible attributes = index, c_ID, c_ID\[I\], f_ID, f_ID\[I\]
       index = enumeration of local values
       c_ID = local vector calculated by a compute with ID
-      c_ID\[N\] = Nth column of local array calculated by a compute with ID
+      c_ID\[I\] = Ith column of local array calculated by a compute with ID, I can include wildcard (see below)
       f_ID = local vector calculated by a fix with ID
-      f_ID\[N\] = Nth column of local array calculated by a fix with ID :pre
+      f_ID\[I\] = Ith column of local array calculated by a fix with ID, I can include wildcard (see below) :pre
 
   {custom} or {custom/gz} or {custom/mpiio} args = list of atom attributes
     possible attributes = id, mol, proc, procp1, type, element, mass,
-			  x, y, z, xs, ys, zs, xu, yu, zu, 
+			  x, y, z, xs, ys, zs, xu, yu, zu,
 			  xsu, ysu, zsu, ix, iy, iz,
 			  vx, vy, vz, fx, fy, fz,
                           q, mux, muy, muz, mu,
@@ -85,9 +85,9 @@ args = list of arguments for a particular style :l
       angmomx,angmomy,angmomz = angular momentum of aspherical particle
       tqx,tqy,tqz = torque on finite-size particles
       c_ID = per-atom vector calculated by a compute with ID
-      c_ID\[N\] = Nth column of per-atom array calculated by a compute with ID
+      c_ID\[I\] = Ith column of per-atom array calculated by a compute with ID, I can include wildcard (see below)
       f_ID = per-atom vector calculated by a fix with ID
-      f_ID\[N\] = Nth column of per-atom array calculated by a fix with ID
+      f_ID\[I\] = Ith column of per-atom array calculated by a fix with ID, I can include wildcard (see below)
       v_name = per-atom vector calculated by an atom-style variable with name
       d_name = per-atom floating point vector with name, managed by fix property/atom
       i_name = per-atom integer vector with name, managed by fix property/atom :pre
@@ -102,6 +102,7 @@ dump 2 subgroup atom 50 dump.run.bin
 dump 2 subgroup atom 50 dump.run.mpiio.bin
 dump 4a all custom 100 dump.myforce.* id type x y vx fx
 dump 4b flow custom 100 dump.%.myforce id type c_myF\[3\] v_ke
+dump 4b flow custom 100 dump.%.myforce id type c_myF\[*\] v_ke
 dump 2 inner cfg 10 dump.snap.*.cfg mass type xs ys zs vx vy vz
 dump snap all cfg 100 dump.config.*.cfg mass type xs ys zs id type c_Stress\[2\]
 dump 1 all xtc 1000 file.xtc :pre
@@ -129,6 +130,10 @@ or multiple smaller files).
 NOTE: Because periodic boundary conditions are enforced only on
 timesteps when neighbor lists are rebuilt, the coordinates of an atom
 written to a dump file may be slightly outside the simulation box.
+Re-neighbor timesteps will not typically coincide with the timesteps
+dump snapshots are written.  See the "dump_modify
+pbc"_dump_modify.html command if you with to force coordinates to be
+strictly inside the simulation box.
 
 NOTE: Unless the "dump_modify sort"_dump_modify.html option is
 invoked, the lines of atom information written to dump files
@@ -164,6 +169,10 @@ parallel via the MPI-IO library.  For the remainder of this doc page,
 you should thus consider the {atom} and {atom/mpiio} styles (etc) to
 be inter-changeable.  The one exception is how the filename is
 specified for the MPI-IO styles, as explained below.
+
+The precision of values output to text-based dump files can be
+controlled by the "dump_modify format"_dump_modify.html command and
+its options.
 
 :line
 
@@ -202,7 +211,7 @@ bounding box which encloses the triclinic simulation box is output,
 along with the 3 tilt factors (xy, xz, yz) of the triclinic box,
 formatted as follows:
 
-ITEM: BOX BOUNDS xy xz yz xx yy zz 
+ITEM: BOX BOUNDS xy xz yz xx yy zz
 xlo_bound xhi_bound xy
 ylo_bound yhi_bound xz
 zlo_bound zhi_bound yz :pre
@@ -296,8 +305,8 @@ by the GROMACS molecular dynamics package, and described
 The precision used in XTC files can be adjusted via the
 "dump_modify"_dump_modify.html command.  The default value of 1000
 means that coordinates are stored to 1/1000 nanometer accuracy.  XTC
-files are portable binary files written in the NFS XDR data format, 
-so that any machine which supports XDR should be able to read them. 
+files are portable binary files written in the NFS XDR data format,
+so that any machine which supports XDR should be able to read them.
 The number of atoms per snapshot cannot change with the {xtc} style.
 The {unwrap} option of the "dump_modify"_dump_modify.html command allows
 XTC coordinates to be written "unwrapped" by the image flags for each
@@ -319,8 +328,8 @@ bonds and colors.
 
 Note that {atom}, {custom}, {dcd}, {xtc}, and {xyz} style dump files
 can be read directly by "VMD"_http://www.ks.uiuc.edu/Research/vmd, a
-popular molecular viewing program.  See "Section
-tools"_Section_tools.html#vmd of the manual and the
+popular molecular viewing program.  See
+"Section 9"_Section_tools.html#vmd of the manual and the
 tools/lmp2vmd/README.txt file for more information about support in
 VMD for reading and visualizing LAMMPS dump files.
 
@@ -381,7 +390,7 @@ Using MPI-IO requires two steps.  First, build LAMMPS with its MPIIO
 package installed, e.g.
 
 make yes-mpiio    # installs the MPIIO package
-make g++          # build LAMMPS for your platform :pre
+make mpi          # build LAMMPS for your platform :pre
 
 Second, use a dump filename which contains ".mpiio".  Note that it
 does not have to end in ".mpiio", just contain those characters.
@@ -418,6 +427,30 @@ styles.
 
 :line
 
+Note that in the discussion which follows, for styles which can
+reference values from a compute or fix, like the {custom}, {cfg}, or
+{local} styles, the bracketed index I can be specified using a
+wildcard asterisk with the index to effectively specify multiple
+values.  This takes the form "*" or "*n" or "n*" or "m*n".  If N = the
+size of the vector (for {mode} = scalar) or the number of columns in
+the array (for {mode} = vector), then an asterisk with no numeric
+values means all indices from 1 to N.  A leading asterisk means all
+indices from 1 to n (inclusive).  A trailing asterisk means all
+indices from n to N (inclusive).  A middle asterisk means all indices
+from m to n (inclusive).
+
+Using a wildcard is the same as if the individual columns of the array
+had been listed one by one.  E.g. these 2 dump commands are
+equivalent, since the "compute stress/atom"_compute_stress_atom.html
+command creates a per-atom array with 6 columns:
+
+compute myPress all stress/atom NULL
+dump 2 all custom 100 tmp.dump id myPress\[*\]
+dump 2 all custom 100 tmp.dump id myPress\[1\] myPress\[2\] myPress\[3\] &
+                                  myPress\[4\] myPress\[5\] myPress\[6\] :pre
+
+:line
+
 This section explains the local attributes that can be specified as
 part of the {local} style.
 
@@ -430,7 +463,7 @@ between processor, there is no guarantee that the same index will be
 used for the same info (e.g. a particular bond) in successive
 snapshots.
 
-The {c_ID} and {c_ID\[N\]} attributes allow local vectors or arrays
+The {c_ID} and {c_ID\[I\]} attributes allow local vectors or arrays
 calculated by a "compute"_compute.html to be output.  The ID in the
 attribute should be replaced by the actual ID of the compute that has
 been defined previously in the input script.  See the
@@ -445,24 +478,28 @@ custom"_thermo_style.html command, and per-atom quantities can be
 output by the dump custom command.
 
 If {c_ID} is used as a attribute, then the local vector calculated by
-the compute is printed.  If {c_ID\[N\]} is used, then N must be in the
-range from 1-M, which will print the Nth column of the M-length local
-array calculated by the compute.
+the compute is printed.  If {c_ID\[I\]} is used, then I must be in the
+range from 1-M, which will print the Ith column of the local array
+with M columns calculated by the compute.  See the discussion above
+for how I can be specified with a wildcard asterisk to effectively
+specify multiple values.
 
-The {f_ID} and {f_ID\[N\]} attributes allow local vectors or arrays
+The {f_ID} and {f_ID\[I\]} attributes allow local vectors or arrays
 calculated by a "fix"_fix.html to be output.  The ID in the attribute
 should be replaced by the actual ID of the fix that has been defined
 previously in the input script.
 
 If {f_ID} is used as a attribute, then the local vector calculated by
-the fix is printed.  If {f_ID\[N\]} is used, then N must be in the
-range from 1-M, which will print the Nth column of the M-length local
-array calculated by the fix.
+the fix is printed.  If {f_ID\[I\]} is used, then I must be in the
+range from 1-M, which will print the Ith column of the local with M
+columns calculated by the fix.  See the discussion above for how I can
+be specified with a wildcard asterisk to effectively specify multiple
+values.
 
-Here is an example of how to dump bond info for a system,
-including the distance and energy of each bond:
+Here is an example of how to dump bond info for a system, including
+the distance and energy of each bond:
 
-compute 1 all property/local batom1 batom2 btype 
+compute 1 all property/local batom1 batom2 btype
 compute 2 all bond/local dist eng
 dump 1 all local 1000 tmp.dump index c_1\[1\] c_1\[2\] c_1\[3\] c_2\[1\] c_2\[2\] :pre
 
@@ -494,7 +531,7 @@ so that each value is 0.0 to 1.0.  If the simulation box is triclinic
 (tilted), then all atom coords will still be between 0.0 and 1.0.
 I.e. actual unscaled (x,y,z) = xs*A + ys*B + zs*C, where (A,B,C) are
 the non-orthogonal vectors of the simulation box edges, as discussed
-in "Section howto 6.12"_Section_howto.html#howto_12.
+in "Section 6.12"_Section_howto.html#howto_12.
 
 Use {xu}, {yu}, {zu} if you want the coordinates "unwrapped" by the
 image flags for each atom.  Unwrapped means that if the atom has
@@ -536,7 +573,7 @@ The {tqx}, {tqy}, {tqz} attributes are for finite-size particles that
 can sustain a rotational torque due to interactions with other
 particles.
 
-The {c_ID} and {c_ID\[N\]} attributes allow per-atom vectors or arrays
+The {c_ID} and {c_ID\[I\]} attributes allow per-atom vectors or arrays
 calculated by a "compute"_compute.html to be output.  The ID in the
 attribute should be replaced by the actual ID of the compute that has
 been defined previously in the input script.  See the
@@ -551,11 +588,13 @@ command.  Instead, global quantities can be output by the
 can be output by the dump local command.
 
 If {c_ID} is used as a attribute, then the per-atom vector calculated
-by the compute is printed.  If {c_ID\[N\]} is used, then N must be in
-the range from 1-M, which will print the Nth column of the M-length
-per-atom array calculated by the compute.
+by the compute is printed.  If {c_ID\[I\]} is used, then I must be in
+the range from 1-M, which will print the Ith column of the per-atom
+array with M columns calculated by the compute.  See the discussion
+above for how I can be specified with a wildcard asterisk to
+effectively specify multiple values.
 
-The {f_ID} and {f_ID\[N\]} attributes allow vector or array per-atom
+The {f_ID} and {f_ID\[I\]} attributes allow vector or array per-atom
 quantities calculated by a "fix"_fix.html to be output.  The ID in the
 attribute should be replaced by the actual ID of the fix that has been
 defined previously in the input script.  The "fix
@@ -566,9 +605,11 @@ any "compute"_compute.html, "fix"_fix.html, or atom-style
 be written to a dump file.
 
 If {f_ID} is used as a attribute, then the per-atom vector calculated
-by the fix is printed.  If {f_ID\[N\]} is used, then N must be in the
-range from 1-M, which will print the Nth column of the M-length
-per-atom array calculated by the fix.
+by the fix is printed.  If {f_ID\[I\]} is used, then I must be in the
+range from 1-M, which will print the Ith column of the per-atom array
+with M columns calculated by the fix.  See the discussion above for
+how I can be specified with a wildcard asterisk to effectively specify
+multiple values.
 
 The {v_name} attribute allows per-atom vectors calculated by a
 "variable"_variable.html to be output.  The name in the attribute
@@ -585,7 +626,7 @@ The {d_name} and {i_name} attributes allow to output custom per atom
 floating point or integer properties that are managed by
 "fix property/atom"_fix_property_atom.html.
 
-See "Section_modify"_Section_modify.html of the manual for information
+See "Section 10"_Section_modify.html of the manual for information
 on how to add new compute and fix styles to LAMMPS to calculate
 per-atom quantities which could then be output into dump files.
 

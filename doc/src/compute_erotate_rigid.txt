@@ -42,7 +42,7 @@ calculation.
 This compute calculates a global scalar (the summed rotational energy
 of all the rigid bodies).  This value can be used by any command that
 uses a global scalar value from a compute as input.  See
-"Section_howto 15"_Section_howto.html#howto_15 for an overview of
+"Section 6.15"_Section_howto.html#howto_15 for an overview of
 LAMMPS output options.
 
 The scalar value calculated by this compute is "extensive".  The
@@ -56,6 +56,6 @@ LAMMPS"_Section_start.html#start_3 section for more info.
 
 [Related commands:]
 
-"compute ke/rigid"_compute_erotate_ke_rigid.html
+"compute ke/rigid"_compute_ke_rigid.html
 
 [Default:] none

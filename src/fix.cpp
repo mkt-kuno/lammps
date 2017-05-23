@@ -31,7 +31,8 @@ int Fix::instance_total = 0;
 
 /* ---------------------------------------------------------------------- */
 
-Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
+Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp),
+id(NULL), style(NULL), eatom(NULL), vatom(NULL)
 {
   instance_me = instance_total++;
 
@@ -92,14 +93,9 @@ Fix::Fix(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   //   which may occur outside of timestepping
 
   maxeatom = maxvatom = 0;
-  eatom = NULL;
-  vatom = NULL;
   vflag_atom = 0;
 
-  // CUDA and KOKKOS per-fix data masks
-
-  datamask = ALL_MASK;
-  datamask_ext = ALL_MASK;
+  // KOKKOS per-fix data masks
 
   execution_space = Host;
   datamask_read = ALL_MASK;
@@ -140,7 +136,7 @@ void Fix::modify_params(int narg, char **arg)
     } else if (strcmp(arg[iarg],"respa") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix_modify command");
       if (!respa_level_support) error->all(FLERR,"Illegal fix_modify command");
-      int lvl = force->inumeric(FLERR,arg[1]);
+      int lvl = force->inumeric(FLERR,arg[iarg+1]);
       if (lvl < 0) error->all(FLERR,"Illegal fix_modify command");
       respa_level = lvl-1;
       iarg += 2;
@@ -261,8 +257,6 @@ void Fix::v_setup(int vflag)
 
 void Fix::ev_tally(int n, int *list, double total, double eng, double *v)
 {
-  int m;
-
   if (eflag_atom) {
     double fraction = eng/total;
     for (int i = 0; i < n; i++)

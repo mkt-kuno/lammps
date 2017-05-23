@@ -388,6 +388,9 @@ objects to be drawn.  An example is the "fix
 surface/global"_fix_surface_global.html command which can draw lines
 or triangles for 2d/3d simulations.
 
+NOTE: Aug 2016 - The fix surface/global command is not yet added to
+LAMMPS.
+
 The {fflag1} and {fflag2} settings are numerical values which are
 passed to the fix to affect how the drawing of its objects is done.
 See the individual fix doc page for a description of what these
@@ -584,7 +587,7 @@ b) Use the freely available mplayer or ffplay tool to view a
 movie. Both are available for multiple OSes and support a large
 variety of file formats and decoders. :l
 
-% mplayer foo.mpg 
+% mplayer foo.mpg
 % ffplay bar.avi :pre
 
 c) Use the "Pizza.py"_http://www.sandia.gov/~sjplimp/pizza.html
@@ -598,11 +601,12 @@ obviously play movie files directly. Similarly for corresponding tools
 bundled with Linux desktop environments.  However, due to licensing
 issues with some file formats, the formats may require installing
 additional libraries, purchasing a license, or may not be
-supported. :ule,l
+supported. :l
+:ule
 
 :line
 
-See "Section_modify"_Section_modify.html of the manual for information
+See "Section 10"_Section_modify.html of the manual for information
 on how to add new compute and fix styles to LAMMPS to calculate
 per-atom quantities which could then be output into dump files.
 
@@ -627,9 +631,9 @@ Note that since FFmpeg is run as an external program via a pipe,
 LAMMPS has limited control over its execution and no knowledge about
 errors and warnings printed by it. Those warnings and error messages
 will be printed to the screen only. Due to the way image data is
-communicated to FFmpeg, it will often print the message 
+communicated to FFmpeg, it will often print the message
 
-pipe:: Input/output error :pre 
+pipe:: Input/output error :pre
 
 which can be safely ignored. Other warnings
 and errors have to be addressed according to the FFmpeg documentation.

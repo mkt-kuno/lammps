@@ -17,7 +17,7 @@ cutoff = global cutoff for interactions (distance units)
 [Examples:]
 
 pair_style line/lj 3.0
-pair_coeff * * 1.0 1.0 1.0 0.8 1.12 
+pair_coeff * * 1.0 1.0 1.0 0.8 1.12
 pair_coeff 1 2 1.0 2.0 1.0 1.5 1.12 5.0
 pair_coeff 1 2 1.0 0.0 1.0 1.0 2.5 :pre
 
@@ -131,7 +131,7 @@ This pair style can only be used via the {pair} keyword of the
 
 This style is part of the ASPHERE package.  It is only enabled if
 LAMMPS was built with that package.  See the "Making
-LAMMPS"_Section_start.html#2_3 section for more info.
+LAMMPS"_Section_start.html#start_3 section for more info.
 
 Defining particles to be line segments so they participate in
 line/line or line/particle interactions requires the use the

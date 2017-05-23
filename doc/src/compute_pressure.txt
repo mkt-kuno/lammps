@@ -50,7 +50,7 @@ ordered xx, yy, zz, xy, xz, yz.  The equation for the I,J components
 (where I and J = x,y,z) is similar to the above formula, except that
 the first term uses components of the kinetic energy tensor and the
 second term uses components of the virial tensor:
-  
+
 :c,image(Eqs/pressure_tensor.jpg)
 
 If no extra keywords are listed, the entire equations above are
@@ -98,7 +98,7 @@ where "thermo_temp" is the ID of a similarly defined compute of style
 Styles with a {gpu}, {intel}, {kk}, {omp}, or {opt} suffix are
 functionally the same as the corresponding style without the suffix.
 They have been optimized to run faster, depending on your available
-hardware, as discussed in "Section_accelerate"_Section_accelerate.html
+hardware, as discussed in "Section 5"_Section_accelerate.html
 of the manual.  The accelerated styles take the same arguments and
 should produce the same results, except for round-off and precision
 issues.
@@ -113,7 +113,7 @@ by including their suffix, or you can use the "-suffix command-line
 switch"_Section_start.html#start_7 when you invoke LAMMPS, or you can
 use the "suffix"_suffix.html command in your input script.
 
-See "Section_accelerate"_Section_accelerate.html of the manual for
+See "Section 5"_Section_accelerate.html of the manual for
 more instructions on how to use the accelerated styles effectively.
 
 :line

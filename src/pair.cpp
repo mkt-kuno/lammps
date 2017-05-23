@@ -100,9 +100,6 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
 
   // KOKKOS per-fix data masks
 
-  datamask = ALL_MASK;
-  datamask_ext = ALL_MASK;
-
   execution_space = Host;
   datamask_read = ALL_MASK;
   datamask_modify = ALL_MASK;
@@ -129,7 +126,7 @@ Pair::Pair(LAMMPS *lmp) : Pointers(lmp)
 Pair::~Pair()
 {
   num_tally_compute = 0;
-  memory->sfree((void *)list_tally_compute);
+  memory->sfree((void *) list_tally_compute);
   list_tally_compute = NULL;
 
   if (copymode) return;

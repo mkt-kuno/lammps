@@ -18,6 +18,7 @@
 #include "compute.h"
 #include "atom.h"
 #include "domain.h"
+#include "force.h"
 #include "comm.h"
 #include "group.h"
 #include "modify.h"
@@ -25,7 +26,6 @@
 #include "atom_masks.h"
 #include "memory.h"
 #include "error.h"
-#include "force.h"
 
 using namespace LAMMPS_NS;
 
@@ -38,10 +38,13 @@ int Compute::instance_total = 0;
 
 /* ---------------------------------------------------------------------- */
 
-Compute::Compute(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
+Compute::Compute(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp),
+  id(NULL), style(NULL),
+  vector(NULL), array(NULL), vector_atom(NULL), array_atom(NULL), vector_local(NULL), array_local(NULL),
+  tlist(NULL), vbiasall(NULL)
 {
   instance_me = instance_total++;
-
+  
   if (narg < 3) error->all(FLERR,"Illegal compute command");
 
   // compute ID, group, and style
@@ -93,23 +96,14 @@ Compute::Compute(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   // setup list of timesteps
 
   ntime = maxtime = 0;
-  tlist = NULL;
-
+  
   // data masks
-
-  datamask = ALL_MASK;
-  datamask_ext = ALL_MASK;
 
   execution_space = Host;
   datamask_read = ALL_MASK;
   datamask_modify = ALL_MASK;
 
   copymode = 0;
-
-  // force init to zero in case these are used as logicals
-
-  vector = vector_atom = vector_local = NULL;
-  array = array_atom = array_local = NULL;
 }
 
 /* ---------------------------------------------------------------------- */

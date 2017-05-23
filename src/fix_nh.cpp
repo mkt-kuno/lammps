@@ -50,7 +50,12 @@ enum{ISO,ANISO,TRICLINIC};
    NVT,NPH,NPT integrators for improved Nose-Hoover equations of motion
  ---------------------------------------------------------------------- */
 
-FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
+FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg),
+tstat_flag(0), pstat_flag(0),
+rfix(NULL), id_dilate(NULL), irregular(NULL), id_temp(NULL), id_press(NULL),
+tcomputeflag(0), pcomputeflag(0), eta(NULL), eta_dot(NULL), eta_dotdot(NULL),
+eta_mass(NULL), etap(NULL), etap_dot(NULL), etap_dotdot(NULL), 
+etap_mass(NULL), mpchain(0)
 {
   if (narg < 4) error->all(FLERR,"Illegal fix nvt/npt/nph command");
 
@@ -79,6 +84,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
   etap_mass_flag = 0;
   flipflag = 1;
   dipole_flag = 0;
+  dlm_flag = 0;
 
   tcomputeflag = 0;
   pcomputeflag = 0;
@@ -330,7 +336,10 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     } else if (strcmp(arg[iarg],"update") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal fix nvt/npt/nph command");
       if (strcmp(arg[iarg+1],"dipole") == 0) dipole_flag = 1;
-      else error->all(FLERR,"Illegal fix nvt/npt/nph command");
+      else if (strcmp(arg[iarg+1],"dipole/dlm") == 0) {
+        dipole_flag = 1;
+        dlm_flag = 1;
+      } else error->all(FLERR,"Illegal fix nvt/npt/nph command");
       iarg += 2;
     } else if (strcmp(arg[iarg],"fixedpoint") == 0) {
       if (iarg+4 > narg) error->all(FLERR,"Illegal fix nvt/npt/nph command");
@@ -434,7 +443,7 @@ FixNH::FixNH(LAMMPS *lmp, int narg, char **arg) : Fix(lmp, narg, arg)
     if (!atom->mu_flag)
       error->all(FLERR,"Using update dipole flag requires atom attribute mu");
   }
-
+  
   if ((tstat_flag && t_period <= 0.0) ||
       (p_flag[0] && p_period[0] <= 0.0) ||
       (p_flag[1] && p_period[1] <= 0.0) ||
@@ -1009,12 +1018,18 @@ void FixNH::couple()
     p_current[2] = tensor[2];
   }
 
+  if (!ISFINITE(p_current[0]) || !ISFINITE(p_current[1]) || !ISFINITE(p_current[2]))
+    error->all(FLERR,"Non-numeric pressure - simulation unstable");
+
   // switch order from xy-xz-yz to Voigt
 
   if (pstyle == TRICLINIC) {
     p_current[3] = tensor[5];
     p_current[4] = tensor[4];
     p_current[5] = tensor[3];
+
+    if (!ISFINITE(p_current[3]) || !ISFINITE(p_current[4]) || !ISFINITE(p_current[5]))
+      error->all(FLERR,"Non-numeric pressure - simulation unstable");
   }
 }
 

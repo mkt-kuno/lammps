@@ -29,12 +29,14 @@
 using namespace LAMMPS_NS;
 using namespace FixConst;
 
-enum{NPARTNER,PERPARTNER};
+enum{DEFAULT,NPARTNER,PERPARTNER};
 
 /* ---------------------------------------------------------------------- */
 
 FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg)
+  Fix(lmp, narg, arg),
+  npartner(NULL), partner(NULL), shearpartner(NULL), pair(NULL), 
+  ipage(NULL), dpage(NULL)
 {
   if (narg != 4) error->all(FLERR,"Illegal fix SHEAR_HISTORY commmand");
 
@@ -57,15 +59,10 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
   // perform initial allocation of atom-based arrays
   // register with atom class
 
-  npartner = NULL;
-  partner = NULL;
-  shearpartner = NULL;
   grow_arrays(atom->nmax);
   atom->add_callback(0);
   atom->add_callback(1);
 
-  ipage = NULL;
-  dpage = NULL;
   pgsize = oneatom = 0;
 
   // initialize npartner to 0 so neighbor list creation is OK the 1st time
@@ -75,6 +72,7 @@ FixShearHistory::FixShearHistory(LAMMPS *lmp, int narg, char **arg) :
   maxtouch = 0;
 
   nlocal_neigh = nall_neigh = 0;
+  commflag = DEFAULT;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -91,6 +89,14 @@ FixShearHistory::~FixShearHistory()
   memory->destroy(npartner);
   memory->sfree(partner);
   memory->sfree(shearpartner);
+
+  // to better detect use-after-delete errors
+
+  pair = NULL;
+  npartner = NULL;
+  partner = NULL;
+  shearpartner = NULL;
+
   delete [] ipage;
   delete [] dpage;
 }
@@ -242,10 +248,9 @@ void FixShearHistory::pre_exchange_onesided()
         shear = &allshear[dnum*jj];
         j = jlist[jj];
         j &= NEIGHMASK;
-        m = npartner[i];
+        m = npartner[i]++;
         partner[i][m] = tag[j];
         memcpy(&shearpartner[i][dnum*m],shear,dnumbytes);
-        npartner[i]++;
       }
     }
   }
@@ -601,7 +606,7 @@ void FixShearHistory::set_arrays(int i)
 
 int FixShearHistory::pack_reverse_comm_size(int n, int first)
 {
-  int i,j,k,last;
+  int i,last;
 
   int m = 0;
   last = first + n;
@@ -618,7 +623,7 @@ int FixShearHistory::pack_reverse_comm_size(int n, int first)
 
 int FixShearHistory::pack_reverse_comm(int n, int first, double *buf)
 {
-  int i,j,k,last;
+  int i,k,last;
 
   int m = 0;
   last = first + n;
@@ -630,13 +635,13 @@ int FixShearHistory::pack_reverse_comm(int n, int first, double *buf)
   } else if (commflag == PERPARTNER) {
     for (i = first; i < last; i++) {
       buf[m++] = npartner[i];
-      for (int k = 0; k < npartner[i]; k++) {
+      for (k = 0; k < npartner[i]; k++) {
         buf[m++] = partner[i][k];
         memcpy(&buf[m],&shearpartner[i][dnum*k],dnumbytes);
         m += dnum;
       }
     }
-  }
+  } else error->all(FLERR,"Unsupported comm mode in shear history");
 
   return m;
 }
@@ -660,14 +665,14 @@ void FixShearHistory::unpack_reverse_comm(int n, int *list, double *buf)
     for (i = 0; i < n; i++) {
       j = list[i];
       ncount = static_cast<int> (buf[m++]);
-      for (int k = 0; k < ncount; k++) {
+      for (k = 0; k < ncount; k++) {
         kk = npartner[j]++;
         partner[j][kk] = static_cast<tagint> (buf[m++]);
         memcpy(&shearpartner[j][dnum*kk],&buf[m],dnumbytes);
         m += dnum;
       }
     }
-  }
+  } else error->all(FLERR,"Unsupported comm mode in shear history");
 }
 
 /* ----------------------------------------------------------------------
@@ -716,14 +721,14 @@ int FixShearHistory::unpack_exchange(int nlocal, double *buf)
 
 int FixShearHistory::pack_restart(int i, double *buf)
 {
-  int m = 0;
-  buf[m++] = 4*npartner[i] + 2;
+  int m = 1;
   buf[m++] = npartner[i];
   for (int n = 0; n < npartner[i]; n++) {
     buf[m++] = partner[i][n];
     memcpy(&buf[m],&shearpartner[i][dnum*n],dnumbytes);
     m += dnum;
   }
+  buf[0] = m;
   return m;
 }
 
