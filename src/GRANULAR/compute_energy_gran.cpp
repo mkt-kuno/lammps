@@ -31,7 +31,8 @@ enum{FRICTION,RKINETIC,TKINETIC,KINETIC,NSTRAIN,SSTRAIN,STRAIN,BOUNDARY,VOLUMETR
 /* ---------------------------------------------------------------------- */
 
 ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  vector(NULL), inputs(NULL), evector(NULL), earray(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal compute energy/gran command");
 
@@ -106,8 +107,6 @@ ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
   }
 
   nmax = 0;
-  evector = NULL;
-  earray = NULL;
   
   vector_flag = 1;
   extvector = 1; //~ Intensive quantities are stored in the vector

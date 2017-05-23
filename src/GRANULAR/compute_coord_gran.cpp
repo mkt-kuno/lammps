@@ -32,7 +32,8 @@ using namespace LAMMPS_NS;
 /* ---------------------------------------------------------------------- */
 
 ComputeCoordGran::ComputeCoordGran(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg)
+  Compute(lmp, narg, arg),
+  typelo(NULL), typehi(NULL), cvec(NULL), carray(NULL)
 {
   if (narg < 3) error->all(FLERR,"Illegal compute coord/gran command");
 
@@ -62,8 +63,6 @@ ComputeCoordGran::ComputeCoordGran(LAMMPS *lmp, int narg, char **arg) :
   else size_peratom_cols = ncol;
 
   nmax = 0;
-  cvec = NULL;
-  carray = NULL;
 }
 
 /* ---------------------------------------------------------------------- */
