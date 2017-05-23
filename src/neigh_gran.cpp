@@ -38,37 +38,9 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
   double *shearptr;
 
   NeighList *listgranhistory;
-  int num_quants; // added in, modified GM
   int *npartner;
   tagint **partner;
-  
-  /*~ The number of shear quantities is not necessarily 3, but can
-    be several different values as discussed in fix_shear_history.h
-    [KH - 9 January 2014]*/
-  /*~~ CM, HMD and CMD models are added where HMD and CMD use the
-    same number of shear quantities. [MO - 18 November 2014]*/
-  //~ ----------------- without energy tracing ----------------------
-  double (**shearpartner3)[3]; //~ hooke/history or hertz/history
-  double (**shearpartner4)[4]; //~ shm/history
-  double (**shearpartner5)[5]; //~ CM/history
-  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling  
-  double (**shearpartner19)[19]; //~ shm/history with rolling
-  double (**shearpartner26)[26]; //~ HMD/history
-  double (**shearpartner24)[24]; //~ shm/history with D_spin
-  double (**shearpartner25)[25]; //~ CM/history with D_spin
-  double (**shearpartner46)[46]; //~ HMD/history with D_spin
-
-  //~ ----------------- with energy tracing ----------------------
-  double (**shearpartner7)[7]; //~ hooke/history or hertz/history
-  double (**shearpartner8)[8]; //~ shm/history
-  double (**shearpartner9)[9]; //~ CM/history
-  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner23)[23]; //~ shm/history with rolling
-  double (**shearpartner30)[30]; //~ HMD/history
-  double (**shearpartner28)[28]; //~ shm/history with D_spin
-  double (**shearpartner29)[29]; //~ CM/history with D_spin
-  double (**shearpartner50)[50]; //~ HMD/history with D_spin
-
+  double **shearpartner;
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;
@@ -98,75 +70,12 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
     fix_history->nall_neigh = nall;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    num_quants = fix_history->num_quants; // added in, modified GM
+    shearpartner = fix_history->shearpartner;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
     ipage_touch = listgranhistory->ipage;
     dpage_shear = listgranhistory->dpage;
-
-    //~ Use a switch-case structure [KH - 9 January 2014]
-    switch (num_quants) {
-    case 4: //~ 4 is the most likely num_quants
-      shearpartner4 = fix_history->shearpartner4;
-      break;
-    case 3: //~ 3 is next most likely
-      shearpartner3 = fix_history->shearpartner3;
-      break;
-    case 5: 
-      shearpartner5 = fix_history->shearpartner5;
-      break;
-    case 18:
-      shearpartner18 = fix_history->shearpartner18;
-      break;
-    case 19:
-      shearpartner19 = fix_history->shearpartner19;
-      break;
-      //~~  24, 25, 26, 46 were added [MO - 14 November 2014]
-    case 24:
-      shearpartner24 = fix_history->shearpartner24;
-      break;
-    case 25:
-      shearpartner25 = fix_history->shearpartner25;
-      break;
-    case 26:
-      shearpartner26 = fix_history->shearpartner26;
-      break;
-    case 46:
-      shearpartner46 = fix_history->shearpartner46;
-      break;
-    case 8:
-      shearpartner8 = fix_history->shearpartner8;
-      break;
-    case 9:
-      shearpartner9 = fix_history->shearpartner9;
-      break;
-    case 7:
-      shearpartner7 = fix_history->shearpartner7;
-      break;
-    case 22:
-      shearpartner22 = fix_history->shearpartner22;
-      break;
-    case 23:
-      shearpartner23 = fix_history->shearpartner23;
-      break;
-    //~~ 28, 29, 30, 50 were added [MO - 14 November 2014]
-    case 28:
-      shearpartner28 = fix_history->shearpartner28;
-      break;
-    case 29:
-      shearpartner29 = fix_history->shearpartner29;
-      break;
-    case 30:
-      shearpartner30 = fix_history->shearpartner30;
-      break;
-    case 50:
-      shearpartner50 = fix_history->shearpartner50;
-      break;  
-    default:
-      //~ If no cases matched, there is a problem
-      error->all(FLERR,"Incorrect number of shear quantities");
-    }
     dnum = listgranhistory->dnum;
     dnumbytes = dnum * sizeof(double);
   }
@@ -209,354 +118,24 @@ void Neighbor::granular_nsq_no_newton(NeighList *list)
         neighptr[n] = j;
 
         if (fix_history) {
-	  //~ Use a switch-case structure [KH - 9 January 2014]
-	  switch (num_quants) {
-	  case 4: //~ 4 is the most likely num_quants
-	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner4[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
+          if (rsq < radsum*radsum) {
+            for (m = 0; m < npartner[i]; m++)
+              if (partner[i][m] == tag[j]) break;
+            if (m < npartner[i]) {
+              touchptr[n] = 1;
+              memcpy(&shearptr[nn],&shearpartner[i][dnum*m],dnumbytes);
               nn += dnum;
-	    }
-	    break;
-	  case 3: //~ 3 is next most likely
- 	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner3[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 5: 
- 	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner5[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 18:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner18[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 19:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner19[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	    //~~ 24, 25, 26, 46 were added [MO - 14 November 2014] 
-	  case 24:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner24[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 25:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner25[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 26:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner26[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;  
-	  case 46:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner46[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;    
-	  case 8:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner8[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 9:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner9[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 7:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner7[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 22:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner22[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 23:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner23[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  //~~ 28, 29, 30, 50 were added [MO - 14 November 2014] 
-	  case 28:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner28[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 29:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner29[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;
-	  case 30:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner30[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break;  
-	  case 50:
-    	    if (rsq < radsum*radsum) {
-	      for (m = 0; m < npartner[i]; m++)
-		if (partner[i][m] == tag[j]) break;
-	      if (m < npartner[i]) {
-		touchptr[n] = 1;
-		memcpy(&shearptr[nn],shearpartner50[i][m],dnumbytes);
-		nn += dnum;
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	    } else {
-	      touchptr[n] = 0;
-	      memcpy(&shearptr[nn],zeroes,dnumbytes);
-	      nn += dnum;
-	    }
-	    break; 
-	  }
-	}
+            } else {
+              touchptr[n] = 0;
+              memcpy(&shearptr[nn],zeroes,dnumbytes);
+              nn += dnum;
+            }
+          } else {
+            touchptr[n] = 0;
+            memcpy(&shearptr[nn],zeroes,dnumbytes);
+            nn += dnum;
+          }
+        }
 
         n++;
       }
@@ -600,7 +179,7 @@ void Neighbor::granular_nsq_newton(NeighList *list)
   NeighList *listgranhistory;
   int *npartner;
   tagint **partner;
-  double (**shearpartner)[3];
+  double **shearpartner;
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;
@@ -630,7 +209,7 @@ void Neighbor::granular_nsq_newton(NeighList *list)
     fix_history->nall_neigh = nall;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    shearpartner = fix_history->shearpartner3;
+    shearpartner = fix_history->shearpartner;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -700,7 +279,7 @@ void Neighbor::granular_nsq_newton(NeighList *list)
               if (partner[i][m] == tag[j]) break;
             if (m < npartner[i]) {
               touchptr[n] = 1;
-              memcpy(&shearptr[nn],shearpartner[i][m],dnumbytes);
+              memcpy(&shearptr[nn],&shearpartner[i][dnum*m],dnumbytes);
               nn += dnum;
             } else {
               touchptr[n] = 0;
@@ -766,34 +345,9 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
   double *shearptr;
 
   NeighList *listgranhistory;
-  int num_quants; // added in, modified GM
   int *npartner;
   tagint **partner;
-  
-  //~ As in granular_nsq_no_newton [KH - 9 January 2014]
-  //~~ several lines were added [MO - 14 November 2014]
-  //~ ----------------- without energy tracing ----------------------
-  double (**shearpartner3)[3]; //~ hooke/history or hertz/history
-  double (**shearpartner4)[4]; //~ shm/history
-  double (**shearpartner5)[5]; //~ CM/history
-  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner19)[19]; //~ shm/history with rolling
-  double (**shearpartner26)[26]; //~ HMD/history [MO - 14 November 2014]
-  double (**shearpartner24)[24]; //~ shm/history with D_spin [MO - 14 November 2014]
-  double (**shearpartner25)[25]; //~ CM/history with D_spin  [MO - 14 November 2014]
-  double (**shearpartner46)[46]; //~ HMD/history with D_spin [MO - 14 November 2014]
-
-  //~ ----------------- with energy tracing ----------------------
-  double (**shearpartner7)[7]; //~ hooke/history or hertz/history
-  double (**shearpartner8)[8]; //~ shm/history
-  double (**shearpartner9)[9]; //~ CM/history
-  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner23)[23]; //~ shm/history with rolling
-  double (**shearpartner30)[30]; //~ HMD/history [MO - 14 November 2014]
-  double (**shearpartner28)[28]; //~ shm/history with D_spin [MO - 14 November 2014]
-  double (**shearpartner29)[29]; //~ CM/history with D_spin  [MO - 14 November 2014]
-  double (**shearpartner50)[50]; //~ HMD/history with D_spin [MO - 14 November 2014]	
-
+  double **shearpartner;
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;
@@ -827,76 +381,12 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
     fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    num_quants = fix_history->num_quants; // added in, modified GM
+    shearpartner = fix_history->shearpartner;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
     ipage_touch = listgranhistory->ipage;
     dpage_shear = listgranhistory->dpage;
-
-    //~ Use a switch-case structure [KH - 9 January 2014]
-    switch (num_quants) {
-    case 4: //~ 4 is the most likely num_quants
-      shearpartner4 = fix_history->shearpartner4;
-      break;
-    case 3: //~ 3 is next most likely
-      shearpartner3 = fix_history->shearpartner3;
-      break;
-    case 5: 
-      shearpartner5 = fix_history->shearpartner5;
-      break;
-    case 18:
-      shearpartner18 = fix_history->shearpartner18;
-      break;
-    case 19:
-      shearpartner19 = fix_history->shearpartner19;
-      break;
-    // 24, 25, 26, 46 were added [MO - 14 November 2014]
-    case 24: 
-      shearpartner24 = fix_history->shearpartner24;
-      break;
-    case 25:
-      shearpartner25 = fix_history->shearpartner25;
-      break;
-    case 26:
-      shearpartner26 = fix_history->shearpartner26;
-      break;
-    case 46:
-      shearpartner46 = fix_history->shearpartner46;
-      break;
-      /////
-    case 8:
-      shearpartner8 = fix_history->shearpartner8;
-      break;
-    case 9:
-      shearpartner9 = fix_history->shearpartner9;
-      break;
-    case 7:
-      shearpartner7 = fix_history->shearpartner7;
-      break;
-    case 22:
-      shearpartner22 = fix_history->shearpartner22;
-      break;
-    case 23:
-      shearpartner23 = fix_history->shearpartner23;
-      break;
-    // 28, 29, 30, 50 were added [MO - 14 November 2014]
-    case 28:
-      shearpartner28 = fix_history->shearpartner28;
-      break;
-    case 29:
-      shearpartner29 = fix_history->shearpartner29;
-      break;
-    case 30:
-      shearpartner30 = fix_history->shearpartner30;
-      break;
-    case 50:
-      shearpartner50 = fix_history->shearpartner50;
-      break;
-    default:
-      //~ If no cases matched, there is a problem
-      error->all(FLERR,"Incorrect number of shear quantities");
-    }
     dnum = listgranhistory->dnum;
     dnumbytes = dnum * sizeof(double);
   }
@@ -944,354 +434,23 @@ void Neighbor::granular_bin_no_newton(NeighList *list)
           neighptr[n] = j;
 
           if (fix_history) {
-	    //~ Use a switch-case structure [KH - 9 January 2014]
-	    switch (num_quants) {
-	    case 4: //~ 4 is the most likely num_quants
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner4[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }	      
-	      break;
-	    case 3: //~ 3 is next most likely
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner3[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    case 5: 
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner5[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    case 18:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner18[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    case 19:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner19[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    // 24, 25, 26, 46 were added [MO - 14 November 2014]
-	    case 24:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner24[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;  
-	     case 25:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner25[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;  
-	    case 26:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner26[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;    
-	     case 46:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner46[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;    
-	    ////
-	    case 8:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner8[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    case 9:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner9[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    case 7:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner7[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    case 22:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner22[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    case 23:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner23[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    // 28, 29, 30, 50 were added [MO - 14 November 2014]
-	    case 28:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner28[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;  
-	     case 29:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner29[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;    
-	    case 30:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner30[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;      
-	     case 50:
-	      if (rsq < radsum*radsum) {
-		for (m = 0; m < npartner[i]; m++)
-		  if (partner[i][m] == tag[j]) break;
-		if (m < npartner[i]) {
-		  touchptr[n] = 1;
-		  memcpy(&shearptr[nn],shearpartner50[i][m],dnumbytes);
-		  nn += dnum;
-		} else {
-		  touchptr[n] = 0;
-		  memcpy(&shearptr[nn],zeroes,dnumbytes);
-		  nn += dnum;
-		}
-	      } else {
-		touchptr[n] = 0;
-		memcpy(&shearptr[nn],zeroes,dnumbytes);
-		nn += dnum;
-	      }
-	      break;
-	    }
+            if (rsq < radsum*radsum) {
+              for (m = 0; m < npartner[i]; m++)
+                if (partner[i][m] == tag[j]) break;
+              if (m < npartner[i]) {
+                touchptr[n] = 1;
+                memcpy(&shearptr[nn],&shearpartner[i][dnum*m],dnumbytes);
+                nn += dnum;
+              } else {
+                touchptr[n] = 0;
+                memcpy(&shearptr[nn],zeroes,dnumbytes);
+                nn += dnum;
+              }
+            } else {
+              touchptr[n] = 0;
+              memcpy(&shearptr[nn],zeroes,dnumbytes);
+              nn += dnum;
+            }
           }
 
           n++;
@@ -1336,7 +495,7 @@ void Neighbor::granular_bin_newton(NeighList *list)
   NeighList *listgranhistory;
   int *npartner;
   tagint **partner;
-  double (**shearpartner)[3];
+  double **shearpartner;
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;
@@ -1370,7 +529,7 @@ void Neighbor::granular_bin_newton(NeighList *list)
     fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    shearpartner = fix_history->shearpartner3;
+    shearpartner = fix_history->shearpartner;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -1432,7 +591,7 @@ void Neighbor::granular_bin_newton(NeighList *list)
               if (partner[i][m] == tag[j]) break;
             if (m < npartner[i]) {
               touchptr[n] = 1;
-              memcpy(&shearptr[nn],shearpartner[i][m],dnumbytes);
+              memcpy(&shearptr[nn],&shearpartner[i][dnum*m],dnumbytes);
               nn += dnum;
             } else {
               touchptr[n] = 0;
@@ -1473,7 +632,7 @@ void Neighbor::granular_bin_newton(NeighList *list)
                 if (partner[i][m] == tag[j]) break;
               if (m < npartner[i]) {
                 touchptr[n] = 1;
-                memcpy(&shearptr[nn],shearpartner[i][m],dnumbytes);
+                memcpy(&shearptr[nn],&shearpartner[i][dnum*m],dnumbytes);
                 nn += dnum;
               } else {
                 touchptr[n] = 0;
@@ -1541,7 +700,7 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
   NeighList *listgranhistory;
   int *npartner;
   tagint **partner;
-  double (**shearpartner)[3];
+  double **shearpartner;
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;
@@ -1575,7 +734,7 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
     fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    shearpartner = fix_history->shearpartner3;
+    shearpartner = fix_history->shearpartner;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -1642,7 +801,7 @@ void Neighbor::granular_bin_newton_tri(NeighList *list)
                 if (partner[i][m] == tag[j]) break;
               if (m < npartner[i]) {
                 touchptr[n] = 1;
-                memcpy(&shearptr[nn],shearpartner[i][m],dnumbytes);
+                memcpy(&shearptr[nn],&shearpartner[i][dnum*m],dnumbytes);
                 nn += dnum;
               } else {
                 touchptr[n] = 0;

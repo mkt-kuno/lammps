@@ -20,14 +20,6 @@
 #include "my_page.h"
 #include "error.h"
 
-
-
-
-// DEBUG
-#include "update.h"
-#include "comm.h"
-
-
 using namespace LAMMPS_NS;
 
 /* ----------------------------------------------------------------------
@@ -244,35 +236,9 @@ void Neighbor::skip_from_granular(NeighList *list)
   double *shearptr,*shearptr_skip;
 
   NeighList *listgranhistory;
-  int num_quants; //~ [KH - 22 May 2017]
   int *npartner;
   tagint **partner;
-
-  /*~ The number of shear quantities is not necessarily 3, but can
-    be several different values as discussed in fix_shear_history.h
-    [KH - 22 May 2017]*/
-  //~ ----------------- without energy tracing ----------------------
-  double (**shearpartner3)[3]; //~ hooke/history or hertz/history
-  double (**shearpartner4)[4]; //~ shm/history
-  double (**shearpartner5)[5]; //~ CM/history
-  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling  
-  double (**shearpartner19)[19]; //~ shm/history with rolling
-  double (**shearpartner26)[26]; //~ HMD/history
-  double (**shearpartner24)[24]; //~ shm/history with D_spin
-  double (**shearpartner25)[25]; //~ CM/history with D_spin
-  double (**shearpartner46)[46]; //~ HMD/history with D_spin
-
-  //~ ----------------- with energy tracing ----------------------
-  double (**shearpartner7)[7]; //~ hooke/history or hertz/history
-  double (**shearpartner8)[8]; //~ shm/history
-  double (**shearpartner9)[9]; //~ CM/history
-  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner23)[23]; //~ shm/history with rolling
-  double (**shearpartner30)[30]; //~ HMD/history
-  double (**shearpartner28)[28]; //~ shm/history with D_spin
-  double (**shearpartner29)[29]; //~ CM/history with D_spin
-  double (**shearpartner50)[50]; //~ HMD/history with D_spin
-
+  double **shearpartner;
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;
@@ -301,69 +267,7 @@ void Neighbor::skip_from_granular(NeighList *list)
     fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    num_quants = fix_history->num_quants; //~ [KH - 22 May 2017]
-
-    //~ Use a switch-case structure [KH - 22 May 2017]
-    switch (num_quants) {
-    case 4: //~ 4 is the most likely num_quants
-      shearpartner4 = fix_history->shearpartner4;
-      break;
-    case 3: //~ 3 is next most likely
-      shearpartner3 = fix_history->shearpartner3;
-      break;
-    case 5: 
-      shearpartner5 = fix_history->shearpartner5;
-      break;
-    case 18:
-      shearpartner18 = fix_history->shearpartner18;
-      break;
-    case 19:
-      shearpartner19 = fix_history->shearpartner19;
-      break;
-    case 24:
-      shearpartner24 = fix_history->shearpartner24;
-      break;
-    case 25:
-      shearpartner25 = fix_history->shearpartner25;
-      break;
-    case 26:
-      shearpartner26 = fix_history->shearpartner26;
-      break;
-    case 46:
-      shearpartner46 = fix_history->shearpartner46;
-      break;
-    case 8:
-      shearpartner8 = fix_history->shearpartner8;
-      break;
-    case 9:
-      shearpartner9 = fix_history->shearpartner9;
-      break;
-    case 7:
-      shearpartner7 = fix_history->shearpartner7;
-      break;
-    case 22:
-      shearpartner22 = fix_history->shearpartner22;
-      break;
-    case 23:
-      shearpartner23 = fix_history->shearpartner23;
-      break;
-    case 28:
-      shearpartner28 = fix_history->shearpartner28;
-      break;
-    case 29:
-      shearpartner29 = fix_history->shearpartner29;
-      break;
-    case 30:
-      shearpartner30 = fix_history->shearpartner30;
-      break;
-    case 50:
-      shearpartner50 = fix_history->shearpartner50;
-      break;  
-    default:
-      //~ If no cases matched, there is a problem
-      error->all(FLERR,"Incorrect number of shear quantities");
-    }
-    
+    shearpartner = fix_history->shearpartner;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -419,64 +323,7 @@ void Neighbor::skip_from_granular(NeighList *list)
           if (partner[i][m] == jtag) break;
         if (m < npartner[i]) {
           touchptr[n] = 1;
-
-	  //~ Use a switch-case structure [KH - 9 January 2014]
-	  switch (num_quants) {
-	  case 4: //~ 4 is the most likely num_quants
-	    memcpy(&shearptr[nn],shearpartner4[i][m],dnumbytes);
-	    break;
-	  case 3:
-	    memcpy(&shearptr[nn],shearpartner3[i][m],dnumbytes);
-	    break;
-	  case 5:
-	    memcpy(&shearptr[nn],shearpartner5[i][m],dnumbytes);
-	    break;
-	  case 18:
-	    memcpy(&shearptr[nn],shearpartner18[i][m],dnumbytes);
-	    break;
-	  case 19:
-	    memcpy(&shearptr[nn],shearpartner19[i][m],dnumbytes);
-	    break;
-	  case 24:
-	    memcpy(&shearptr[nn],shearpartner24[i][m],dnumbytes);
-	    break;
-	  case 25:
-	    memcpy(&shearptr[nn],shearpartner25[i][m],dnumbytes);
-	    break;
-	  case 26:
-	    memcpy(&shearptr[nn],shearpartner26[i][m],dnumbytes);
-	    break;
-	  case 46:
-	    memcpy(&shearptr[nn],shearpartner46[i][m],dnumbytes);
-	    break;
-	  case 8:
-	    memcpy(&shearptr[nn],shearpartner8[i][m],dnumbytes);
-	    break;
-	  case 9:
-	    memcpy(&shearptr[nn],shearpartner9[i][m],dnumbytes);
-	    break;
-	  case 7:
-	    memcpy(&shearptr[nn],shearpartner7[i][m],dnumbytes);
-	    break;
-	  case 22:
-	    memcpy(&shearptr[nn],shearpartner22[i][m],dnumbytes);
-	    break;
-	  case 23:
-	    memcpy(&shearptr[nn],shearpartner23[i][m],dnumbytes);
-	    break;
-	  case 28:
-	    memcpy(&shearptr[nn],shearpartner28[i][m],dnumbytes);
-	    break;
-	  case 29:
-	    memcpy(&shearptr[nn],shearpartner29[i][m],dnumbytes);
-	    break;
-	  case 30:
-	    memcpy(&shearptr[nn],shearpartner30[i][m],dnumbytes);
-	    break;
-	  case 50:
-	    memcpy(&shearptr[nn],shearpartner50[i][m],dnumbytes);
-	    break;
-	  }
+          memcpy(&shearptr[nn],&shearpartner[i][dnum*m],dnumbytes);
           nn += dnum;
         } else {
           touchptr[n] = 0;
@@ -521,35 +368,9 @@ void Neighbor::skip_from_granular_off2on(NeighList *list)
   double *shearptr,*shearptr_skip;
 
   NeighList *listgranhistory;
-  int num_quants; //~ [KH - 22 May 2017]
   int *npartner;
   tagint **partner;
-
-  /*~ The number of shear quantities is not necessarily 3, but can
-    be several different values as discussed in fix_shear_history.h
-    [KH - 22 May 2017]*/
-  //~ ----------------- without energy tracing ----------------------
-  double (**shearpartner3)[3]; //~ hooke/history or hertz/history
-  double (**shearpartner4)[4]; //~ shm/history
-  double (**shearpartner5)[5]; //~ CM/history
-  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling  
-  double (**shearpartner19)[19]; //~ shm/history with rolling
-  double (**shearpartner26)[26]; //~ HMD/history
-  double (**shearpartner24)[24]; //~ shm/history with D_spin
-  double (**shearpartner25)[25]; //~ CM/history with D_spin
-  double (**shearpartner46)[46]; //~ HMD/history with D_spin
-
-  //~ ----------------- with energy tracing ----------------------
-  double (**shearpartner7)[7]; //~ hooke/history or hertz/history
-  double (**shearpartner8)[8]; //~ shm/history
-  double (**shearpartner9)[9]; //~ CM/history
-  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner23)[23]; //~ shm/history with rolling
-  double (**shearpartner30)[30]; //~ HMD/history
-  double (**shearpartner28)[28]; //~ shm/history with D_spin
-  double (**shearpartner29)[29]; //~ CM/history with D_spin
-  double (**shearpartner50)[50]; //~ HMD/history with D_spin
-  
+  double **shearpartner;
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;
@@ -578,69 +399,7 @@ void Neighbor::skip_from_granular_off2on(NeighList *list)
     fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    num_quants = fix_history->num_quants; //~ [KH - 22 May 2017]
-
-    //~ Use a switch-case structure [KH - 22 May 2017]
-    switch (num_quants) {
-    case 4: //~ 4 is the most likely num_quants
-      shearpartner4 = fix_history->shearpartner4;
-      break;
-    case 3: //~ 3 is next most likely
-      shearpartner3 = fix_history->shearpartner3;
-      break;
-    case 5: 
-      shearpartner5 = fix_history->shearpartner5;
-      break;
-    case 18:
-      shearpartner18 = fix_history->shearpartner18;
-      break;
-    case 19:
-      shearpartner19 = fix_history->shearpartner19;
-      break;
-    case 24:
-      shearpartner24 = fix_history->shearpartner24;
-      break;
-    case 25:
-      shearpartner25 = fix_history->shearpartner25;
-      break;
-    case 26:
-      shearpartner26 = fix_history->shearpartner26;
-      break;
-    case 46:
-      shearpartner46 = fix_history->shearpartner46;
-      break;
-    case 8:
-      shearpartner8 = fix_history->shearpartner8;
-      break;
-    case 9:
-      shearpartner9 = fix_history->shearpartner9;
-      break;
-    case 7:
-      shearpartner7 = fix_history->shearpartner7;
-      break;
-    case 22:
-      shearpartner22 = fix_history->shearpartner22;
-      break;
-    case 23:
-      shearpartner23 = fix_history->shearpartner23;
-      break;
-    case 28:
-      shearpartner28 = fix_history->shearpartner28;
-      break;
-    case 29:
-      shearpartner29 = fix_history->shearpartner29;
-      break;
-    case 30:
-      shearpartner30 = fix_history->shearpartner30;
-      break;
-    case 50:
-      shearpartner50 = fix_history->shearpartner50;
-      break;  
-    default:
-      //~ If no cases matched, there is a problem
-      error->all(FLERR,"Incorrect number of shear quantities");
-    }
-    
+    shearpartner = fix_history->shearpartner;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -702,64 +461,7 @@ void Neighbor::skip_from_granular_off2on(NeighList *list)
           if (partner[i][m] == jtag) break;
         if (m < npartner[i]) {
           touchptr[n] = 1;
-
-	  //~ Use a switch-case structure [KH - 9 January 2014]
-	  switch (num_quants) {
-	  case 4: //~ 4 is the most likely num_quants
-	    memcpy(&shearptr[nn],shearpartner4[i][m],dnumbytes);
-	    break;
-	  case 3:
-	    memcpy(&shearptr[nn],shearpartner3[i][m],dnumbytes);
-	    break;
-	  case 5:
-	    memcpy(&shearptr[nn],shearpartner5[i][m],dnumbytes);
-	    break;
-	  case 18:
-	    memcpy(&shearptr[nn],shearpartner18[i][m],dnumbytes);
-	    break;
-	  case 19:
-	    memcpy(&shearptr[nn],shearpartner19[i][m],dnumbytes);
-	    break;
-	  case 24:
-	    memcpy(&shearptr[nn],shearpartner24[i][m],dnumbytes);
-	    break;
-	  case 25:
-	    memcpy(&shearptr[nn],shearpartner25[i][m],dnumbytes);
-	    break;
-	  case 26:
-	    memcpy(&shearptr[nn],shearpartner26[i][m],dnumbytes);
-	    break;
-	  case 46:
-	    memcpy(&shearptr[nn],shearpartner46[i][m],dnumbytes);
-	    break;
-	  case 8:
-	    memcpy(&shearptr[nn],shearpartner8[i][m],dnumbytes);
-	    break;
-	  case 9:
-	    memcpy(&shearptr[nn],shearpartner9[i][m],dnumbytes);
-	    break;
-	  case 7:
-	    memcpy(&shearptr[nn],shearpartner7[i][m],dnumbytes);
-	    break;
-	  case 22:
-	    memcpy(&shearptr[nn],shearpartner22[i][m],dnumbytes);
-	    break;
-	  case 23:
-	    memcpy(&shearptr[nn],shearpartner23[i][m],dnumbytes);
-	    break;
-	  case 28:
-	    memcpy(&shearptr[nn],shearpartner28[i][m],dnumbytes);
-	    break;
-	  case 29:
-	    memcpy(&shearptr[nn],shearpartner29[i][m],dnumbytes);
-	    break;
-	  case 30:
-	    memcpy(&shearptr[nn],shearpartner30[i][m],dnumbytes);
-	    break;
-	  case 50:
-	    memcpy(&shearptr[nn],shearpartner50[i][m],dnumbytes);
-	    break;
-	  }
+          memcpy(&shearptr[nn],&shearpartner[i][dnum*m],dnumbytes);
           nn += dnum;
         } else {
           touchptr[n] = 0;
@@ -804,35 +506,9 @@ void Neighbor::skip_from_granular_off2on_onesided(NeighList *list)
   int *surf,*neighptr,*jlist;
 
   NeighList *listgranhistory;
-  int num_quants; //~ [KH - 22 May 2017]
   int *npartner;
   tagint **partner;
-  
-  /*~ The number of shear quantities is not necessarily 3, but can
-    be several different values as discussed in fix_shear_history.h
-    [KH - 22 May 2017]*/
-  //~ ----------------- without energy tracing ----------------------
-  double (**shearpartner3)[3]; //~ hooke/history or hertz/history
-  double (**shearpartner4)[4]; //~ shm/history
-  double (**shearpartner5)[5]; //~ CM/history
-  double (**shearpartner18)[18]; //~ hooke/history or hertz/history with rolling  
-  double (**shearpartner19)[19]; //~ shm/history with rolling
-  double (**shearpartner26)[26]; //~ HMD/history
-  double (**shearpartner24)[24]; //~ shm/history with D_spin
-  double (**shearpartner25)[25]; //~ CM/history with D_spin
-  double (**shearpartner46)[46]; //~ HMD/history with D_spin
-
-  //~ ----------------- with energy tracing ----------------------
-  double (**shearpartner7)[7]; //~ hooke/history or hertz/history
-  double (**shearpartner8)[8]; //~ shm/history
-  double (**shearpartner9)[9]; //~ CM/history
-  double (**shearpartner22)[22]; //~ hooke/history or hertz/history with rolling
-  double (**shearpartner23)[23]; //~ shm/history with rolling
-  double (**shearpartner30)[30]; //~ HMD/history
-  double (**shearpartner28)[28]; //~ shm/history with D_spin
-  double (**shearpartner29)[29]; //~ CM/history with D_spin
-  double (**shearpartner50)[50]; //~ HMD/history with D_spin
-  
+  double **shearpartner;
   int **firsttouch;
   double **firstshear;
   MyPage<int> *ipage_touch;
@@ -864,68 +540,7 @@ void Neighbor::skip_from_granular_off2on_onesided(NeighList *list)
     fix_history->nall_neigh = nlocal + atom->nghost;
     npartner = fix_history->npartner;
     partner = fix_history->partner;
-    num_quants = fix_history->num_quants; //~ [KH - 22 May 2017]
-
-    //~ Use a switch-case structure [KH - 22 May 2017]
-    switch (num_quants) {
-    case 4: //~ 4 is the most likely num_quants
-      shearpartner4 = fix_history->shearpartner4;
-      break;
-    case 3: //~ 3 is next most likely
-      shearpartner3 = fix_history->shearpartner3;
-      break;
-    case 5: 
-      shearpartner5 = fix_history->shearpartner5;
-      break;
-    case 18:
-      shearpartner18 = fix_history->shearpartner18;
-      break;
-    case 19:
-      shearpartner19 = fix_history->shearpartner19;
-      break;
-    case 24:
-      shearpartner24 = fix_history->shearpartner24;
-      break;
-    case 25:
-      shearpartner25 = fix_history->shearpartner25;
-      break;
-    case 26:
-      shearpartner26 = fix_history->shearpartner26;
-      break;
-    case 46:
-      shearpartner46 = fix_history->shearpartner46;
-      break;
-    case 8:
-      shearpartner8 = fix_history->shearpartner8;
-      break;
-    case 9:
-      shearpartner9 = fix_history->shearpartner9;
-      break;
-    case 7:
-      shearpartner7 = fix_history->shearpartner7;
-      break;
-    case 22:
-      shearpartner22 = fix_history->shearpartner22;
-      break;
-    case 23:
-      shearpartner23 = fix_history->shearpartner23;
-      break;
-    case 28:
-      shearpartner28 = fix_history->shearpartner28;
-      break;
-    case 29:
-      shearpartner29 = fix_history->shearpartner29;
-      break;
-    case 30:
-      shearpartner30 = fix_history->shearpartner30;
-      break;
-    case 50:
-      shearpartner50 = fix_history->shearpartner50;
-      break;  
-    default:
-      //~ If no cases matched, there is a problem
-      error->all(FLERR,"Incorrect number of shear quantities");
-    }
+    shearpartner = fix_history->shearpartner;
     listgranhistory = list->listgranhistory;
     firsttouch = listgranhistory->firstneigh;
     firstshear = listgranhistory->firstdouble;
@@ -1050,64 +665,7 @@ void Neighbor::skip_from_granular_off2on_onesided(NeighList *list)
           if (partner[i][m] == jtag) break;
         if (m < npartner[i]) {
           firsttouch[i][n] = 1;
-	  
-	  //~ Use a switch-case structure [KH - 9 January 2014]
-	  switch (num_quants) {
-	  case 4: //~ 4 is the most likely num_quants
-	    memcpy(&firstshear[i][nn],shearpartner4[i][m],dnumbytes);
-	    break;
-	  case 3:
-	    memcpy(&firstshear[i][nn],shearpartner3[i][m],dnumbytes);
-	    break;
-	  case 5:
-	    memcpy(&firstshear[i][nn],shearpartner5[i][m],dnumbytes);
-	    break;
-	  case 18:
-	    memcpy(&firstshear[i][nn],shearpartner18[i][m],dnumbytes);
-	    break;
-	  case 19:
-	    memcpy(&firstshear[i][nn],shearpartner19[i][m],dnumbytes);
-	    break;
-	  case 24:
-	    memcpy(&firstshear[i][nn],shearpartner24[i][m],dnumbytes);
-	    break;
-	  case 25:
-	    memcpy(&firstshear[i][nn],shearpartner25[i][m],dnumbytes);
-	    break;
-	  case 26:
-	    memcpy(&firstshear[i][nn],shearpartner26[i][m],dnumbytes);
-	    break;
-	  case 46:
-	    memcpy(&firstshear[i][nn],shearpartner46[i][m],dnumbytes);
-	    break;
-	  case 8:
-	    memcpy(&firstshear[i][nn],shearpartner8[i][m],dnumbytes);
-	    break;
-	  case 9:
-	    memcpy(&firstshear[i][nn],shearpartner9[i][m],dnumbytes);
-	    break;
-	  case 7:
-	    memcpy(&firstshear[i][nn],shearpartner7[i][m],dnumbytes);
-	    break;
-	  case 22:
-	    memcpy(&firstshear[i][nn],shearpartner22[i][m],dnumbytes);
-	    break;
-	  case 23:
-	    memcpy(&firstshear[i][nn],shearpartner23[i][m],dnumbytes);
-	    break;
-	  case 28:
-	    memcpy(&firstshear[i][nn],shearpartner28[i][m],dnumbytes);
-	    break;
-	  case 29:
-	    memcpy(&firstshear[i][nn],shearpartner29[i][m],dnumbytes);
-	    break;
-	  case 30:
-	    memcpy(&firstshear[i][nn],shearpartner30[i][m],dnumbytes);
-	    break;
-	  case 50:
-	    memcpy(&firstshear[i][nn],shearpartner50[i][m],dnumbytes);
-	    break;
-	  }
+          memcpy(&firstshear[i][nn],&shearpartner[i][dnum*m],dnumbytes);
         } else {
           firsttouch[i][n] = 0;
           memcpy(&firstshear[i][nn],zeroes,dnumbytes);
