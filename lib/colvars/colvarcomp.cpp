@@ -1,5 +1,12 @@
 // -*- c++ -*-
 
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 #include "colvarmodule.h"
 #include "colvarvalue.h"
 #include "colvar.h"
@@ -41,8 +48,6 @@ colvar::cvc::cvc(std::string const &conf)
   get_keyval(conf, "period", period, 0.0);
   get_keyval(conf, "wrapAround", wrap_center, 0.0);
 
-  // All cvcs implement this
-  provide(f_cvc_debug_gradient);
   get_keyval_feature((colvarparse *)this, conf, "debugGradients",
                      f_cvc_debug_gradient, false, parse_silent);
 
@@ -56,6 +61,8 @@ colvar::cvc::cvc(std::string const &conf)
 
 int colvar::cvc::init_total_force_params(std::string const &conf)
 {
+  if (cvm::get_error()) return COLVARS_ERROR;
+
   if (get_keyval_feature(this, conf, "oneSiteSystemForce",
                          f_cvc_one_site_total_force, is_enabled(f_cvc_one_site_total_force))) {
     cvm::log("Warning: keyword \"oneSiteSystemForce\" is deprecated: "
@@ -65,6 +72,19 @@ int colvar::cvc::init_total_force_params(std::string const &conf)
                          f_cvc_one_site_total_force, is_enabled(f_cvc_one_site_total_force))) {
     cvm::log("Computing total force on group 1 only");
   }
+
+  if (! is_enabled(f_cvc_one_site_total_force)) {
+    // check whether any of the other atom groups is dummy
+    std::vector<cvm::atom_group *>::iterator agi = atom_groups.begin();
+    agi++;
+    for ( ; agi != atom_groups.end(); agi++) {
+      if ((*agi)->b_dummy) {
+        provide(f_cvc_inv_gradient, false);
+        provide(f_cvc_Jacobian, false);
+      }
+    }
+  }
+
   return COLVARS_OK;
 }
 
@@ -80,8 +100,7 @@ cvm::atom_group *colvar::cvc::parse_group(std::string const &conf,
     group->key = group_key;
 
     if (b_try_scalable) {
-      // TODO rewrite this logic in terms of dependencies
-      if (is_available(f_cvc_scalable_com) && is_available(f_cvc_com_based)) {
+      if (is_available(f_cvc_scalable_com) && is_enabled(f_cvc_com_based)) {
         enable(f_cvc_scalable_com);
         enable(f_cvc_scalable);
         // The CVC makes the feature available;
@@ -154,15 +173,17 @@ void colvar::cvc::read_data()
 
 void colvar::cvc::calc_force_invgrads()
 {
-  cvm::fatal_error("Error: calculation of inverse gradients is not implemented "
-                    "for colvar components of type \""+function_type+"\".\n");
+  cvm::error("Error: calculation of inverse gradients is not implemented "
+             "for colvar components of type \""+function_type+"\".\n",
+             COLVARS_NOT_IMPLEMENTED);
 }
 
 
 void colvar::cvc::calc_Jacobian_derivative()
 {
-  cvm::fatal_error("Error: calculation of inverse gradients is not implemented "
-                    "for colvar components of type \""+function_type+"\".\n");
+  cvm::error("Error: calculation of inverse gradients is not implemented "
+             "for colvar components of type \""+function_type+"\".\n",
+             COLVARS_NOT_IMPLEMENTED);
 }
 
 
@@ -277,6 +298,33 @@ void colvar::cvc::debug_gradients(cvm::atom_group *group)
         "  Fit gradient sum: " + cvm::to_str(fit_gradient_sum) +
         "  Total " + cvm::to_str(gradient_sum + fit_gradient_sum));
 
+  return;
+}
+
+
+cvm::real colvar::cvc::dist2(colvarvalue const &x1,
+                             colvarvalue const &x2) const
+{
+  return x1.dist2(x2);
+}
+
+
+colvarvalue colvar::cvc::dist2_lgrad(colvarvalue const &x1,
+                                     colvarvalue const &x2) const
+{
+  return x1.dist2_grad(x2);
+}
+
+
+colvarvalue colvar::cvc::dist2_rgrad(colvarvalue const &x1,
+                                     colvarvalue const &x2) const
+{
+  return x2.dist2_grad(x1);
+}
+
+
+void colvar::cvc::wrap(colvarvalue &x) const
+{
   return;
 }
 

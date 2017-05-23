@@ -260,8 +260,6 @@ void PPPM::init()
     double theta = force->angle->equilibrium_angle(typeA);
     double blen = force->bond->equilibrium_distance(typeB);
     alpha = qdist / (cos(0.5*theta) * blen);
-    if (domain->triclinic)
-      error->all(FLERR,"Cannot (yet) use PPPM with triclinic box and TIP4P");
   }
 
   // compute qsum & qsqsum and warn if not charge-neutral
@@ -3087,7 +3085,7 @@ double PPPM::memory_usage()
     bytes += 2 * nfft_both * sizeof(FFT_SCALAR);;
   }
 
-  bytes += cg->memory_usage();
+  if (cg) bytes += cg->memory_usage();
 
   return bytes;
 }

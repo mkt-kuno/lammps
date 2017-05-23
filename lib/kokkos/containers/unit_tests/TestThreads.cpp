@@ -45,7 +45,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#if defined( KOKKOS_HAVE_PTHREAD )
+#if defined( KOKKOS_ENABLE_PTHREAD )
 
 #include <Kokkos_Bitset.hpp>
 #include <Kokkos_UnorderedMap.hpp>
@@ -62,10 +62,12 @@
 #include <TestVector.hpp>
 #include <TestDualView.hpp>
 #include <TestDynamicView.hpp>
-#include <TestSegmentedView.hpp>
 
 #include <Kokkos_DynRankView.hpp>
 #include <TestDynViewAPI.hpp>
+
+#include <Kokkos_ErrorReporter.hpp>
+#include <TestErrorReporter.hpp>
 
 namespace Test {
 
@@ -104,6 +106,18 @@ TEST_F( threads , staticcrsgraph )
 {
   TestStaticCrsGraph::run_test_graph< Kokkos::Threads >();
   TestStaticCrsGraph::run_test_graph2< Kokkos::Threads >();
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(1, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(1, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(1, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(1, 100000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(3, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(3, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(3, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(3, 100000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(75, 0);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(75, 1000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(75, 10000);
+  TestStaticCrsGraph::run_test_graph3< Kokkos::Threads >(75, 100000);
 }
 
 /*TEST_F( threads, bitset )
@@ -145,12 +159,6 @@ TEST_F( threads , staticcrsgraph )
       test_dualview_combinations<int,Kokkos::Threads>(size);                     \
   }
 
-#define THREADS_SEGMENTEDVIEW_TEST( size )                             \
-  TEST_F( threads, segmentedview_##size##x) {       \
-      test_segmented_view<double,Kokkos::Threads>(size);                     \
-  }
-
-
 THREADS_INSERT_TEST(far, 100000, 90000, 100, 500, false)
 THREADS_FAILED_INSERT_TEST( 10000, 1000 )
 THREADS_DEEP_COPY( 10000, 1 )
@@ -158,7 +166,6 @@ THREADS_DEEP_COPY( 10000, 1 )
 THREADS_VECTOR_COMBINE_TEST( 10 )
 THREADS_VECTOR_COMBINE_TEST( 3057 )
 THREADS_DUALVIEW_COMBINE_TEST( 10 )
-THREADS_SEGMENTEDVIEW_TEST( 10000 )
 
 
 #undef THREADS_INSERT_TEST
@@ -167,8 +174,6 @@ THREADS_SEGMENTEDVIEW_TEST( 10000 )
 #undef THREADS_DEEP_COPY
 #undef THREADS_VECTOR_COMBINE_TEST
 #undef THREADS_DUALVIEW_COMBINE_TEST
-#undef THREADS_SEGMENTEDVIEW_TEST
-
 
 
 TEST_F( threads , dynamic_view )
@@ -181,8 +186,21 @@ TEST_F( threads , dynamic_view )
   }
 }
 
+
+#if defined(KOKKOS_CLASS_LAMBDA)
+TEST_F(threads, ErrorReporterViaLambda)
+{
+  TestErrorReporter<ErrorReporterDriverUseLambda<Kokkos::Threads>>();
+}
+#endif
+
+TEST_F(threads, ErrorReporter)
+{
+  TestErrorReporter<ErrorReporterDriver<Kokkos::Threads>>();
+}
+
 } // namespace Test
 
 
-#endif /* #if defined( KOKKOS_HAVE_PTHREAD ) */
+#endif /* #if defined( KOKKOS_ENABLE_PTHREAD ) */
 

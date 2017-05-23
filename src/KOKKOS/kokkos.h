@@ -23,6 +23,8 @@ class KokkosLMP : protected Pointers {
  public:
   int kokkos_exists;
   int neighflag;
+  int neighflag_qeq;
+  int neighflag_qeq_set;
   int exchange_comm_classic;
   int forward_comm_classic;
   int exchange_comm_on_host;
@@ -34,7 +36,6 @@ class KokkosLMP : protected Pointers {
   KokkosLMP(class LAMMPS *, int, char **);
   ~KokkosLMP();
   void accelerator(int, char **);
-  int neigh_list_kokkos(int);
   int neigh_count(int);
  private:
   static void my_signal_handler(int);

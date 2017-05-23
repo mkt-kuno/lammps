@@ -1,5 +1,12 @@
 // -*- c++ -*-
 
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 #ifndef COLVARPARSE_H
 #define COLVARPARSE_H
 
@@ -297,8 +304,7 @@ public:
   /// \brief Works as std::getline() but also removes everything
   /// between a comment character and the following newline
   static std::istream & getline_nocomments(std::istream &is,
-                                           std::string &s,
-                                           char const delim = '\n');
+                                           std::string &s);
 
   /// Check if the content of the file has matching braces
   bool brace_check(std::string const &conf,

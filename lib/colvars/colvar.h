@@ -1,5 +1,12 @@
 // -*- c++ -*-
 
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
+
 #ifndef COLVAR_H
 #define COLVAR_H
 
@@ -170,6 +177,9 @@ public:
   /// the biases are updated
   colvarvalue fb;
 
+  /// \brief Bias force to the actual value (only useful with extended Lagrangian)
+  colvarvalue fb_actual;
+
   /// \brief Total \em applied force; fr (if extended_lagrangian
   /// is defined), fb (if biases are applied) and the walls' forces
   /// (if defined) contribute to it
@@ -183,12 +193,8 @@ public:
   colvarvalue ft;
 
 
-  /// Period, if it is a constant
+  /// Period, if this variable is periodic
   cvm::real period;
-
-  /// \brief Same as above, but also takes into account components
-  /// with a variable period, such as distanceZ
-  bool b_periodic;
 
 
   /// \brief Expand the boundaries of multiples of width, to keep the
@@ -221,10 +227,22 @@ public:
 
 
   /// Constructor
-  colvar(std::string const &conf);
+  colvar();
+
+  /// Main init function
+  int init(std::string const &conf);
 
   /// Parse the CVC configuration and allocate their data
   int init_components(std::string const &conf);
+
+  /// Init defaults for grid options
+  int init_grid_parameters(std::string const &conf);
+
+  /// Init extended Lagrangian parameters
+  int init_extended_Lagrangian(std::string const &conf);
+
+  /// Init output flags
+  int init_output_flags(std::string const &conf);
 
 private:
   /// Parse the CVC configuration for all components of a certain type
@@ -289,6 +307,9 @@ public:
 
   /// Add to the total force from biases
   void add_bias_force(colvarvalue const &force);
+
+  /// Apply a force to the actual value (only meaningful with extended Lagrangian)
+  void add_bias_force_actual_value(colvarvalue const &force);
 
   /// \brief Collect all forces on this colvar, integrate internal
   /// equations of motion of internal degrees of freedom; see also
@@ -385,6 +406,12 @@ public:
 protected:
   /// Previous value (to calculate velocities during analysis)
   colvarvalue            x_old;
+
+  /// Value read from the most recent state file (if any)
+  colvarvalue            x_restart;
+
+  /// True if a state file was just read
+  bool                   after_restart;
 
   /// Time series of values and velocities used in correlation
   /// functions
@@ -577,9 +604,20 @@ inline void colvar::add_bias_force(colvarvalue const &force)
 }
 
 
+inline void colvar::add_bias_force_actual_value(colvarvalue const &force)
+{
+  if (cvm::debug()) {
+    cvm::log("Adding biasing force "+cvm::to_str(force)+" to colvar \""+name+"\".\n");
+  }
+  fb_actual += force;
+}
+
+
 inline void colvar::reset_bias_force() {
   fb.type(value());
   fb.reset();
+  fb_actual.type(value());
+  fb_actual.reset();
 }
 
 #endif

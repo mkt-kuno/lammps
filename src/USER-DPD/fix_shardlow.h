@@ -26,14 +26,17 @@ namespace LAMMPS_NS {
 
 class FixShardlow : public Fix {
  public:
+  class NeighList *list; // The SSA specific neighbor list
+
   FixShardlow(class LAMMPS *, int, char **);
   ~FixShardlow();
   int setmask();
+  virtual void init();
+  virtual void init_list(int, class NeighList *);
   virtual void setup(int);
   virtual void initial_integrate(int);
   void setup_pre_exchange();
   void pre_exchange();
-  void min_setup_pre_exchange();
   void min_pre_exchange();
 
   void grow_arrays(int);
@@ -61,8 +64,8 @@ class FixShardlow : public Fix {
   double dtsqrt; // = sqrt(update->dt);
 
   int coord2ssaAIR(double *);  // map atom coord to an AIR number
-  void ssa_update(int, int *, int, class RanMars *);
-
+  void ssa_update_dpd(int, int *, int);  // Constant Temperature
+  void ssa_update_dpde(int, int *, int); // Constant Energy
 
 };
 

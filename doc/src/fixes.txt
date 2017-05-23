@@ -42,6 +42,7 @@ Fixes :h1
    fix_eos_table_rx
    fix_evaporate
    fix_external
+   fix_filter_corotate
    fix_flow_gauss
    fix_freeze
    fix_gcmc
@@ -68,6 +69,7 @@ Fixes :h1
    fix_meso_stationary
    fix_momentum
    fix_move
+   fix_mscg
    fix_msst
    fix_neb
    fix_nh
@@ -83,6 +85,8 @@ Fixes :h1
    fix_nve_asphere
    fix_nve_asphere_noforce
    fix_nve_body
+   fix_nve_dot
+   fix_nve_dotc_langevin
    fix_nve_eff
    fix_nve_limit
    fix_nve_line
@@ -90,6 +94,7 @@ Fixes :h1
    fix_nve_noforce
    fix_nve_sphere
    fix_nve_tri
+   fix_nvk
    fix_nvt_asphere
    fix_nvt_body
    fix_nvt_manifold_rattle

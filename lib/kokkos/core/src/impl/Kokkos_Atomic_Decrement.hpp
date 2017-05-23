@@ -41,8 +41,10 @@
 //@HEADER
 */
 
-#if defined( KOKKOS_ATOMIC_HPP) && ! defined( KOKKOS_ATOMIC_DECREMENT )
-#define KOKKOS_ATOMIC_DECREMENT
+#if defined( KOKKOS_ATOMIC_HPP) && ! defined( KOKKOS_ATOMIC_DECREMENT_HPP )
+#define KOKKOS_ATOMIC_DECREMENT_HPP
+
+#include "impl/Kokkos_Atomic_Fetch_Sub.hpp"
 
 namespace Kokkos {
 
@@ -50,7 +52,7 @@ namespace Kokkos {
 template<>
 KOKKOS_INLINE_FUNCTION
 void atomic_decrement<char>(volatile char* a) {
-#if defined( KOKKOS_ENABLE_ASM ) && defined( KOKKOS_USE_ISA_X86_64 ) && ! defined(_WIN32) && ! defined(__CUDA_ARCH__)
+#if defined( KOKKOS_ENABLE_ASM ) && defined( KOKKOS_ENABLE_ISA_X86_64 ) && ! defined(_WIN32) && ! defined(__CUDA_ARCH__)
   __asm__ __volatile__(
       "lock decb %0"
       : /* no output registers */
@@ -58,14 +60,14 @@ void atomic_decrement<char>(volatile char* a) {
       : "memory"
     );
 #else
-  Kokkos::atomic_fetch_add(a,-1);
+  Kokkos::atomic_fetch_sub(a, 1);
 #endif
 }
 
 template<>
 KOKKOS_INLINE_FUNCTION
 void atomic_decrement<short>(volatile short* a) {
-#if defined( KOKKOS_ENABLE_ASM ) && defined( KOKKOS_USE_ISA_X86_64 ) && ! defined(_WIN32) && ! defined(__CUDA_ARCH__)
+#if defined( KOKKOS_ENABLE_ASM ) && defined( KOKKOS_ENABLE_ISA_X86_64 ) && ! defined(_WIN32) && ! defined(__CUDA_ARCH__)
   __asm__ __volatile__(
       "lock decw %0"
       : /* no output registers */
@@ -73,14 +75,14 @@ void atomic_decrement<short>(volatile short* a) {
       : "memory"
     );
 #else
-  Kokkos::atomic_fetch_add(a,-1);
+  Kokkos::atomic_fetch_sub(a, 1);
 #endif
 }
 
 template<>
 KOKKOS_INLINE_FUNCTION
 void atomic_decrement<int>(volatile int* a) {
-#if defined( KOKKOS_ENABLE_ASM ) && defined( KOKKOS_USE_ISA_X86_64 ) && ! defined(_WIN32) && ! defined(__CUDA_ARCH__)
+#if defined( KOKKOS_ENABLE_ASM ) && defined( KOKKOS_ENABLE_ISA_X86_64 ) && ! defined(_WIN32) && ! defined(__CUDA_ARCH__)
   __asm__ __volatile__(
       "lock decl %0"
       : /* no output registers */
@@ -88,14 +90,14 @@ void atomic_decrement<int>(volatile int* a) {
       : "memory"
     );
 #else
-  Kokkos::atomic_fetch_add(a,-1);
+  Kokkos::atomic_fetch_sub(a, 1);
 #endif
 }
 
 template<>
 KOKKOS_INLINE_FUNCTION
 void atomic_decrement<long long int>(volatile long long int* a) {
-#if defined( KOKKOS_ENABLE_ASM ) && defined( KOKKOS_USE_ISA_X86_64 ) && ! defined(_WIN32) && ! defined(__CUDA_ARCH__)
+#if defined( KOKKOS_ENABLE_ASM ) && defined( KOKKOS_ENABLE_ISA_X86_64 ) && ! defined(_WIN32) && ! defined(__CUDA_ARCH__)
   __asm__ __volatile__(
       "lock decq %0"
       : /* no output registers */
@@ -103,14 +105,14 @@ void atomic_decrement<long long int>(volatile long long int* a) {
       : "memory"
     );
 #else
-  Kokkos::atomic_fetch_add(a,-1);
+  Kokkos::atomic_fetch_sub(a, 1);
 #endif
 }
 
 template<typename T>
 KOKKOS_INLINE_FUNCTION
 void atomic_decrement(volatile T* a) {
-  Kokkos::atomic_fetch_add(a,-1);
+  Kokkos::atomic_fetch_sub(a, 1);
 }
 
 } // End of namespace Kokkos

@@ -46,6 +46,7 @@ PairDPDfdtEnergy::PairDPDfdtEnergy(LAMMPS *lmp) : Pair(lmp)
   duCond = NULL;
   duMech = NULL;
   splitFDT_flag = false;
+  a0_is_zero = false;
 
   comm_reverse = 2;
 }
@@ -110,7 +111,7 @@ void PairDPDfdtEnergy::compute(int eflag, int vflag)
   // loop over neighbors of my atoms
 
   if (splitFDT_flag) {
-    for (ii = 0; ii < inum; ii++) {
+    if (!a0_is_zero) for (ii = 0; ii < inum; ii++) {
       i = ilist[ii];
       xtmp = x[i][0];
       ytmp = x[i][1];
@@ -206,7 +207,7 @@ void PairDPDfdtEnergy::compute(int eflag, int vflag)
           if (r < EPSILON) continue;     // r can be 0.0 in DPD systems
           rinv = 1.0/r;
           wr = 1.0 - r/cut[itype][jtype];
-	  wd = wr*wr;
+          wd = wr*wr;
 
           delvx = vxtmp - v[j][0];
           delvy = vytmp - v[j][1];
@@ -214,11 +215,11 @@ void PairDPDfdtEnergy::compute(int eflag, int vflag)
           dot = delx*delvx + dely*delvy + delz*delvz;
           randnum = random->gaussian();
 
-	  // Compute the current temperature
-	  theta_ij = 0.5*(1.0/dpdTheta[i] + 1.0/dpdTheta[j]);
-	  theta_ij = 1.0/theta_ij;
-	
-	  gamma_ij = sigma[itype][jtype]*sigma[itype][jtype]
+          // Compute the current temperature
+          theta_ij = 0.5*(1.0/dpdTheta[i] + 1.0/dpdTheta[j]);
+          theta_ij = 1.0/theta_ij;
+
+          gamma_ij = sigma[itype][jtype]*sigma[itype][jtype]
                      / (2.0*force->boltz*theta_ij);
 
           // conservative force = a0 * wr
@@ -239,44 +240,44 @@ void PairDPDfdtEnergy::compute(int eflag, int vflag)
             f[j][2] -= delz*fpair;
           }
 
-	  if (rmass) {
-	    mass_i = rmass[i];
-	    mass_j = rmass[j];
-	  } else {
-	    mass_i = mass[itype];
-	    mass_j = mass[jtype];
-	  }
-	  massinv_i = 1.0 / mass_i;
-	  massinv_j = 1.0 / mass_j;
+          if (rmass) {
+            mass_i = rmass[i];
+            mass_j = rmass[j];
+          } else {
+            mass_i = mass[itype];
+            mass_j = mass[jtype];
+          }
+          massinv_i = 1.0 / mass_i;
+          massinv_j = 1.0 / mass_j;
 
-	  // Compute the mechanical and conductive energy, uMech and uCond
-	  mu_ij = massinv_i + massinv_j;
-	  mu_ij *= force->ftm2v;
+          // Compute the mechanical and conductive energy, uMech and uCond
+          mu_ij = massinv_i + massinv_j;
+          mu_ij *= force->ftm2v;
 
-	  uTmp = gamma_ij*wd*rinv*rinv*dot*dot
+          uTmp = gamma_ij*wd*rinv*rinv*dot*dot
                  - 0.5*sigma[itype][jtype]*sigma[itype][jtype]*mu_ij*wd;
-	  uTmp -= sigma[itype][jtype]*wr*rinv*dot*randnum*dtinvsqrt;
-	  uTmp *= 0.5;
+          uTmp -= sigma[itype][jtype]*wr*rinv*dot*randnum*dtinvsqrt;
+          uTmp *= 0.5;
 
-	  duMech[i] += uTmp;
-	  if (newton_pair || j < nlocal) {
-	    duMech[j] += uTmp;
-	  }
-	
-	  // Compute uCond
-	  randnum = random->gaussian();
-	  kappa_ij = kappa[itype][jtype];
-	  alpha_ij = sqrt(2.0*force->boltz*kappa_ij);
-	  randPair = alpha_ij*wr*randnum*dtinvsqrt;
+          duMech[i] += uTmp;
+          if (newton_pair || j < nlocal) {
+            duMech[j] += uTmp;
+          }
 
-	  uTmp = kappa_ij*(1.0/dpdTheta[i] - 1.0/dpdTheta[j])*wd;
-	  uTmp += randPair;
-	
-	  duCond[i] += uTmp;
-	  if (newton_pair || j < nlocal) {
-	    duCond[j] -= uTmp;
-	  }
-	
+          // Compute uCond
+          randnum = random->gaussian();
+          kappa_ij = kappa[itype][jtype];
+          alpha_ij = sqrt(2.0*force->boltz*kappa_ij);
+          randPair = alpha_ij*wr*randnum*dtinvsqrt;
+
+          uTmp = kappa_ij*(1.0/dpdTheta[i] - 1.0/dpdTheta[j])*wd;
+          uTmp += randPair;
+
+          duCond[i] += uTmp;
+          if (newton_pair || j < nlocal) {
+            duCond[j] -= uTmp;
+          }
+
           if (eflag) {
             // unshifted eng of conservative term:
             // evdwl = -a0[itype][jtype]*r * (1.0-0.5*r/cut[itype][jtype]);
@@ -373,6 +374,8 @@ void PairDPDfdtEnergy::coeff(int narg, char **arg)
   double cut_one = cut_global;
   double kappa_one;
 
+  a0_is_zero = (a0_one == 0.0); // Typical use with SSA is to set a0 to zero
+
   kappa_one = force->numeric(FLERR,arg[4]);
   if (narg == 6) cut_one = force->numeric(FLERR,arg[5]);
 
@@ -408,11 +411,9 @@ void PairDPDfdtEnergy::init_style()
 
   splitFDT_flag = false;
   int irequest = neighbor->request(this,instance_me);
-  neighbor->requests[irequest]->ssa = 0;
   for (int i = 0; i < modify->nfix; i++)
     if (strcmp(modify->fix[i]->style,"shardlow") == 0){
       splitFDT_flag = true;
-      neighbor->requests[irequest]->ssa = 1;
     }
 
   bool eos_flag = false;
@@ -468,6 +469,7 @@ void PairDPDfdtEnergy::read_restart(FILE *fp)
 
   allocate();
 
+  a0_is_zero = true; // start with assumption that a0 is zero
   int i,j;
   int me = comm->me;
   for (i = 1; i <= atom->ntypes; i++)
@@ -485,6 +487,7 @@ void PairDPDfdtEnergy::read_restart(FILE *fp)
         MPI_Bcast(&sigma[i][j],1,MPI_DOUBLE,0,world);
         MPI_Bcast(&kappa[i][j],1,MPI_DOUBLE,0,world);
         MPI_Bcast(&cut[i][j],1,MPI_DOUBLE,0,world);
+        a0_is_zero = a0_is_zero && (a0[i][j] == 0.0); // verify the zero assumption
       }
     }
 }

@@ -1,3 +1,11 @@
+// -*- c++ -*-
+
+// This file is part of the Collective Variables module (Colvars).
+// The original version of Colvars and its updates are located at:
+// https://github.com/colvars/colvars
+// Please update all Colvars source files before making any changes.
+// If you wish to distribute your changes, please submit them to the
+// Colvars repository at GitHub.
 
 
 #include <sstream>
@@ -495,7 +503,7 @@ int colvarparse::check_keywords(std::string &conf, char const *key)
 
   std::string line;
   std::istringstream is(conf);
-  while (std::getline(is, line)) {
+  while (cvm::getline(is, line)) {
     if (line.size() == 0)
       continue;
     if (line.find_first_not_of(white_space) ==
@@ -531,10 +539,9 @@ int colvarparse::check_keywords(std::string &conf, char const *key)
 
 
 std::istream & colvarparse::getline_nocomments(std::istream &is,
-                                               std::string &line,
-                                               char const delim)
+                                               std::string &line)
 {
-  std::getline(is, line, delim);
+  cvm::getline(is, line);
   size_t const comment = line.find('#');
   if (comment != std::string::npos) {
     line.erase(comment);

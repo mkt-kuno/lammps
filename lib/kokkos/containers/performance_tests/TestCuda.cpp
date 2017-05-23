@@ -52,7 +52,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#if defined( KOKKOS_HAVE_CUDA )
+#if defined( KOKKOS_ENABLE_CUDA )
 
 #include <TestDynRankView.hpp>
 
@@ -83,7 +83,7 @@ TEST_F( cuda, dynrankview_perf )
 {
   std::cout << "Cuda" << std::endl;
   std::cout << " DynRankView vs View: Initialization Only " << std::endl;
-  test_dynrankview_op_perf<Kokkos::Cuda>( 4096 );
+  test_dynrankview_op_perf<Kokkos::Cuda>( 40960 );
 }
 
 TEST_F( cuda, global_2_local)
@@ -106,4 +106,4 @@ TEST_F( cuda, unordered_map_performance_far)
 
 }
 
-#endif  /* #if defined( KOKKOS_HAVE_CUDA ) */
+#endif  /* #if defined( KOKKOS_ENABLE_CUDA ) */

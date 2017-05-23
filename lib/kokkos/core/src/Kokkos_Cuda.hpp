@@ -48,7 +48,7 @@
 
 // If CUDA execution space is enabled then use this header file.
 
-#if defined( KOKKOS_HAVE_CUDA )
+#if defined( KOKKOS_ENABLE_CUDA )
 
 #include <iosfwd>
 #include <vector>
@@ -56,13 +56,12 @@
 #include <Kokkos_CudaSpace.hpp>
 
 #include <Kokkos_Parallel.hpp>
-#include <Kokkos_TaskPolicy.hpp>
+#include <Kokkos_TaskScheduler.hpp>
 #include <Kokkos_Layout.hpp>
 #include <Kokkos_ScratchSpace.hpp>
 #include <Kokkos_MemoryTraits.hpp>
 #include <impl/Kokkos_Tags.hpp>
 
-#include <KokkosExp_MDRangePolicy.hpp>
 
 /*--------------------------------------------------------------------------*/
 
@@ -94,7 +93,7 @@ public:
   //! Tag this class as a kokkos execution space
   typedef Cuda                  execution_space ;
 
-#if defined( KOKKOS_USE_CUDA_UVM )
+#if defined( KOKKOS_ENABLE_CUDA_UVM )
   //! This execution space's preferred memory space.
   typedef CudaUVMSpace          memory_space ;
 #else
@@ -230,6 +229,39 @@ namespace Kokkos {
 namespace Impl {
 
 template<>
+struct MemorySpaceAccess
+  < Kokkos::CudaSpace
+  , Kokkos::Cuda::scratch_memory_space
+  >
+{
+  enum { assignable = false };
+  enum { accessible = true };
+  enum { deepcopy   = false };
+};
+
+#if defined( KOKKOS_ENABLE_CUDA_UVM )
+
+// If forcing use of UVM everywhere
+// then must assume that CudaUVMSpace
+// can be a stand-in for CudaSpace.
+// This will fail when a strange host-side execution space
+// that defines CudaUVMSpace as its preferredmemory space.
+
+template<>
+struct MemorySpaceAccess
+  < Kokkos::CudaUVMSpace
+  , Kokkos::Cuda::scratch_memory_space
+  >
+{
+  enum { assignable = false };
+  enum { accessible = true };
+  enum { deepcopy   = false };
+};
+
+#endif
+
+
+template<>
 struct VerifyExecutionCanAccessMemorySpace
   < Kokkos::CudaSpace
   , Kokkos::Cuda::scratch_memory_space
@@ -259,15 +291,13 @@ struct VerifyExecutionCanAccessMemorySpace
 
 #include <Cuda/Kokkos_CudaExec.hpp>
 #include <Cuda/Kokkos_Cuda_View.hpp>
-
-#include <Cuda/KokkosExp_Cuda_View.hpp>
-
 #include <Cuda/Kokkos_Cuda_Parallel.hpp>
 #include <Cuda/Kokkos_Cuda_Task.hpp>
 
+#include <KokkosExp_MDRangePolicy.hpp>
 //----------------------------------------------------------------------------
 
-#endif /* #if defined( KOKKOS_HAVE_CUDA ) */
+#endif /* #if defined( KOKKOS_ENABLE_CUDA ) */
 #endif /* #ifndef KOKKOS_CUDA_HPP */
 
 

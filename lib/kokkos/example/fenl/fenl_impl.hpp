@@ -71,7 +71,7 @@ inline
 double maximum( MPI_Comm comm , double local )
 {
   double global = local ;
-#if defined( KOKKOS_HAVE_MPI )
+#if defined( KOKKOS_ENABLE_MPI )
   MPI_Allreduce( & local , & global , 1 , MPI_DOUBLE , MPI_MAX , comm );
 #endif
   return global ;
@@ -192,7 +192,7 @@ Perf fenl(
 
   //------------------------------------
 
-  const int print_flag = use_print && Kokkos::Impl::is_same< Kokkos::HostSpace , typename Space::memory_space >::value ;
+  const int print_flag = use_print && std::is_same< Kokkos::HostSpace , typename Space::memory_space >::value ;
 
   int comm_rank ;
   int comm_size ;
@@ -214,7 +214,7 @@ Perf fenl(
   {
     int global_error = ! fixture.ok();
 
-#if defined( KOKKOS_HAVE_MPI )
+#if defined( KOKKOS_ENABLE_MPI )
     int local_error = global_error ;
     global_error = 0 ;
     MPI_Allreduce( & local_error , & global_error , 1 , MPI_INT , MPI_SUM , comm );

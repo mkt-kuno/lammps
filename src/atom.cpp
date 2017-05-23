@@ -390,6 +390,8 @@ void Atom::create_avec(const char *style, int narg, char **arg, int trysuffix)
 {
   delete [] atom_style;
   if (avec) delete avec;
+  atom_style = NULL;
+  avec = NULL;
 
   // unset atom style and array existence flags
   // may have been set by old avec
@@ -1632,7 +1634,7 @@ int Atom::find_molecule(char *id)
 
 /* ----------------------------------------------------------------------
    add info to current atom ilocal from molecule template onemol and its iatom
-   offset = atom ID preceeding IDs of atoms in this molecule
+   offset = atom ID preceding IDs of atoms in this molecule
    called by fixes and commands that add molecules
 ------------------------------------------------------------------------- */
 
@@ -1948,7 +1950,7 @@ void Atom::add_callback(int flag)
 
 void Atom::delete_callback(const char *id, int flag)
 {
-  if(id==NULL) return;
+  if (id == NULL) return;
 
   int ifix;
   for (ifix = 0; ifix < modify->nfix; ifix++)

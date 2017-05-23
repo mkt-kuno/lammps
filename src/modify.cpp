@@ -47,7 +47,8 @@ Modify::Modify(LAMMPS *lmp) : Pointers(lmp)
   n_thermo_energy_atom = 0;
   n_initial_integrate_respa = n_post_integrate_respa = 0;
   n_pre_force_respa = n_post_force_respa = n_final_integrate_respa = 0;
-  n_min_pre_exchange = n_min_pre_force = n_min_post_force = n_min_energy = 0;
+  n_min_pre_exchange = n_min_pre_force = n_min_pre_reverse = 0;
+  n_min_post_force = n_min_energy = 0;
 
   fix = NULL;
   fmask = NULL;
@@ -60,7 +61,7 @@ Modify::Modify(LAMMPS *lmp) : Pointers(lmp)
   list_pre_force_respa = list_post_force_respa = NULL;
   list_final_integrate_respa = NULL;
   list_min_pre_exchange = list_min_pre_neighbor = NULL;
-  list_min_pre_force = list_min_post_force = NULL;
+  list_min_pre_force = list_min_pre_reverse = list_min_post_force = NULL;
   list_min_energy = NULL;
 
   end_of_step_every = NULL;
@@ -136,6 +137,7 @@ Modify::~Modify()
   delete [] list_min_pre_exchange;
   delete [] list_min_pre_neighbor;
   delete [] list_min_pre_force;
+  delete [] list_min_pre_reverse;
   delete [] list_min_post_force;
   delete [] list_min_energy;
 
@@ -188,6 +190,7 @@ void Modify::init()
   list_init(MIN_PRE_EXCHANGE,n_min_pre_exchange,list_min_pre_exchange);
   list_init(MIN_PRE_NEIGHBOR,n_min_pre_neighbor,list_min_pre_neighbor);
   list_init(MIN_PRE_FORCE,n_min_pre_force,list_min_pre_force);
+  list_init(MIN_PRE_REVERSE,n_min_pre_reverse,list_min_pre_reverse);
   list_init(MIN_POST_FORCE,n_min_post_force,list_min_post_force);
   list_init(MIN_ENERGY,n_min_energy,list_min_energy);
 
@@ -307,7 +310,7 @@ void Modify::setup_pre_exchange()
       fix[list_pre_exchange[i]]->setup_pre_exchange();
   else if (update->whichflag == 2)
     for (int i = 0; i < n_min_pre_exchange; i++)
-      fix[list_min_pre_exchange[i]]->min_setup_pre_exchange();
+      fix[list_min_pre_exchange[i]]->setup_pre_exchange();
 }
 
 /* ----------------------------------------------------------------------
@@ -322,7 +325,7 @@ void Modify::setup_pre_neighbor()
       fix[list_pre_neighbor[i]]->setup_pre_neighbor();
   else if (update->whichflag == 2)
     for (int i = 0; i < n_min_pre_neighbor; i++)
-      fix[list_min_pre_neighbor[i]]->min_setup_pre_neighbor();
+      fix[list_min_pre_neighbor[i]]->setup_pre_neighbor();
 }
 
 /* ----------------------------------------------------------------------
@@ -337,7 +340,22 @@ void Modify::setup_pre_force(int vflag)
       fix[list_pre_force[i]]->setup_pre_force(vflag);
   else if (update->whichflag == 2)
     for (int i = 0; i < n_min_pre_force; i++)
-      fix[list_min_pre_force[i]]->min_setup_pre_force(vflag);
+      fix[list_min_pre_force[i]]->setup_pre_force(vflag);
+}
+
+/* ----------------------------------------------------------------------
+   setup pre_reverse call, only for fixes that define pre_reverse
+   called from Verlet, RESPA, Min
+------------------------------------------------------------------------- */
+
+void Modify::setup_pre_reverse(int eflag, int vflag)
+{
+  if (update->whichflag == 1)
+    for (int i = 0; i < n_pre_reverse; i++)
+      fix[list_pre_reverse[i]]->setup_pre_reverse(eflag,vflag);
+  else if (update->whichflag == 2)
+    for (int i = 0; i < n_min_pre_reverse; i++)
+      fix[list_min_pre_reverse[i]]->setup_pre_reverse(eflag,vflag);
 }
 
 /* ----------------------------------------------------------------------
@@ -581,6 +599,16 @@ void Modify::min_pre_force(int vflag)
 }
 
 /* ----------------------------------------------------------------------
+   minimizer pre-reverse call, only for relevant fixes
+------------------------------------------------------------------------- */
+
+void Modify::min_pre_reverse(int eflag, int vflag)
+{
+  for (int i = 0; i < n_min_pre_reverse; i++)
+    fix[list_min_pre_reverse[i]]->min_pre_reverse(eflag,vflag);
+}
+
+/* ----------------------------------------------------------------------
    minimizer force adjustment call, only for relevant fixes
 ------------------------------------------------------------------------- */
 
@@ -767,7 +795,8 @@ void Modify::add_fix(int narg, char **arg, int trysuffix)
         if (strcmp(estyle,fix[ifix]->style) == 0) match = 1;
       }
     }
-    if (!match) error->all(FLERR,"Replacing a fix, but new style != old style");
+    if (!match) error->all(FLERR,
+                           "Replacing a fix, but new style != old style");
 
     if (fix[ifix]->igroup != igroup && comm->me == 0)
       error->warning(FLERR,"Replacing a fix, but new group != old group");
@@ -812,7 +841,11 @@ void Modify::add_fix(int narg, char **arg, int trysuffix)
     fix[ifix] = fix_creator(lmp,narg,arg);
   }
 
-  if (fix[ifix] == NULL) error->all(FLERR,"Unknown fix style");
+  if (fix[ifix] == NULL) {
+    char str[128];
+    sprintf(str,"Unknown fix style %s",arg[2]);
+    error->all(FLERR,str);
+  }
 
   // check if Fix is in restart_global list
   // if yes, pass state info to the Fix so it can reset itself
@@ -921,10 +954,24 @@ void Modify::delete_fix(const char *id)
 
 int Modify::find_fix(const char *id)
 {
-  if(id==NULL) return -1;
+  if (id == NULL) return -1;
   int ifix;
   for (ifix = 0; ifix < nfix; ifix++)
     if (strcmp(id,fix[ifix]->id) == 0) break;
+  if (ifix == nfix) return -1;
+  return ifix;
+}
+
+/* ----------------------------------------------------------------------
+   find a fix by style
+   return index of fix or -1 if not found
+------------------------------------------------------------------------- */
+
+int Modify::find_fix_by_style(const char *style)
+{
+  int ifix;
+  for (ifix = 0; ifix < nfix; ifix++)
+    if (strcmp(style,fix[ifix]->style) == 0) break;
   if (ifix == nfix) return -1;
   return ifix;
 }
@@ -994,7 +1041,11 @@ void Modify::add_compute(int narg, char **arg, int trysuffix)
     compute[ncompute] = compute_creator(lmp,narg,arg);
   }
 
-  if (compute[ncompute] == NULL) error->all(FLERR,"Unknown compute style");
+  if (compute[ncompute] == NULL) {
+    char str[128];
+    sprintf(str,"Unknown compute style %s",arg[2]);
+    error->all(FLERR,str);
+  }
 
   ncompute++;
 }

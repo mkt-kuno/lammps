@@ -119,6 +119,8 @@ KokkosLMP::KokkosLMP(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   // default settings for package kokkos command
 
   neighflag = FULL;
+  neighflag_qeq = FULL;
+  neighflag_qeq_set = 0;
   exchange_comm_classic = 0;
   forward_comm_classic = 0;
   exchange_comm_on_host = 0;
@@ -152,6 +154,8 @@ void KokkosLMP::accelerator(int narg, char **arg)
   // defaults
 
   neighflag = FULL;
+  neighflag_qeq = FULL;
+  neighflag_qeq_set = 0;
   int newtonflag = 0;
   double binsize = 0.0;
   exchange_comm_classic = forward_comm_classic = 0;
@@ -168,8 +172,20 @@ void KokkosLMP::accelerator(int narg, char **arg)
         else 
           neighflag = HALF;
       } else if (strcmp(arg[iarg+1],"n2") == 0) neighflag = N2;
-      else if (strcmp(arg[iarg+1],"full/cluster") == 0) neighflag = FULLCLUSTER;
       else error->all(FLERR,"Illegal package kokkos command");
+      if (!neighflag_qeq_set) neighflag_qeq = neighflag;
+      iarg += 2;
+    } else if (strcmp(arg[iarg],"neigh/qeq") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal package kokkos command");
+      if (strcmp(arg[iarg+1],"full") == 0) neighflag_qeq = FULL;
+      else if (strcmp(arg[iarg+1],"half") == 0) {
+        if (num_threads > 1 || ngpu > 0)
+          neighflag_qeq = HALFTHREAD;
+        else 
+          neighflag_qeq = HALF;
+      } else if (strcmp(arg[iarg+1],"n2") == 0) neighflag_qeq = N2;
+      else error->all(FLERR,"Illegal package kokkos command");
+      neighflag_qeq_set = 1;
       iarg += 2;
     } else if (strcmp(arg[iarg],"binsize") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal package kokkos command");
@@ -232,20 +248,6 @@ void KokkosLMP::accelerator(int narg, char **arg)
    called by Finish
 ------------------------------------------------------------------------- */
 
-int KokkosLMP::neigh_list_kokkos(int m)
-{
-  NeighborKokkos *nk = (NeighborKokkos *) neighbor;
-  if (nk->lists_host[m] && nk->lists_host[m]->d_numneigh.dimension_0())
-    return 1;
-  if (nk->lists_device[m] && nk->lists_device[m]->d_numneigh.dimension_0())
-    return 1;
-  return 0;
-}
-
-/* ----------------------------------------------------------------------
-   called by Finish
-------------------------------------------------------------------------- */
-
 int KokkosLMP::neigh_count(int m)
 {
   int inum;
@@ -255,28 +257,30 @@ int KokkosLMP::neigh_count(int m)
   ArrayTypes<LMPHostType>::t_int_1d h_numneigh;
 
   NeighborKokkos *nk = (NeighborKokkos *) neighbor;
-  if (nk->lists_host[m]) {
-    inum = nk->lists_host[m]->inum;
+  if (nk->lists[m]->execution_space == Host) {
+    NeighListKokkos<LMPHostType>* nlistKK = (NeighListKokkos<LMPHostType>*) nk->lists[m];
+    inum = nlistKK->inum;
 #ifndef KOKKOS_USE_CUDA_UVM
-    h_ilist = Kokkos::create_mirror_view(nk->lists_host[m]->d_ilist);
-    h_numneigh = Kokkos::create_mirror_view(nk->lists_host[m]->d_numneigh);
+    h_ilist = Kokkos::create_mirror_view(nlistKK->d_ilist);
+    h_numneigh = Kokkos::create_mirror_view(nlistKK->d_numneigh);
 #else
-    h_ilist = nk->lists_host[m]->d_ilist;
-    h_numneigh = nk->lists_host[m]->d_numneigh;
+    h_ilist = nlistKK->d_ilist;
+    h_numneigh = nlistKK->d_numneigh;
 #endif
-    Kokkos::deep_copy(h_ilist,nk->lists_host[m]->d_ilist);
-    Kokkos::deep_copy(h_numneigh,nk->lists_host[m]->d_numneigh);
-  } else if (nk->lists_device[m]) {
-    inum = nk->lists_device[m]->inum;
+    Kokkos::deep_copy(h_ilist,nlistKK->d_ilist);
+    Kokkos::deep_copy(h_numneigh,nlistKK->d_numneigh);
+  } else if (nk->lists[m]->execution_space == Device) {
+    NeighListKokkos<LMPDeviceType>* nlistKK = (NeighListKokkos<LMPDeviceType>*) nk->lists[m];
+    inum = nlistKK->inum;
 #ifndef KOKKOS_USE_CUDA_UVM
-    h_ilist = Kokkos::create_mirror_view(nk->lists_device[m]->d_ilist);
-    h_numneigh = Kokkos::create_mirror_view(nk->lists_device[m]->d_numneigh);
+    h_ilist = Kokkos::create_mirror_view(nlistKK->d_ilist);
+    h_numneigh = Kokkos::create_mirror_view(nlistKK->d_numneigh);
 #else
-    h_ilist = nk->lists_device[m]->d_ilist;
-    h_numneigh = nk->lists_device[m]->d_numneigh;
+    h_ilist = nlistKK->d_ilist;
+    h_numneigh = nlistKK->d_numneigh;
 #endif
-    Kokkos::deep_copy(h_ilist,nk->lists_device[m]->d_ilist);
-    Kokkos::deep_copy(h_numneigh,nk->lists_device[m]->d_numneigh);
+    Kokkos::deep_copy(h_ilist,nlistKK->d_ilist);
+    Kokkos::deep_copy(h_numneigh,nlistKK->d_numneigh);
   }
 
   for (int i = 0; i < inum; i++) nneigh += h_numneigh[h_ilist[i]];

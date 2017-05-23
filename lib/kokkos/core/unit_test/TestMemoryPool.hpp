@@ -55,21 +55,28 @@
 //#define TESTMEMORYPOOL_PRINT
 //#define TESTMEMORYPOOL_PRINT_STATUS
 
-#ifdef KOKKOS_HAVE_CUDA
-#define STRIDE 32
-#else
 #define STRIDE 1
+#ifdef KOKKOS_ENABLE_CUDA
+#define STRIDE_ALLOC 32
+#else
+#define STRIDE_ALLOC 1
 #endif
 
 namespace TestMemoryPool {
 
 struct pointer_obj {
   uint64_t *  ptr;
+
+  KOKKOS_INLINE_FUNCTION
+  pointer_obj() : ptr( 0 ) {}
 };
 
 struct pointer_obj2 {
   void *  ptr;
   size_t  size;
+
+  KOKKOS_INLINE_FUNCTION
+  pointer_obj2() : ptr( 0 ), size( 0 ) {}
 };
 
 template < typename PointerView, typename Allocator >
@@ -86,14 +93,14 @@ struct allocate_memory {
     : m_pointers( ptrs ), m_chunk_size( cs ), m_mempool( m )
   {
     // Initialize the view with the out degree of each vertex.
-    Kokkos::parallel_for( num_ptrs * STRIDE, *this );
+    Kokkos::parallel_for( num_ptrs * STRIDE_ALLOC, *this );
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator()( size_type i ) const
   {
-    if ( i % STRIDE == 0 ) {
-      m_pointers[i / STRIDE].ptr =
+    if ( i % STRIDE_ALLOC == 0 ) {
+      m_pointers[i / STRIDE_ALLOC].ptr =
         static_cast< uint64_t * >( m_mempool.allocate( m_chunk_size ) );
     }
   }
@@ -149,7 +156,7 @@ struct fill_memory {
   void operator()( size_type i ) const
   {
     if ( i % STRIDE == 0 ) {
-      *m_pointers[i / STRIDE].ptr = i / STRIDE ;
+      *m_pointers[i / STRIDE].ptr = i / STRIDE;
     }
   }
 };
@@ -231,14 +238,14 @@ struct allocate_deallocate_memory {
       m_mempool( m )
   {
     // Initialize the view with the out degree of each vertex.
-    Kokkos::parallel_for( work_size * STRIDE, *this );
+    Kokkos::parallel_for( work_size * STRIDE_ALLOC, *this );
   }
 
   KOKKOS_INLINE_FUNCTION
   void operator()( size_type i ) const
   {
-    if ( i % STRIDE == 0 ) {
-      unsigned my_work = m_work[i / STRIDE];
+    if ( i % STRIDE_ALLOC == 0 ) {
+      unsigned my_work = m_work[i / STRIDE_ALLOC];
 
       if ( ( my_work & 1 ) == 0 ) {
         // Allocation.
@@ -303,7 +310,7 @@ bool test_mempool( size_t chunk_size, size_t total_size )
   typedef Kokkos::View< pointer_obj *, device_type >       pointer_view;
   typedef Kokkos::Experimental::MemoryPool< device_type >  pool_memory_space;
 
-  uint64_t result;
+  uint64_t result = 0;
   size_t num_chunks = total_size / chunk_size;
   bool return_val = true;
 
@@ -486,12 +493,12 @@ T smallest_power2_ge( T val )
   // Find the most significant nonzero bit.
   int first_nonzero_bit = Kokkos::Impl::bit_scan_reverse( val );
 
-  // If val is an integral power of 2, ceil( log2(val) ) is equal to the
+  // If val is an integral power of 2, ceil( log2( val ) ) is equal to the
   // most significant nonzero bit.  Otherwise, you need to add 1.
   int lg2_size = first_nonzero_bit +
                  !Kokkos::Impl::is_integral_power_of_two( val );
 
-  return T(1) << T(lg2_size);
+  return T( 1 ) << T( lg2_size );
 }
 
 // This test makes allocation requests for multiple sizes and interleaves
@@ -540,7 +547,7 @@ void test_mempool2( unsigned base_chunk_size, size_t num_chunk_sizes,
   phase1_size = ( ( phase1_size + num_chunk_sizes - 1 ) / num_chunk_sizes ) *
                 num_chunk_sizes;
 
-  // Make sure the phase 2 size is multiples of (2 * num_chunk_sizes).
+  // Make sure the phase 2 size is multiples of ( 2 * num_chunk_sizes ).
   phase2_size =
     ( ( phase2_size + 2 * num_chunk_sizes - 1 ) / ( 2 * num_chunk_sizes ) ) *
     2 * num_chunk_sizes;
@@ -560,7 +567,7 @@ void test_mempool2( unsigned base_chunk_size, size_t num_chunk_sizes,
   // each chunk size.
   work_view phase1_work( "Phase 1 Work", phase1_size );
   typename work_view::HostMirror host_phase1_work =
-    create_mirror_view(phase1_work);
+    create_mirror_view( phase1_work );
 
   size_t inner_size = phase1_size / num_chunk_sizes;
   unsigned chunk_size = base_chunk_size;
@@ -582,7 +589,7 @@ void test_mempool2( unsigned base_chunk_size, size_t num_chunk_sizes,
   // deallocations with an equal number of allocations for each chunk size.
   work_view phase2_work( "Phase 2 Work", phase2_size );
   typename work_view::HostMirror host_phase2_work =
-    create_mirror_view(phase2_work);
+    create_mirror_view( phase2_work );
 
   inner_size = half_phase2_size / num_chunk_sizes;
   chunk_size = base_chunk_size;
@@ -607,7 +614,7 @@ void test_mempool2( unsigned base_chunk_size, size_t num_chunk_sizes,
   // Initialize the phase 3 work view with all deallocations.
   work_view phase3_work( "Phase 3 Work", phase3_size );
   typename work_view::HostMirror host_phase3_work =
-    create_mirror_view(phase3_work);
+    create_mirror_view( phase3_work );
 
   inner_size = phase3_size / num_chunk_sizes;
 
@@ -805,16 +812,9 @@ void test_memory_exhaustion()
 
 }
 
-#ifdef TESTMEMORYPOOL_PRINT
 #undef TESTMEMORYPOOL_PRINT
-#endif
-
-#ifdef TESTMEMORYPOOL_PRINT_STATUS
 #undef TESTMEMORYPOOL_PRINT_STATUS
-#endif
-
-#ifdef STRIDE
 #undef STRIDE
-#endif
+#undef STRIDE_ALLOC
 
 #endif

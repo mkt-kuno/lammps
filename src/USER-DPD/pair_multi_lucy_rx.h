@@ -18,7 +18,7 @@ PairStyle(multi/lucy/rx,PairMultiLucyRX)
 #else
 
 #ifndef LMP_PAIR_MULTI_LUCY_RX_H
-#define LMP_PAIR_MUTLI_LUCY_RX_H
+#define LMP_PAIR_MULTI_LUCY_RX_H
 
 #include "pair.h"
 
@@ -78,7 +78,8 @@ class PairMultiLucyRX : public Pair {
   int nspecies;
   char *site1, *site2;
   int isite1, isite2;
-  void getParams(int, double &, double &, double &, double &);
+  void getMixingWeights(int, double &, double &, double &, double &);
+  bool fractionalWeighting;
 
 };
 

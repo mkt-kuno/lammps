@@ -46,7 +46,7 @@
 
 #include <Kokkos_Core_fwd.hpp>
 
-#if defined( KOKKOS_HAVE_PTHREAD )
+#if defined( KOKKOS_ENABLE_PTHREAD )
 
 #include <cstddef>
 #include <iosfwd>
@@ -190,6 +190,17 @@ namespace Kokkos {
 namespace Impl {
 
 template<>
+struct MemorySpaceAccess 
+  < Kokkos::Threads::memory_space
+  , Kokkos::Threads::scratch_memory_space
+  >
+{
+  enum { assignable = false };
+  enum { accessible = true };
+  enum { deepcopy   = false };
+};
+
+template<>
 struct VerifyExecutionCanAccessMemorySpace
   < Kokkos::Threads::memory_space
   , Kokkos::Threads::scratch_memory_space
@@ -216,7 +227,6 @@ struct VerifyExecutionCanAccessMemorySpace
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
-#endif /* #if defined( KOKKOS_HAVE_PTHREAD ) */
+#endif /* #if defined( KOKKOS_ENABLE_PTHREAD ) */
 #endif /* #define KOKKOS_THREADS_HPP */
-
 

@@ -168,8 +168,8 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firsttouch = listgranhistory->firstneigh;
-  firstshear = listgranhistory->firstdouble;
+  firsttouch = listhistory->firstneigh;
+  firstshear = listhistory->firstdouble;
 
   /*~ The following piece of code was added to determine whether or not
     any periodic boundaries, if present, are moving either via fix_
@@ -568,13 +568,11 @@ void PairGranHookeHistory::init_style()
   // need a granular neigh list and optionally a granular history neigh list
 
   int irequest = neighbor->request(this,instance_me);
-  neighbor->requests[irequest]->half = 0;
-  neighbor->requests[irequest]->gran = 1;
+  neighbor->requests[irequest]->size = 1;
   if (history) {
     irequest = neighbor->request(this,instance_me);
     neighbor->requests[irequest]->id = 1;
-    neighbor->requests[irequest]->half = 0;
-    neighbor->requests[irequest]->granhistory = 1;
+    neighbor->requests[irequest]->history = 1;
     neighbor->requests[irequest]->dnum = numshearquants;
   }
 
@@ -680,7 +678,7 @@ void PairGranHookeHistory::init_style()
 void PairGranHookeHistory::init_list(int id, NeighList *ptr)
 {
   if (id == 0) list = ptr;
-  else if (id == 1) listgranhistory = ptr;
+  else if (id == 1) listhistory = ptr;
 }
 
 /* ----------------------------------------------------------------------
@@ -859,7 +857,7 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
 
   int jnum = list->numneigh[i];
   int *jlist = list->firstneigh[i];
-  double *allshear = list->listgranhistory->firstdouble[i];
+  double *allshear = list->listhistory->firstdouble[i];
 
   for (int jj = 0; jj < jnum; jj++) {
     neighprev++;
@@ -1661,4 +1659,15 @@ double PairGranHookeHistory::memory_usage()
 {
   double bytes = nmax * sizeof(double);
   return bytes;
+}
+
+/* ----------------------------------------------------------------------
+   return ptr to FixShearHistory class
+   called by Neighbor when setting up neighbor lists
+------------------------------------------------------------------------- */
+
+void *PairGranHookeHistory::extract(const char *str, int &dim)
+{
+  if (strcmp(str,"history") == 0) return (void *) fix_history;
+  return NULL;
 }
