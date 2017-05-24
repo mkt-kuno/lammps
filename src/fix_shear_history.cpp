@@ -400,7 +400,7 @@ void FixShearHistory::pre_exchange_newton()
 
   maxtouch = 0;
   for (i = 0; i < nlocal_neigh; i++) maxtouch = MAX(maxtouch,npartner[i]);
-  comm->maxexchange_fix = MAX(comm->maxexchange_fix,4*maxtouch+1);
+  comm->maxexchange_fix = MAX(comm->maxexchange_fix,(dnum+1)*maxtouch+1);
 
   // zero npartner values from previous nlocal_neigh to current nlocal
 
