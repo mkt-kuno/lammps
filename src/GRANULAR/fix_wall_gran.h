@@ -78,6 +78,7 @@ class FixWallGran : public Fix {
  protected:
   int sfound; // added to fetch meanstress in stresscontrol [MO - 13 August 2015]
   class Compute *stressatom; // added to fetch meanstress in stresscontrol [MO - 13 August 2015]
+  int wallstyle,wiggle,wshear,axis,dampflag;
   double wcoordnos[1],wcoordnos_all[1]; // coordination number of wall [MO - 12 March 2014]
   int wtranslate,wscontrol; //flags for wall movement and wall stress control respectively
   double kn,kt,gamman,gammat,xmu,Geq,Poiseq,RMSf,Hp; // increased for CM & CMD models [MO - 18 July 2014]

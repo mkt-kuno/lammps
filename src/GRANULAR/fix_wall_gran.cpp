@@ -189,7 +189,7 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     else gammat = force->numeric(FLERR,arg[7]);
 
     xmu = force->numeric(FLERR,arg[8]);
-    int dampflag = force->inumeric(FLERR,arg[9]);
+    dampflag = force->inumeric(FLERR,arg[9]);
     if (dampflag == 0) gammat = 0.0;
   }
   
@@ -460,6 +460,7 @@ FixWallGran::~FixWallGran()
   // delete local storage
 
   delete [] idregion;
+  delete [] fstr;
   memory->destroy(shearone);
   memory->destroy(mass_rigid);
 }
@@ -482,6 +483,13 @@ void FixWallGran::init()
 
   dt = update->dt;
 
+  if (fstr) {
+    fvar = input->variable->find(fstr);
+    if (fvar < 0)
+      error->all(FLERR,"Variable name for fix wall/gran does not exist");
+    if (!input->variable->equalstyle(fvar)) error->all(FLERR,"Variable for fix wall/gran is invalid style");
+  }
+    
   if (strstr(update->integrate_style,"respa"))
     nlevels_respa = ((Respa *) update->integrate)->nlevels;
 
