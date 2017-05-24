@@ -612,7 +612,7 @@ int FixShearHistory::pack_reverse_comm_size(int n, int first)
   last = first + n;
 
   for (i = first; i < last; i++)
-    m += 1 + 4*npartner[i];
+    m += 1 + (dnum+1)*npartner[i];
 
   return m;
 }
