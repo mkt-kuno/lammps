@@ -356,11 +356,6 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
   //~ pair/gran/CMD/history has 26 shear quantities [MO - 30 November 2014]
   if (pairstyle == CMD_HISTORY) sheardim += 23;
 
-  shearone = NULL;
-  grow_arrays(atom->nmax);
-  atom->add_callback(0);
-  atom->add_callback(1);
-
   nmax = 0;
   mass_rigid = NULL;
   
@@ -395,6 +390,11 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     if (*trace_energy) sheardim += 4;
   }
 
+  shearone = NULL;
+  grow_arrays(atom->nmax);
+  atom->add_callback(0);
+  atom->add_callback(1);
+  
   // parameters of the particle [MO - 05 December 2014]
   xmu_p = (double *) pair->extract("xmu",dim);
   Geq_p = (double *) pair->extract("Geq",dim);
