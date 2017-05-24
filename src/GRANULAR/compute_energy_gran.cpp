@@ -32,7 +32,7 @@ enum{FRICTION,RKINETIC,TKINETIC,KINETIC,NSTRAIN,SSTRAIN,STRAIN,BOUNDARY,VOLUMETR
 
 ComputeEnergyGran::ComputeEnergyGran(LAMMPS *lmp, int narg, char **arg) :
   Compute(lmp, narg, arg),
-  vector(NULL), inputs(NULL), evector(NULL), earray(NULL)
+  inputs(NULL), evector(NULL), earray(NULL)
 {
   if (narg < 4) error->all(FLERR,"Illegal compute energy/gran command");
 

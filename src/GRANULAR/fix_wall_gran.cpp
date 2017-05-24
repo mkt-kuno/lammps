@@ -697,11 +697,11 @@ void FixWallGran::post_force(int vflag)
         else if (pairstyle == HOOKE_HISTORY)
           hooke_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
                         radius[i],meff,shearone[i],i);
-        else if (pairstyle == HERTZ_HISTORY)
-          hertz_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
+        else if (pairstyle == HERTZ_HISTORY) //~ Added rwall [KH - 23 May 2017]
+          hertz_history(rsq,dx,dy,dz,vwall,rwall,v[i],f[i],omega[i],torque[i],
                         radius[i],meff,shearone[i],i);
 	else if (pairstyle == SHM_HISTORY) //~ [KH - 30 October 2013]
-          shm_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
+          shm_history(rsq,dx,dy,dz,vwall,rwall,v[i],f[i],omega[i],torque[i],
 		      radius[i],meff,shearone[i],i);
 	else if (pairstyle == CM_HISTORY) //~ [MO - 18 July 2014]
           CM_history(rsq,dx,dy,dz,vwall,v[i],f[i],omega[i],torque[i],
@@ -1394,7 +1394,7 @@ void FixWallGran::bonded_history(double rsq, double dx, double dy, double dz,
 /* ---------------------------------------------------------------------- */
 
 void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
-			      double *vwall, double *v,
+			      double *vwall, double rwall, double *v,
 			      double *f, double *omega, double *torque,
 			      double radius, double meff, double *shear, int i)
 {
@@ -1433,7 +1433,8 @@ void FixWallGran::shm_history(double rsq, double dx, double dy, double dz,
   //~ Damping is not present in the shm pairstyle
 
   ccel = kn*(radius-r)*rinv;
-  polyhertz = sqrt((radius-r)*radius);
+  if (rwall == 0.0) polyhertz = sqrt((radius-r)*radius);
+  else polyhertz = sqrt((radius-r)*radius*rwall/(rwall+radius));
   ccel *= polyhertz;
 
   // relative velocities

@@ -37,7 +37,7 @@ using namespace MathConst;
 
 // same as FixWallGran
 
-enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,BONDED_HISTORY};
+enum{HOOKE,HOOKE_HISTORY,HERTZ_HISTORY,BONDED_HISTORY,SHM_HISTORY};
 
 #define BIG 1.0e20
 
@@ -238,6 +238,8 @@ void FixWallGranRegion::post_force(int vflag)
 
         // invoke sphere/wall interaction
 
+	/*~ Added an i as an additional argument to each (apart from
+	  BONDED_HISTORY) [KH - 23 May 2017]*/
         if (pairstyle == HOOKE)
           hooke(rsq,dx,dy,dz,vwall,v[i],f[i],
                 omega[i],torque[i],radius[i],meff,i);
@@ -253,6 +255,10 @@ void FixWallGranRegion::post_force(int vflag)
           bonded_history(rsq,dx,dy,dz,vwall,region->contact[ic].radius,
                          v[i],f[i],omega[i],torque[i],
                          radius[i],meff,shearmany[i][c2r[ic]]);
+	else if (pairstyle == SHM_HISTORY) //~ Added [KH - 23 May 2017]
+          shm_history(rsq,dx,dy,dz,vwall,region->contact[ic].radius,
+		      v[i],f[i],omega[i],torque[i],
+		      radius[i],meff,shearone[i],i);
       }
     }
   }

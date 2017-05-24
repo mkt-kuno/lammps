@@ -103,10 +103,10 @@ void DeleteAtoms::command(int narg, char **arg)
   // reset atom tags to be contiguous
   // set all atom IDs to 0, call tag_extend()
 
-  if (atom->molecular == 0 && compress_flag && force->pair_match("history",0)==NULL) {
+  if (atom->molecular == 0 && compress_flag) {
     tagint *tag = atom->tag;
-
-    for (i = 0; i < nlocal; i++) tag[i] = 0;
+    int nlocal = atom->nlocal;
+    for (int i = 0; i < nlocal; i++) tag[i] = 0;
     atom->tag_extend();
   }
 

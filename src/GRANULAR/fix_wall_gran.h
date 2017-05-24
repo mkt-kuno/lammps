@@ -56,13 +56,13 @@ class FixWallGran : public Fix {
   void hooke_history(double, double, double, double, double *,
                      double *, double *, double *, double *, double, double,
                      double *, int);
-  void hertz_history(double, double, double, double, double *,
+  void hertz_history(double, double, double, double, double *, double,
                      double *, double *, double *, double *, double, double,
                      double *, int);
   void bonded_history(double, double, double, double, double *, double,
                        double *, double *, double *, double *, double, double,
                        double *);
-  void shm_history(double, double, double, double, double *,
+  void shm_history(double, double, double, double, double *, double,
 		   double *, double *, double *, double *, double, double,
 		   double *, int); //~ [KH - 30 October 2013]
   void CM_history(double, double, double, double, double *,
