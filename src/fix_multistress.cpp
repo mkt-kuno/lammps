@@ -926,7 +926,7 @@ void FixMultistress::end_of_step()
 
     //~ Need to specify initial values for starget on the first timestep if constbctrl active
     if (constbctrl) {
-      for (int i = 0; i < 6; i++)
+      for (int i = 0; i < 3; i++)
 	if (constbflag[i] > 0) starget[i] = tallymeans[i];
     }
   }
