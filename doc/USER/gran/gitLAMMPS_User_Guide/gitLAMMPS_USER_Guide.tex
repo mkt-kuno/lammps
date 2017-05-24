@@ -5,6 +5,7 @@
 
 % History:
 % v1.0		KH - 4 August 2014	Based on user manual for repository in shared space at Imperial
+% v1.1		KH - 24 May 2017	Minor updates, mainly to reflect the change of the main LAMMPS repository from  http://git.icms.temple.edu/lammps-ro to https://github.com/lammps/lammps
 %-----------------------------------------------
 
 
@@ -116,13 +117,13 @@ If we type \texttt{git branch} again, the asterisk will now be beside master. As
 [user gitLAMMPS]\$ cd src/GRANULAR/
 [user GRANULAR]\$ ls
 \end{alltt}
-All files in the GRANULAR directory are listed. At the time of writing, there are 12 files in the upstream GRANULAR directory of LAMMPS. Now switch back to the common directory and list the files again:
+All files in the GRANULAR directory are listed. At the time of writing (May 2017), there are 14 files in the upstream GRANULAR directory of LAMMPS. Now switch back to the common directory and list the files again:
 \begin{alltt}
 [user GRANULAR]\$ git checkout common
 Switched to branch 'common'
 [user GRANULAR]\$ ls
 \end{alltt}
-The number of files increases to 28: fix\_fluiddrag.\{cpp\slash h\}, compute\_energy\_gran.\{cpp\slash h\}, etc. have been added by the Imperial group. This shows that those files which have been added by the Imperial group appear in the common branch but \emph{not} the master branch.
+The number of files increases to 36: fix\_fluiddrag.\{cpp\slash h\}, compute\_energy\_gran.\{cpp\slash h\}, etc. have been added by the Imperial group. This shows that those files which have been added by the Imperial group appear in the common branch but \emph{not} the master branch.
 
 \subsection{Checking the default remote repository}\label{ssec:cdrr}
 Our local repository was created by cloning the remote repository. git automatically set the remote repository for our local repository to the parent that was cloned. We can verify this:
@@ -265,15 +266,15 @@ The easiest way to transfer our changes from local to remote is to use the \text
 \ldots and enter your password when requested. The arguments of git push give the destination (origin) and the branch to be pushed. If there are no changes to commit, you will see the message ``\texttt{Everything up-to-date}''; otherwise you will see a summary of the changes made to the remote common branch.
 
 \subsection{Updating the local master branch}\label{ssec:ulmb}
-In order to update the master branch by dragging in the developments made by the upstream developers at Sandia, we create a new alias to a remote destination: the LAMMPS repository at Temple University set up by Axel Kohlmeyer (described at \url{http://lammps.sandia.gov/download.html}). Use the \texttt{git remote} command previously seen in \prettyref{ssec:cdrr} to add a new remote called 'upstream'. 
+In order to update the master branch by dragging in the developments made by the upstream developers at Sandia, we create a new alias to a remote destination: the LAMMPS repository on GitHub (described at \url{https://github.com/lammps/lammps}). Use the \texttt{git remote} command previously seen in \prettyref{ssec:cdrr} to add a new remote called 'upstream'. 
 \begin{alltt}
 [user \(\sim\)]\$ cd \(\sim\)/Documents/gitLAMMPS/
-[user gitLAMMPS]\$ git remote add upstream http://git.icms.temple.edu/lammps-ro.git
+[user gitLAMMPS]\$ git remote add upstream https://github.com/lammps/lammps.git
 [user gitLAMMPS]\$ git remote -v
 origin	https://\sout{USERNAME}@bitbucket.org/granlammps/gitlammps.git (fetch)
 origin	https://\sout{USERNAME}@bitbucket.org/granlammps/gitlammps.git (push)
-upstream	http://git.icms.temple.edu/lammps-ro.git (fetch)
-upstream	http://git.icms.temple.edu/lammps-ro.git (push)
+upstream	https://github.com/lammps/lammps.git (fetch)
+upstream	https://github.com/lammps/lammps.git (push)
 \end{alltt}
 Now the \texttt{git pull} command can be used to update the master branch of the local repository.
 \begin{description}
@@ -286,7 +287,7 @@ Now the \texttt{git pull} command can be used to update the master branch of the
 \end{alltt}
 This may take a few minutes to run so be patient. The output in the terminal window will list the files that have been modified since the branch was last updated, indicate the degree of change to each of these files, tell you the numbers of files changed\slash insertions\slash deletions, and list any files which have been added\slash deleted:
 \begin{alltt}
-From http://git.icms.temple.edu/lammps-ro
+From https://github.com/lammps/lammps
  * branch            master     -> FETCH_HEAD
 Updating 039af55..be64063
 Fast-forward
