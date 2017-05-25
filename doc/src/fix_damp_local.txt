@@ -15,6 +15,7 @@ fix ID group-ID damp/local alpha :pre
 ID, group-ID are documented in "fix"_fix.html command :ulb,l
 damp/local = style name of this fix command :l
 alpha = local damping coefficient :l
+:ule
 
 [Examples:]
 
