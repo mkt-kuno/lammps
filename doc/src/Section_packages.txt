@@ -454,6 +454,9 @@ make machine :pre
 
 src/GRANULAR: filenames -> commands
 "Section 6.6"_Section_howto.html#howto_6,
+"compute coord/gran"_compute_coord_gran.html
+"compute energy/gran"_compute_energy_gran.html
+"fix fluiddrag"_fix_fluiddrag.html
 "fix pour"_fix_pour.html
 "fix wall/gran"_fix_wall_gran.html
 "pair_style gran/hooke"_pair_gran.html

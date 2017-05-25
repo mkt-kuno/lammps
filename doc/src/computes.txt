@@ -29,6 +29,7 @@ Computes :h1
    compute_displace_atom
    compute_dpd
    compute_dpd_atom
+   compute_energy_gran
    compute_erotate_asphere
    compute_erotate_rigid
    compute_erotate_sphere

@@ -27,6 +27,7 @@ Fixes :h1
    fix_cmap
    fix_colvars
    fix_controller
+   fix_damp_local
    fix_deform
    fix_deposit
    fix_drag
@@ -44,6 +45,7 @@ Fixes :h1
    fix_external
    fix_filter_corotate
    fix_flow_gauss
+   fix_fluiddrag
    fix_freeze
    fix_gcmc
    fix_gld
@@ -68,9 +70,11 @@ Fixes :h1
    fix_meso
    fix_meso_stationary
    fix_momentum
+   fix_momentum_gran
    fix_move
    fix_mscg
    fix_msst
+   fix_multistress
    fix_neb
    fix_nh
    fix_nh_eff

@@ -83,7 +83,7 @@ need to correspond to the order in the compute. The second type of
 output is a per-atom vector/array of kinetic energies. If one or more
 kinetic energy terms ({rotational_kinetic}, {translational_kinetic} or
 {kinetic}) are defined in the compute, these can be accessed using 
-"dump_custom"_dump_custom.html. The order of the per-particle kinetic energies is the 
+"dump_custom"_dump.html. The order of the per-particle kinetic energies is the 
 same as their order among the compute arguments. In the example shown
 above, two kinetic energies are defined: (1) translational_kinetic; 
 (2) kinetic. These can be written to dump files using the following
@@ -91,7 +91,7 @@ command:
 
 	dump		1 all custom 100000 dump.ke_* c_2\[1\] c_2\[2\] :pre
 
-Finally, per-contact energy terms are available via "dump_local"_dump_local.html if the
+Finally, per-contact energy terms are available via "dump_local"_dump.html if the
 {trace_energy} option of "pair_modify"_pair_modify.html is enabled in the script.
 As described
 in "Interpreting_ComputePairLocal_Output.doc"_USER/gran/Interpreting_ComputePairLocal_Output.doc, 

@@ -89,7 +89,7 @@ if {outputflag} is set at 1; this detailed output is suppressed if
 {outputflag} is 0.
 
 In addition, three per-particle quantities are available to write to dump
-files using "dump_custom"_dump_custom.html: (1) the uniaxial compressive
+files using "dump_custom"_dump.html: (1) the uniaxial compressive
 strength, (2) the uniaxial tensile strength and (3) the number of failures
 experienced by the particle. These can be written to dump files using the 
 following syntax:
