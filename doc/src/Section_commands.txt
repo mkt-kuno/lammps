@@ -372,15 +372,6 @@ Operations within timestepping (fixes) and diagnostics (computes):
 
 Output:
 
-<<<<<<< HEAD
-"dump"_dump.html, "dump image"_dump_image.html,
-"dump_modify"_dump_modify.html, "dump_modify"_dump_modify.html,
-"dump vtk"_dump_vtk.html,
-"restart"_restart.html, "thermo"_thermo.html,
-"thermo_modify"_thermo_modify.html, "thermo_style"_thermo_style.html,
-"undump"_undump.html, "write_data"_write_data.html,
-"write_dump"_write_dump.html, "write_restart"_write_restart.html
-=======
 "dump image"_dump_image.html,
 "dump movie"_dump_image.html,
 "dump"_dump.html,
@@ -394,7 +385,6 @@ Output:
 "write_data"_write_data.html,
 "write_dump"_write_dump.html,
 "write_restart"_write_restart.html
->>>>>>> cdcebab3bd632a14756aa432fc172022a31e5990
 
 Actions:
 
@@ -572,13 +562,10 @@ USER-INTEL, k = KOKKOS, o = USER-OMP, t = OPT.
 "bond/create"_fix_bond_create.html,
 "bond/swap"_fix_bond_swap.html,
 "box/relax"_fix_box_relax.html,
-<<<<<<< HEAD
-"crushing"_fix_crushing.html,
-"damp/local"_fix_damp_local.html,
-=======
 "cmap"_fix_cmap.html,
 "controller"_fix_controller.html,
->>>>>>> c2134575508a0feb098fab1306b553249fa3bbbe
+"crushing"_fix_crushing.html,
+"damp/local"_fix_damp_local.html,
 "deform (k)"_fix_deform.html,
 "deposit"_fix_deposit.html,
 "drag"_fix_drag.html,
@@ -598,12 +585,8 @@ USER-INTEL, k = KOKKOS, o = USER-OMP, t = OPT.
 "indent"_fix_indent.html,
 "langevin (k)"_fix_langevin.html,
 "lineforce"_fix_lineforce.html,
-<<<<<<< HEAD
-"momentum"_fix_momentum.html,
-"momentum/gran"_fix_momentum_gran.html,
-=======
 "momentum (k)"_fix_momentum.html,
->>>>>>> master
+"momentum/gran"_fix_momentum_gran.html,
 "move"_fix_move.html,
 "mscg"_fix_mscg.html,
 "msst"_fix_msst.html,
