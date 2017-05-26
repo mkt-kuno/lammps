@@ -32,6 +32,7 @@ class Pair : protected Pointers {
   friend class Info;
   friend class Input; //~ Added this friendship for the auto_timestep function [KH - 14 December 2012]
   friend class FixCrushing; //~ Added to access kn, kt and xmu [KH - 15 May 2013]
+  friend class FixWallGran; //~ Added [KH - 26 May 2017]
 
  public:
   static int instance_total;     // # of Pair classes ever instantiated

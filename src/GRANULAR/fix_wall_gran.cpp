@@ -40,6 +40,7 @@
 //~ Added compute header files for energy tracing [KH - 20 February 2014]
 #include "compute.h"
 #include "compute_energy_gran.h"
+#include "integrate.h" // Added [KH - 26 May 2017]
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -483,6 +484,12 @@ void FixWallGran::init()
 
   dt = update->dt;
 
+  /*~ Force pair::ev_setup to be run with a vflag value of 4 so that
+    vflag_atom will be set equal to 1 and hence vatom will be zeroed
+    at the start of a simulation [KH - 26 May 2017] */
+  if (update->integrate->vflag <= 2) update->integrate->vflag += 4;
+  force->pair->ev_setup(update->integrate->eflag, update->integrate->vflag);
+
   if (fstr) {
     fvar = input->variable->find(fstr);
     if (fvar < 0)
@@ -554,6 +561,10 @@ void FixWallGran::setup(int vflag)
 
 void FixWallGran::post_force(int vflag)
 {
+  // virial setup
+  if (vflag) v_setup(vflag);
+  else evflag = 0;
+  
   int i,j;
   double dx,dy,dz,del1,del2,delxy,delr,rsq,rwall,meff;
 
