@@ -1271,7 +1271,7 @@ double PairAIREBO::bondorder(int i, int j, double rij[3],
   double w21,dw21,r34[3],r34mag,cos234,w34,dw34;
   double cross321[3],cross234[3],prefactor,SpN;
   double fcijpc,fcikpc,fcjlpc,fcjkpc,fcilpc;
-  double dt2dik[3],dt2djl[3],dt2dij[3],aa,aaa1,aaa2,at2,cw,cwnum,cwnom;
+  double dt2dik[3],dt2djl[3],dt2dij[3],aa,aaa2,at2,cw,cwnum,cwnom;
   double sin321,sin234,rr,rijrik,rijrjl,rjk2,rik2,ril2,rjl2;
   double dctik,dctjk,dctjl,dctij,dctji,dctil,rik2i,rjl2i,sink2i,sinl2i;
   double rjk[3],ril[3],dt1dik,dt1djk,dt1djl,dt1dil,dt1dij;
@@ -1615,6 +1615,10 @@ double PairAIREBO::bondorder(int i, int j, double rij[3],
 
       if (vflag_atom) v_tally2(atomi,atomk,-tmp2,rik);
 
+      // due to kronecker(ktype, 0) term in contribution
+      // to NconjtmpI and later Nijconj
+      if (ktype != 0) continue;
+
       tmp2 = VA*dN3[2]*(2.0*NconjtmpI*dwik*SpN)/rikmag;
       f[atomi][0] -= tmp2*rik[0];
       f[atomi][1] -= tmp2*rik[1];
@@ -1677,6 +1681,10 @@ double PairAIREBO::bondorder(int i, int j, double rij[3],
       f[atoml][2] += tmp2*rjl[2];
 
       if (vflag_atom) v_tally2(atomj,atoml,-tmp2,rjl);
+
+      // due to kronecker(ltype, 0) term in contribution
+      // to NconjtmpJ and later Nijconj
+      if (ltype != 0) continue;
 
       tmp2 = VA*dN3[2]*(2.0*NconjtmpJ*dwjl*SpN)/rjlmag;
       f[atomj][0] -= tmp2*rjl[0];
@@ -1848,8 +1856,6 @@ double PairAIREBO::bondorder(int i, int j, double rij[3],
 
                 aa = (prefactor*2.0*cw/cwnom)*w21*w34 *
                   (1.0-tspjik)*(1.0-tspijl);
-                aaa1 = -prefactor*(1.0-square(om1234)) *
-                  (1.0-tspjik)*(1.0-tspijl);
                 aaa2 = -prefactor*(1.0-square(om1234)) * w21*w34;
                 at2 = aa*cwnum;
 
@@ -1960,6 +1966,10 @@ double PairAIREBO::bondorder(int i, int j, double rij[3],
 
         if (vflag_atom) v_tally2(atomi,atomk,-tmp2,rik);
 
+        // due to kronecker(ktype, 0) term in contribution
+        // to NconjtmpI and later Nijconj
+        if (ktype != 0) continue;
+
         tmp2 = VA*dN3[2]*(2.0*NconjtmpI*dwik*SpN)*Etmp/rikmag;
         f[atomi][0] -= tmp2*rik[0];
         f[atomi][1] -= tmp2*rik[1];
@@ -2022,6 +2032,10 @@ double PairAIREBO::bondorder(int i, int j, double rij[3],
         f[atoml][2] += tmp2*rjl[2];
 
         if (vflag_atom) v_tally2(atomj,atoml,-tmp2,rjl);
+
+        // due to kronecker(ltype, 0) term in contribution
+        // to NconjtmpJ and later Nijconj
+        if (ltype != 0) continue;
 
         tmp2 = VA*dN3[2]*(2.0*NconjtmpJ*dwjl*SpN)*Etmp/rjlmag;
         f[atomj][0] -= tmp2*rjl[0];
@@ -2091,7 +2105,7 @@ double PairAIREBO::bondorderLJ(int i, int j, double rij[3], double rijmag,
   double w21,dw21,r34[3],r34mag,cos234,w34,dw34;
   double cross321[3],cross234[3],prefactor,SpN;
   double fcikpc,fcjlpc,fcjkpc,fcilpc;
-  double dt2dik[3],dt2djl[3],aa,aaa1,aaa2,at2,cw,cwnum,cwnom;
+  double dt2dik[3],dt2djl[3],aa,aaa2,at2,cw,cwnum,cwnom;
   double sin321,sin234,rr,rijrik,rijrjl,rjk2,rik2,ril2,rjl2;
   double dctik,dctjk,dctjl,dctil,rik2i,rjl2i,sink2i,sinl2i;
   double rjk[3],ril[3],dt1dik,dt1djk,dt1djl,dt1dil;
@@ -2560,6 +2574,10 @@ double PairAIREBO::bondorderLJ(int i, int j, double rij[3], double rijmag,
 
         if (vflag_atom) v_tally2(atomi,atomk,-tmp2,rik);
 
+        // due to kronecker(ktype, 0) term in contribution
+        // to NconjtmpI and later Nijconj
+        if (ktype != 0) continue;
+
         tmp2 = VA*dN3[2]*(2.0*NconjtmpI*dwik*SpN)/rikmag;
         f[atomi][0] -= tmp2*rik[0];
         f[atomi][1] -= tmp2*rik[1];
@@ -2622,6 +2640,10 @@ double PairAIREBO::bondorderLJ(int i, int j, double rij[3], double rijmag,
         f[atoml][2] += tmp2*rjl[2];
 
         if (vflag_atom) v_tally2(atomj,atoml,-tmp2,rjl);
+
+        // due to kronecker(ltype, 0) term in contribution
+        // to NconjtmpJ and later Nijconj
+        if (ltype != 0) continue;
 
         tmp2 = VA*dN3[2]*(2.0*NconjtmpJ*dwjl*SpN)/rjlmag;
         f[atomj][0] -= tmp2*rjl[0];
@@ -2776,8 +2798,6 @@ double PairAIREBO::bondorderLJ(int i, int j, double rij[3], double rijmag,
 
                   aa = (prefactor*2.0*cw/cwnom)*w21*w34 *
                     (1.0-tspjik)*(1.0-tspijl);
-                  aaa1 = -prefactor*(1.0-square(om1234)) *
-                    (1.0-tspjik)*(1.0-tspijl);
                   aaa2 = -prefactor*(1.0-square(om1234)) * w21*w34;
                   at2 = aa*cwnum;
 
@@ -2895,6 +2915,10 @@ double PairAIREBO::bondorderLJ(int i, int j, double rij[3], double rijmag,
 
           if (vflag_atom) v_tally2(atomi,atomk,-tmp2,rik);
 
+          // due to kronecker(ktype, 0) term in contribution
+          // to NconjtmpI and later Nijconj
+          if (ktype != 0) continue;
+
           tmp2 = VA*dN3[2]*(2.0*NconjtmpI*dwik*SpN)*Etmp/rikmag;
           f[atomi][0] -= tmp2*rik[0];
           f[atomi][1] -= tmp2*rik[1];
@@ -2957,6 +2981,10 @@ double PairAIREBO::bondorderLJ(int i, int j, double rij[3], double rijmag,
           f[atoml][2] += tmp2*rjl[2];
 
           if (vflag_atom) v_tally2(atomj,atoml,-tmp2,rjl);
+
+          // due to kronecker(ltype, 0) term in contribution
+          // to NconjtmpJ and later Nijconj
+          if (ltype != 0) continue;
 
           tmp2 = VA*dN3[2]*(2.0*NconjtmpJ*dwjl*SpN)*Etmp/rjlmag;
           f[atomj][0] -= tmp2*rjl[0];
