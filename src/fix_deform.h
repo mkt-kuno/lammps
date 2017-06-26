@@ -37,6 +37,8 @@ class FixDeform : public Fix {
   void init();
   virtual void pre_exchange();
   virtual void end_of_step();
+  virtual void write_restart(FILE *);
+  virtual void restart(char *buf);
   double memory_usage();
 
   /*~ Added *param_export to allow the calling function to access 
