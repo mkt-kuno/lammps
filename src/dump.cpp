@@ -84,7 +84,6 @@ Dump::Dump(LAMMPS *lmp, int narg, char **arg) : Pointers(lmp)
   buffer_allow = 0;
   buffer_flag = 0;
   padflag = 0;
-  vtkflag = 0; //~ Initialise vtkflag at 0 [KH - 30 May 2012]
   pbcflag = 0;
 
   maxbuf = maxids = maxsort = maxproc = 0;
@@ -419,101 +418,18 @@ void Dump::write()
     }
   }
 
+  // filewriter = 1 = this proc writes to file
+  // ping each proc in my cluster, receive its data, write data to file
+  // else wait for ping from fileproc, send my data to fileproc
+
   int tmp,nlines,nchars;
   MPI_Status status;
   MPI_Request request;
 
-  if (vtkflag) {//~ Modified for dump_vtk [KH - 30 May 2012]
-    /*~ This was written so that the format of the dump_vtk 
-      output files could differ from the standard
-      dump file format [KH - 30 May 2012]*/
+  // comm and output buf of doubles
 
-    //~ Create a temporary second buffer [KH - 31 May 2012]
-    double *secondbuf;
-    memory->create(secondbuf,maxbuf*size_one,"dump:secondbuf");
-
-    //~ Copy the buffer on each core to secondbuf
-    int nbytes = size_one*sizeof(double);
-    for (int i = 0; i < nme; i++)
-      memcpy(&secondbuf[i*size_one],&buf[index[i]*size_one],nbytes);
-
+  if (buffer_flag == 0 || binary) {
     if (filewriter) {
-      for (int iproc = 0; iproc < nclusterprocs; iproc++) {
-	if (iproc) {
-	  MPI_Irecv(secondbuf,maxbuf*size_one,MPI_DOUBLE,me+iproc,0,world,&request);
-	  MPI_Send(&tmp,0,MPI_INT,me+iproc,0,world);
-	  MPI_Wait(&request,&status);
-	  MPI_Get_count(&status,MPI_DOUBLE,&nlines);
-	  nlines /= size_one;
-	} else nlines = nme;
-	
-	//~ Write the particle positions
-	write_data(nlines,secondbuf);
-      }
-      if (flush_flag && fp) fflush(fp);
-      
-    } else {
-      MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
-      MPI_Rsend(secondbuf,nme*size_one,MPI_DOUBLE,fileproc,0,world);
-    }
-
-    for (int i = 0; i < nme; i++)
-      memcpy(&secondbuf[i*size_one],&buf[index[i]*size_one],nbytes);
-
-    if (filewriter) {
-      for (int iproc = 0; iproc < nclusterprocs; iproc++) {
-	if (iproc) {
-	  MPI_Irecv(secondbuf,maxbuf*size_one,MPI_DOUBLE,me+iproc,0,world,&request);
-	  MPI_Send(&tmp,0,MPI_INT,me+iproc,0,world);
-	  MPI_Wait(&request,&status);
-	  MPI_Get_count(&status,MPI_DOUBLE,&nlines);
-	  nlines /= size_one;
-	} else nlines = nme;
-	
-	//~ Write the particle diameters
-	write_diameter(nlines,secondbuf);
-      }
-      if (flush_flag && fp) fflush(fp);
-    } else {
-      MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
-      MPI_Rsend(secondbuf,nme*size_one,MPI_DOUBLE,fileproc,0,world);
-    }
-
-    for (int counter = 4; counter < size_one; counter++) {
-      for (int i = 0; i < nme; i++)
-	memcpy(&secondbuf[i*size_one],&buf[index[i]*size_one],nbytes);
-
-      if (me == 0) {
-	for (int iproc = 0; iproc < nclusterprocs; iproc++) {
-	  if (iproc) {
-	    MPI_Irecv(secondbuf,maxbuf*size_one,MPI_DOUBLE,me+iproc,0,world,&request);
-	    MPI_Send(&tmp,0,MPI_INT,me+iproc,0,world);
-	    MPI_Wait(&request,&status);
-	    MPI_Get_count(&status,MPI_DOUBLE,&nlines);
-	    nlines /= size_one;
-	  } else nlines = nme;
-	  
-	  //~ Write any additional data required
-	  write_extra(nlines,secondbuf,counter);
-	}
-	if (flush_flag && fp) fflush(fp);
-	
-      } else {
-	MPI_Recv(&tmp,0,MPI_INT,fileproc,0,world,&status);
-	MPI_Rsend(secondbuf,nme*size_one,MPI_DOUBLE,fileproc,0,world);
-      }
-    }
-    
-    if (filewriter) write_footer(); //~ Write the footer
-
-    //~ Free the memory allocated to secondbuf [KH - 31 May 2012]
-    memory->destroy(secondbuf);
-  } else if (buffer_flag == 0 || binary) {
-    if (filewriter) {
-      // filewriter = 1 = this proc writes to file
-      // ping each proc in my cluster, receive its data, write data to file
-      // else wait for ping from fileproc, send my data to fileproc
-
       for (int iproc = 0; iproc < nclusterprocs; iproc++) {
         if (iproc) {
           MPI_Irecv(buf,maxbuf*size_one,MPI_DOUBLE,me+iproc,0,world,&request);
@@ -563,6 +479,7 @@ void Dump::write()
   }
 
   // if file per timestep, close file if I am filewriter
+
   if (multifile) {
     if (compressed) {
       if (filewriter && fp != NULL) pclose(fp);
@@ -1158,15 +1075,9 @@ bigint Dump::memory_usage()
     bytes += memory->usage(proclist,maxproc);
     if (irregular) bytes += irregular->memory_usage();
   }
-
-  //~ If vtkflag is active, buf is copied to secondbuf [KH - 7 May 2013]
-  if (vtkflag)
-    bytes += memory->usage(buf,size_one*maxbuf);
-
   if (pbcflag) {
     bytes += 6*maxpbc * sizeof(double);
     bytes += maxpbc * sizeof(imageint);
   }
-  
   return bytes;
 }

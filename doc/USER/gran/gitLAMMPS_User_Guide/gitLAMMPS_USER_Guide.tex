@@ -6,6 +6,7 @@
 % History:
 % v1.0		KH - 4 August 2014	Based on user manual for repository in shared space at Imperial
 % v1.1		KH - 24 May 2017	Minor updates, mainly to reflect the change of the main LAMMPS repository from  http://git.icms.temple.edu/lammps-ro to https://github.com/lammps/lammps
+% v1.2 		KH - 26 June 2017	Small update to remove an obsolete reference to DumpVTK
 %-----------------------------------------------
 
 
@@ -322,7 +323,7 @@ To https://\sout{USERNAME}@bitbucket.org/granlammps/gitlammps
 \section{Merging master branch into common branch}
 Periodically merging the master branch into the common branch is the mechanism by which our version of LAMMPS, including all of our in-house additions and modifications, is kept up-to-date with the upstream LAMMPS distribution. This approach has worked well in the past and is infinitely preferable to trying to update the code manually. 
 
-There is, however, a potential problem. A change made to the upstream code may affect some of the added\slash modified files in our version of LAMMPS. To give a simple example, the syntax of compute\_stress\_atom.cpp was changed by the main developers in February 2014 to add a temperature argument. Two files in our version of LAMMPS, fix\_multistress.cpp and fix\_crushing.cpp, implicitly set up a stress compute by calling ComputeStressAtom; this meant that both of these files needed updating. Another example is that changes made to dump\_custom.\{cpp\slash h\} usually necessitate similar changes in dump\_vtk.\{cpp\slash h\}. The only way to know the knock-on effects of upstream changes is to have an intimate knowledge of our version of LAMMPS. Updating the code by doing a merge without this understanding will almost certainly lead to problems.
+There is, however, a potential problem. A change made to the upstream code may affect some of the added\slash modified files in our version of LAMMPS. To give a simple example, the syntax of compute\_stress\_atom.cpp was changed by the main developers in February 2014 to add a temperature argument. Two files in our version of LAMMPS, fix\_multistress.cpp and fix\_crushing.cpp, implicitly set up a stress compute by calling ComputeStressAtom; this meant that both of these files needed updating. The only way to know the knock-on effects of upstream changes is to have an intimate knowledge of our version of LAMMPS. Updating the code by doing a merge without this understanding will almost certainly lead to problems.
 
 Merging operations can be done only with the local repository. Even if this were not the case, it is the most sensible approach as if anything goes wrong (though it shouldn't if you follow this procedure), you can easily delete and recreate the local repository by cloning the remote repository (\prettyref{sec:clr}).
 

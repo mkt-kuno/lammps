@@ -69,9 +69,8 @@ one boundary, it automatically sets up a stress compute (compute_stress_atom). T
 has been included for the user to access this compute and write out mean stresses on the boundaries.
 Furthermore, fix multistress allows the per-atom particle stresses to be dumped out. The name of the
 stress compute is "\{fix multistress ID\}_stress". As an example, the following lines define a
-fix multistress, write out the mean stresses in a file, dump out the per-atom stresses in another
-file and periodically write out vtk files (for input to ParaView) where the particles may be
-coloured by their stress components:
+fix multistress, write out the mean stresses in a file, and dump out the per-atom stresses in another
+file:
 
 
 fix		7 all multistress 0.5 100000 0.1 z vel -1e-3 linkvolstress x y units box :pre
@@ -85,8 +84,7 @@ variable 	xzstress equal f_7\[5\]
 variable 	yzstress equal f_7\[6\]
 fix 		8 all print 1000 "$\{step\} $\{xxstress\} $\{yystress\} $\{zzstress\} $\{xystress\} $\{xzstress\} $\{yzstress\}" file mean_stresses.txt screen no :pre
 
-dump		1 all custom 1000 dump.atom_stresses_$i id c_7_stress\[1\] c_7_stress\[2\] c_7_stress\[3\] c_7_stress\[4\] c_7_stress\[5\] c_7_stress\[6\]
-dump		2 all vtk 100 dump.*.vtp c_7_stress\[1\] c_7_stress\[2\] c_7_stress\[3\] c_7_stress\[4\] c_7_stress\[5\] c_7_stress\[6\] :pre
+dump		1 all custom 1000 dump.atom_stresses_$i id c_7_stress\[1\] c_7_stress\[2\] c_7_stress\[3\] c_7_stress\[4\] c_7_stress\[5\] c_7_stress\[6\] :pre
 
 Currently the maximum engineering strain rate, if defined, is linked to the proportional gain used in the stress control
 algorithm. The gain is calculated as twice the maximum strain rate divided by the target stress. This has some logical
