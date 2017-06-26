@@ -624,13 +624,7 @@ void FixWallGran::post_force(int vflag)
   
   //~ Initialise the non-accumulated strain energy terms to zero
   normalstrain = 0.0;
-
   
-  //***********// This is for HMD and CMD models
-  dissipfriction = 0.0; // TEMPORARY [MO - 25 Sep 2015]
-  //***********
-
-
   if (pairstyle == HOOKE_HISTORY) shearstrain = 0.0;
   
   // loop over all my atoms
