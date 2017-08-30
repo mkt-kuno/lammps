@@ -115,7 +115,6 @@ void PairSWKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_numneigh = k_list->d_numneigh;
   d_neighbors = k_list->d_neighbors;
 
-  k_list->clean_copy();
   copymode = 1;
 
   EV_FLOAT ev;
@@ -573,7 +572,7 @@ void PairSWKokkos<DeviceType>::coeff(int narg, char **arg)
   k_map.template modify<LMPHostType>();
   k_map.template sync<DeviceType>();
 
-  d_map = k_map.d_view;
+  d_map = k_map.template view<DeviceType>();
 }
 
 /* ----------------------------------------------------------------------
@@ -638,8 +637,8 @@ void PairSWKokkos<DeviceType>::setup_params()
   k_params.template modify<LMPHostType>();
   k_params.template sync<DeviceType>();
 
-  d_elem2param = k_elem2param.d_view;
-  d_params = k_params.d_view;
+  d_elem2param = k_elem2param.template view<DeviceType>();
+  d_params = k_params.template view<DeviceType>();
 }
 
 /* ---------------------------------------------------------------------- */

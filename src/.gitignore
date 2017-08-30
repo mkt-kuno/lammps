@@ -31,6 +31,11 @@
 /fix_*manifold*.cpp
 /fix_*manifold*.h
 
+/meam*.h
+/meam*.cpp
+/pair_meamc.cpp
+/pair_meamc.h
+
 /fix_qeq*.cpp
 /fix_qeq*.h
 
@@ -52,8 +57,38 @@
 /intel_buffers.cpp
 /intel_buffers.h
 /intel_intrinsics.h
+/intel_intrinsics_airebo.h
 /intel_preprocess.h
 /intel_simd.h
+
+/atom_vec_edpd.cpp
+/atom_vec_edpd.h
+/atom_vec_mdpd.cpp
+/atom_vec_mdpd.h
+/atom_vec_tdpd.cpp
+/atom_vec_tdpd.h
+/compute_edpd_temp_atom.cpp
+/compute_edpd_temp_atom.h
+/compute_tdpd_cc_atom.cpp
+/compute_tdpd_cc_atom.h
+/fix_edpd_source.cpp
+/fix_edpd_source.h
+/fix_mvv_dpd.cpp
+/fix_mvv_dpd.h
+/fix_mvv_edpd.cpp
+/fix_mvv_edpd.h
+/fix_mvv_tdpd.cpp
+/fix_mvv_tdpd.h
+/fix_tdpd_source.cpp
+/fix_tdpd_source.h
+/pair_edpd.cpp
+/pair_edpd.h
+/pair_mdpd.cpp
+/pair_mdpd.h
+/pair_mdpd_rhosum.cpp
+/pair_mdpd_rhosum.h
+/pair_tdpd.cpp
+/pair_tdpd.h
 
 /compute_sna_atom.cpp
 /compute_sna_atom.h
@@ -517,6 +552,10 @@
 /fix_tune_kspace.h
 /fix_wall_colloid.cpp
 /fix_wall_colloid.h
+/fix_wall_ees.cpp
+/fix_wall_ees.h
+/fix_wall_region_ees.cpp
+/fix_wall_region_ees.h
 /fix_wall_gran.cpp
 /fix_wall_gran.h
 /fix_wall_gran_region.cpp
@@ -781,6 +820,8 @@
 /pair_peri_pmb.h
 /pair_peri_ves.cpp
 /pair_peri_ves.h
+/pair_quip.cpp
+/pair_quip.h
 /pair_reax.cpp
 /pair_reax.h
 /pair_reax_fortran.h

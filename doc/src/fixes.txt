@@ -34,6 +34,7 @@ Fixes :h1
    fix_drude
    fix_drude_transform
    fix_dpd_energy
+   fix_dpd_source
    fix_dt_reset
    fix_efield
    fix_ehex
@@ -75,6 +76,7 @@ Fixes :h1
    fix_mscg
    fix_msst
    fix_multistress
+   fix_mvv_dpd
    fix_neb
    fix_nh
    fix_nh_eff
@@ -160,6 +162,7 @@ Fixes :h1
    fix_viscosity
    fix_viscous
    fix_wall
+   fix_wall_ees
    fix_wall_gran
    fix_wall_gran_region
    fix_wall_piston
