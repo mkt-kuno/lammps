@@ -87,7 +87,7 @@ void PairTersoffZBLKokkos<DeviceType>::allocate()
 
   k_params = Kokkos::DualView<params_ters***,Kokkos::LayoutRight,DeviceType>
 	  ("PairTersoffZBL::paramskk",n+1,n+1,n+1);
-  paramskk = k_params.d_view;
+  paramskk = k_params.template view<DeviceType>();
 }
 
 /* ----------------------------------------------------------------------
@@ -214,7 +214,6 @@ void PairTersoffZBLKokkos<DeviceType>::compute(int eflag_in, int vflag_in)
   d_neighbors = k_list->d_neighbors;
   d_ilist = k_list->d_ilist;
 
-  k_list->clean_copy();
   copymode = 1;
 
   EV_FLOAT ev;

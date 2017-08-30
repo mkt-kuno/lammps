@@ -1,5 +1,4 @@
 /* ----------------------------------------------------------------------
-  fputs
    LAMMPS - Large-scale Atomic/Molecular Massively Parallel Simulator
    http://lammps.sandia.gov, Sandia National Laboratories
    Steve Plimpton, sjplimp@sandia.gov
@@ -46,7 +45,7 @@
 #include <algorithm>
 
 #ifdef _WIN32
-#define PSAPI_VERSION=1
+#define PSAPI_VERSION 1
 #include <windows.h>
 #include <stdint.h>
 #include <psapi.h>

@@ -79,7 +79,7 @@ template<class DeviceType>
 void FixQEqReaxKokkos<DeviceType>::init()
 {
   atomKK->k_q.modify<LMPHostType>();
-  atomKK->k_q.sync<LMPDeviceType>();
+  atomKK->k_q.sync<DeviceType>();
 
   FixQEqReax::init();
 
@@ -218,8 +218,6 @@ void FixQEqReaxKokkos<DeviceType>::pre_force(int vflag)
   d_ilist = k_list->d_ilist;
   inum = list->inum;
 
-  k_list->clean_copy();
-  //cleanup_copy();
   copymode = 1;
 
   int teamsize = TEAMSIZE;

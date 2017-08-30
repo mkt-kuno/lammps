@@ -22,6 +22,10 @@
 #include "neighbor.h"
 #include "neigh_list.h"
 #include "neigh_request.h"
+#include "nbin.h"
+#include "nstencil.h"
+#include "npair.h"
+#include "ntopo.h"
 #include "style_nbin.h"
 #include "style_nstencil.h"
 #include "style_npair.h"
@@ -197,7 +201,7 @@ Neighbor::~Neighbor()
   delete [] slist;
   delete [] plist;
 
-  for (int i = 0; i < nlist; i++) 
+  for (int i = 0; i < nrequest; i++) 
     if (requests[i]) delete requests[i];
   memory->sfree(requests);
   for (int i = 0; i < old_nrequest; i++)
