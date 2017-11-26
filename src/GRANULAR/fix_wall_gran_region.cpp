@@ -30,6 +30,9 @@
 #include "math_const.h"
 #include "memory.h"
 #include "error.h"
+//~ Added compute header files for energy tracing [KH - 27 May 2017]
+#include "compute.h"
+#include "compute_energy_gran.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -130,6 +133,11 @@ void FixWallGranRegion::init()
 
 void FixWallGranRegion::post_force(int vflag)
 {
+  //~ Mirror from FixWallGran [KH - 29 May 2017]
+  // virial setup
+  if (vflag) v_setup(vflag);
+  else evflag = 0;
+
   int i,m,nc,iwall;
   double dx,dy,dz,rsq,meff;
   double vwall[3];
@@ -162,6 +170,39 @@ void FixWallGranRegion::post_force(int vflag)
 
   int regiondynamic = region->dynamic_check();
   if (!regiondynamic) vwall[0] = vwall[1] = vwall[2] = 0.0;
+
+  //~ Mirror the following lines from FixWallGran [KH - 29 May 2017]
+  // if wiggle or shear, set wall position and velocity accordingly
+  // if wtranslate lo and hi track the wall position and vwall is set in the constructor
+
+  if (wiggle) { 
+    double arg = omega * (update->ntimestep - time_origin) * dt;
+    if (wiggletype == 1) vwall[axis] = amplitude*omega*sin(arg); // same as before [MO - 09 May 2016]
+    else                 vwall[axis] = amplitude*omega*cos(arg); // newly added [MO - 09 May 2016]
+    if (shearupdate && wallstyle == axis) move_wall(); // move_wall will update hi & lo
+  } 
+  else if (wtranslate && shearupdate) move_wall(); // move_wall will update hi & lo
+  else if (wshear) vwall[axis] = vshear;
+
+  fwall[0] = fwall[1] = fwall[2] = 0.0; //per-processor force// fwall_all[0] = fwall_all[1] = fwall_all[2] = 0.0;
+  wcoordnos[0] = 0.0; // coordination number of wall [MO - 12 March 2015]
+  
+  /*~ Ascertain whether or not energy tracing is active by checking
+    for the presence of compute energy/gran. If so, check if the
+    tracked terms include those calculated in this fix. The
+    energy terms are updated only if necessary for efficiency.
+    [KH - 20 February 2014]*/
+  pairenergy = *trace_energy;
+  if (!pairenergy)
+    for (int q = 0; q < modify->ncompute; q++)
+      if (strcmp(modify->compute[q]->style,"energy/gran") == 0) {
+	pairenergy = ((ComputeEnergyGran *) modify->compute[q])->pairenergy;
+	break;
+      }
+  
+  //~ Initialise the non-accumulated strain energy terms to zero
+  normalstrain = 0.0;
+  if (pairstyle == HOOKE_HISTORY) shearstrain = 0.0;
 
   double **x = atom->x;
   double **v = atom->v;
@@ -236,6 +277,8 @@ void FixWallGranRegion::post_force(int vflag)
         meff = rmass[i];
         if (fix_rigid && mass_rigid[i] > 0.0) meff = mass_rigid[i];
 
+	wcoordnos[0] += 1.0; // accumulate coordination number [MO - 12 March 2015]; mirrored from FixWallGran [KH - 27 May 2017]
+
         // invoke sphere/wall interaction
 
 	/*~ Added an i as an additional argument to each (apart from
@@ -258,9 +301,15 @@ void FixWallGranRegion::post_force(int vflag)
 	else if (pairstyle == SHM_HISTORY) //~ Added [KH - 23 May 2017]
           shm_history(rsq,dx,dy,dz,vwall,region->contact[ic].radius,
 		      v[i],f[i],omega[i],torque[i],
-		      radius[i],meff,shearone[i],i);
+		      radius[i],meff,shearmany[i][c2r[ic]],i);
       }
     }
+  }
+
+  //~ Mirrored from FixWallGran [KH - 27 May 2017]
+  if (wscontrol) { // velscontrol and move_wall are called here [MO - 28 Aug 2015]
+    velscontrol(); 
+    if (shearupdate) move_wall(); // move_wall will update hi & lo
   }
 }
 
