@@ -32,7 +32,7 @@
 #include "modify.h" //~ This header file was added [KH - 9 November 2011]
 #include "neigh_request.h" //~ Added four more header files [KH - 23 November 2012]
 #include "fix.h"
-#include "fix_shear_history.h"
+#include "fix_neigh_history.h"
 #include "memory.h"
 #include "compute_energy_gran.h" //~ For energy tracing [KH - 20 February 2014]
 
@@ -103,8 +103,8 @@ void PairGranCMDHistory::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firsttouch = list->listhistory->firstneigh;
-  firstshear = list->listhistory->firstdouble;
+  firsttouch = fix_history->firstflag;
+  firstshear = fix_history->firstvalue;
 
   /*~ The following piece of code was added to determine whether or not
     any periodic boundaries, if present, are moving either via fix_
@@ -1042,7 +1042,7 @@ double PairGranCMDHistory::single(int i, int j, int itype, int jtype,
 
   int *jlist = list->firstneigh[i];
   int jnum = list->numneigh[i];
-  double *allshear = list->listhistory->firstdouble[i];
+  double *allshear = fix_history->firstvalue[i];
 
   for (int jj = 0; jj < jnum; jj++) {
     neighprev++;
@@ -1138,36 +1138,28 @@ void PairGranCMDHistory::init_style()
     tracing [KH - 6 March 2014]*/
   int numshearquants = 26 + 20*D_spin + 4*trace_energy;
 
-  // need a granular neigh list and optionally a granular history neigh list
+  // need a granular neigh list
 
   int irequest = neighbor->request(this,instance_me);
   neighbor->requests[irequest]->size = 1;
-  if (history) {
-    irequest = neighbor->request(this,instance_me);
-    neighbor->requests[irequest]->id = 1;
-    neighbor->requests[irequest]->history = 1;
-    neighbor->requests[irequest]->dnum = numshearquants;
-  }
-
+  if (history) neighbor->requests[irequest]->history = 1;
 
   dt = update->dt;
 
-  // if shear history is stored:
   // if first init, create Fix needed for storing shear history
 
   if (history && fix_history == NULL) {
     char dnumstr[16];
     sprintf(dnumstr,"%d",numshearquants); //~ Now variable [KH - 23 May 2017]
     char **fixarg = new char*[4];
-    fixarg[0] = (char *) "SHEAR_HISTORY";
+    fixarg[0] = (char *) "NEIGH_HISTORY";
     fixarg[1] = (char *) "all";
-    fixarg[2] = (char *) "SHEAR_HISTORY";
+    fixarg[2] = (char *) "NEIGH_HISTORY";
     fixarg[3] = dnumstr;
-    modify->add_fix(4,fixarg);
+    modify->add_fix(4,fixarg,1);
     delete [] fixarg;
-    fix_history = (FixShearHistory *) modify->fix[modify->nfix-1];
+    fix_history = (FixNeighHistory *) modify->fix[modify->nfix-1];
     fix_history->pair = this;
-    neighbor->requests[irequest]->fix_history = fix_history;
   }
 
   // check for FixFreeze and set freeze_group_bit
