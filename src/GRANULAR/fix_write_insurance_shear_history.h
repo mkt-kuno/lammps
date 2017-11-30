@@ -30,6 +30,9 @@ class FixWriteInsuranceShearHistory : public Fix {
     ~FixWriteInsuranceShearHistory();
     int setmask();
     void setup(int);
+
+ private:
+    class FixNeighHistory *fix_history;
 };
 
 }

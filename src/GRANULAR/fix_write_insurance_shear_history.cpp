@@ -26,6 +26,7 @@
 #include "memory.h"
 #include "force.h"
 #include "pair.h"
+#include "fix_neigh_history.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -83,7 +84,6 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
 
   int dim;  
   NeighList *list = (NeighList *) pair->extract("list",dim);
-  NeighList *listhistory = (NeighList *) pair->extract("listhistory",dim);
   
   //~ Find the number of shear quantities
   int numshearquants = 3;
@@ -114,7 +114,7 @@ void FixWriteInsuranceShearHistory::setup(int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firstshear = listhistory->firstdouble;
+  firstshear = fix_history->firstvalue;
  
   /*~ Create a dynamic array for storing information regarding the contact
     forces*/

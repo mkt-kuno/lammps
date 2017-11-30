@@ -35,6 +35,7 @@ class FixReadShear : public Fix {
     int nrows; //~ Number of rows in the sheardata array
     int numshearquants; //~ The number of shear quantities
     double **sheardata;
+    class FixNeighHistory *fix_history;
 };
 
 }

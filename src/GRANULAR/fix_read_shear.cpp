@@ -26,6 +26,7 @@
 #include "memory.h"
 #include "force.h"
 #include "pair.h"
+#include "fix_neigh_history.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -175,13 +176,12 @@ void FixReadShear::setup_pre_force(int vflag)
 
   int dim;
   NeighList *list = (NeighList *) pair->extract("list",dim);
-  NeighList *listhistory = (NeighList *) pair->extract("listhistory",dim);
   
   inum = list->inum;
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firstshear = listhistory->firstdouble;
+  firstshear = fix_history->firstvalue;
  
   // loop over neighbors of my atoms
 
