@@ -620,7 +620,9 @@ void FixCrushing::end_of_step()
     domain->box_too_small_check();
     modify->setup_pre_neighbor();
     neighbor->build();
-
+    modify->setup_post_neighbor();
+    neighbor->ncalls = 0;
+    
     /*~ Shrink the domain so that the void ratio is held constant
       if constante == 1*/
     if (constante == 1) {
