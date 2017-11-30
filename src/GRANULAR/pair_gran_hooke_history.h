@@ -32,7 +32,6 @@ class PairGranHookeHistory : public Pair {
   virtual void settings(int, char **);
   void coeff(int, char **);
   virtual void init_style(); //~ Made virtual [KH - 23 November 2012]
-  void init_list(int, class NeighList *);
   double init_one(int, int);
   virtual void write_restart(FILE *); //~ Made virtual
   virtual void read_restart(FILE *); //~ Made virtual
@@ -46,7 +45,6 @@ class PairGranHookeHistory : public Pair {
   void Deresiewicz1954_spin(int, int, int, int, double, double **, double *, double *, double &, double &, double *, double &, double &, double &, double &, double, double, double &, double, double); // Added D_spin model [MO - 30 November 2014]
   void add_old_omega_fix();
   double memory_usage();
-  void *extract(const char *, int &);
 
  protected:
   double gamman,gammat;
@@ -62,7 +60,7 @@ class PairGranHookeHistory : public Pair {
   double Geq,Poiseq,RMSf,Hp; // Added to extract for wall/gran.cpp [MO - 03 April 2015]
   int Model,THETA1;          // Added to extract for wall/gran.cpp [MO - 12 Sep 2015]
 
-  class FixShearHistory *fix_history;
+  class FixNeighHistory *fix_history;
 
   // storage of rigid body masses for use in granular interactions
 

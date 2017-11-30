@@ -95,10 +95,6 @@ class Pair : protected Pointers {
   class NeighList *list;         // standard neighbor list used by most pairs
   class NeighList *listhalf;     // half list used by some pairs
   class NeighList *listfull;     // full list used by some pairs
-  class NeighList *listhistory;  // neighbor history list used by some pairs
-  class NeighList *listinner;    // rRESPA lists used by some pairs
-  class NeighList *listmiddle;
-  class NeighList *listouter;
 
   /*~ *ierates was defined as a public class member as access may be
     needed from fix_multistress if linkvolstress is enabled
@@ -222,10 +218,12 @@ class Pair : protected Pointers {
   double tabinner;                     // inner cutoff for Coulomb table
   double tabinner_disp;                 // inner cutoff for dispersion table
 
+ public:
   // custom data type for accessing Coulomb tables
 
   typedef union {int i; float f;} union_int_float_t;
 
+ protected:
   int vflag_fdotr;
   int maxeatom,maxvatom;
   double kn,kt,xmu; //~ Moved from pair/gran/hooke/history [KH - 14 December 2012]

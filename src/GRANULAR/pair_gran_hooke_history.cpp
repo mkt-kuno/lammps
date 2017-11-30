@@ -27,7 +27,7 @@
 #include "update.h"
 #include "modify.h"
 #include "fix.h"
-#include "fix_shear_history.h"
+#include "fix_neigh_history.h"
 #include "comm.h"
 #include "neighbor.h"
 #include "neigh_list.h"
@@ -85,7 +85,7 @@ PairGranHookeHistory::PairGranHookeHistory(LAMMPS *lmp) : Pair(lmp)
 PairGranHookeHistory::~PairGranHookeHistory()
 {
   delete [] svector;
-  if (fix_history) modify->delete_fix("SHEAR_HISTORY");
+  if (fix_history) modify->delete_fix("NEIGH_HISTORY");
 
   if (allocated) {
     memory->destroy(setflag);
@@ -168,8 +168,8 @@ void PairGranHookeHistory::compute(int eflag, int vflag)
   ilist = list->ilist;
   numneigh = list->numneigh;
   firstneigh = list->firstneigh;
-  firsttouch = listhistory->firstneigh;
-  firstshear = listhistory->firstdouble;
+  firsttouch = fix_history->firstflag;
+  firstshear = fix_history->firstvalue;
 
   /*~ The following piece of code was added to determine whether or not
     any periodic boundaries, if present, are moving either via fix_
@@ -564,36 +564,29 @@ void PairGranHookeHistory::init_style()
   /*~ Another 4 shear quantities are needed for per-contact energy
     tracing [KH - 6 March 2014]*/
   int numshearquants = 3 + 15*rolling + 4*trace_energy;
-
-  // need a granular neigh list and optionally a granular history neigh list
+  
+  // need a granular neigh list
 
   int irequest = neighbor->request(this,instance_me);
   neighbor->requests[irequest]->size = 1;
-  if (history) {
-    irequest = neighbor->request(this,instance_me);
-    neighbor->requests[irequest]->id = 1;
-    neighbor->requests[irequest]->history = 1;
-    neighbor->requests[irequest]->dnum = numshearquants;
-  }
+  if (history) neighbor->requests[irequest]->history = 1;
 
   dt = update->dt;
 
-  // if shear history is stored:
   // if first init, create Fix needed for storing shear history
 
   if (history && fix_history == NULL) {
     char dnumstr[16];
     sprintf(dnumstr,"%d",numshearquants); //~ Now variable [KH - 23 May 2017]
     char **fixarg = new char*[4];
-    fixarg[0] = (char *) "SHEAR_HISTORY";
+    fixarg[0] = (char *) "NEIGH_HISTORY";
     fixarg[1] = (char *) "all";
-    fixarg[2] = (char *) "SHEAR_HISTORY";
+    fixarg[2] = (char *) "NEIGH_HISTORY";
     fixarg[3] = dnumstr;
-    modify->add_fix(4,fixarg);
+    modify->add_fix(4,fixarg,1);
     delete [] fixarg;
-    fix_history = (FixShearHistory *) modify->fix[modify->nfix-1];
+    fix_history = (FixNeighHistory *) modify->fix[modify->nfix-1];
     fix_history->pair = this;
-    neighbor->requests[irequest]->fix_history = fix_history;
   }
 
   /*~ If rolling resistance is active, implicitly set up a fix,
@@ -664,21 +657,10 @@ void PairGranHookeHistory::init_style()
   // set fix which stores history info
 
   if (history) {
-    int ifix = modify->find_fix("SHEAR_HISTORY");
-    if (ifix < 0) error->all(FLERR,"Could not find pair fix ID");
-    fix_history = (FixShearHistory *) modify->fix[ifix];
+    int ifix = modify->find_fix("NEIGH_HISTORY");
+    if (ifix < 0) error->all(FLERR,"Could not find pair fix neigh history ID");
+    fix_history = (FixNeighHistory *) modify->fix[ifix];
   }
-}
-
-/* ----------------------------------------------------------------------
-   neighbor callback to inform pair style of neighbor list to use
-   optional granular history list
-------------------------------------------------------------------------- */
-
-void PairGranHookeHistory::init_list(int id, NeighList *ptr)
-{
-  if (id == 0) list = ptr;
-  else if (id == 1) listhistory = ptr;
 }
 
 /* ----------------------------------------------------------------------
@@ -857,7 +839,7 @@ double PairGranHookeHistory::single(int i, int j, int itype, int jtype,
 
   int jnum = list->numneigh[i];
   int *jlist = list->firstneigh[i];
-  double *allshear = list->listhistory->firstdouble[i];
+  double *allshear = fix_history->firstvalue[i];
 
   for (int jj = 0; jj < jnum; jj++) {
     neighprev++;
@@ -1629,8 +1611,9 @@ double PairGranHookeHistory::memory_usage()
 }
 
 /* ----------------------------------------------------------------------
-   return ptr to FixShearHistory class
-   called by Neighbor when setting up neighbor lists
+   return ptr to FixNeighHistory class
+   formerly called by Neighbor when setting up neighbor lists
+   Now used to conveniently access various useful pair quantities externally
 ------------------------------------------------------------------------- */
 
 void *PairGranHookeHistory::extract(const char *str, int &dim)
@@ -1638,7 +1621,6 @@ void *PairGranHookeHistory::extract(const char *str, int &dim)
   dim = 0;  
   if (strcmp(str,"history") == 0) return (void *) fix_history;
   else if (strcmp(str,"list") == 0) return (void *) list;
-  else if (strcmp(str,"listhistory") == 0) return (void *) listhistory;
   else if (strcmp(str,"rolling") == 0) return (void *) &rolling;
   // Added for D_spin model [MO - 13 November 2014]
   else if (strcmp(str,"D_spin") == 0) return (void *) &D_spin;

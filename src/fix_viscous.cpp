@@ -33,6 +33,8 @@ FixViscous::FixViscous(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg),
   gamma(NULL)
 {
+  dynamic_group_allow = 1;
+
   if (narg < 4) error->all(FLERR,"Illegal fix viscous command");
 
   restart_global = 1; //~ Global information is saved to the restart file

@@ -206,7 +206,6 @@ int NeighborKokkos::check_distance_kokkos()
   int flag = 0;
   copymode = 1;
   Kokkos::parallel_reduce(Kokkos::RangePolicy<DeviceType, TagNeighborCheckDistance<DeviceType> >(0,nlocal),*this,flag);
-  DeviceType::fence();
   copymode = 0;
 
   int flagall;
@@ -273,7 +272,6 @@ void NeighborKokkos::build_kokkos(int topoflag)
     }
     copymode = 1;
     Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagNeighborXhold<DeviceType> >(0,nlocal),*this);
-    DeviceType::fence();
     copymode = 0;
     xhold.modify<DeviceType>();
     if (boxcheck) {
@@ -312,9 +310,9 @@ void NeighborKokkos::build_kokkos(int topoflag)
   // build pairwise lists for all perpetual NPair/NeighList
   // grow() with nlocal/nall args so that only realloc if have to
 
-  atomKK->sync(Host,ALL_MASK);
   for (i = 0; i < npair_perpetual; i++) {
     m = plist[i];
+    if (!lists[m]->kokkos) atomKK->sync(Host,ALL_MASK);
     if (!lists[m]->copy) lists[m]->grow(nlocal,nall);
     neigh_pair[m]->build_setup();
     neigh_pair[m]->build(lists[m]);
