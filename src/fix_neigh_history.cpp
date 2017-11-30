@@ -435,7 +435,7 @@ void FixNeighHistory::pre_exchange_newton()
 
   maxpartner = 0;
   for (i = 0; i < nlocal_neigh; i++) maxpartner = MAX(maxpartner,npartner[i]);
-  comm->maxexchange_fix = MAX(comm->maxexchange_fix,4*maxpartner+1);
+  comm->maxexchange_fix = MAX(comm->maxexchange_fix,(dnum+1)*maxpartner+1);
 
   // zero npartner values from previous nlocal_neigh to current nlocal
 
@@ -742,7 +742,7 @@ int FixNeighHistory::pack_reverse_comm_size(int n, int first)
   last = first + n;
 
   for (i = first; i < last; i++)
-    m += 1 + 4*npartner[i];
+    m += 1 + (dnum+1)*npartner[i];
 
   return m;
 }
