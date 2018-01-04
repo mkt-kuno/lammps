@@ -22,6 +22,8 @@
 #include "modify.h" //~ Added three files for energy tracing [KH - 9 April 2014]
 #include "compute.h"
 #include "comm.h"
+#include "fix_gravity.h" // ~ Added to consider gravitational forces [MO - 28 December 2017]
+#include "force.h" // ~ Added to consider gravitational forces [MO - 28 December 2017]
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -31,12 +33,37 @@ using namespace FixConst;
 FixDampLocal::FixDampLocal(LAMMPS *lmp, int narg, char **arg) :
   Fix(lmp, narg, arg)
 {
-  if (narg < 4) error->all(FLERR,"Illegal fix damp local command");
 
+  /* FixDampLocal can be applied to body forces includeing/excluding gravitational forces.
+     fix 1 all damp/local 0.3 [] # empty : as before (damping to gravitational forces)
+     fix 1 all damp/local 0.3 1  # 1     : as before (damping to gravitational forces)
+     fix 1 all damp/local 0.3 0  # 0     : exclude damping to gravitational forces 
+     [MO - 28 December 2017] */
+
+  //if (narg < 4) error->all(FLERR,"Illegal fix damp local command");
+  if (narg < 4 || narg > 5) error->all(FLERR,"Illegal fix damp local command");  //~ modified [MO - 28 December 2017]
+ 
   restart_global = 1; //~ Global information is saved to the restart file
 
   alpha = atof(arg[3]);
   if (alpha>1.0 || alpha<0.0) error->all(FLERR,"Please check local damping coefficient - should be between 0 and 1");
+
+  if (narg == 4) flag_gravity = 1;
+  else           flag_gravity = force->inumeric(FLERR,arg[4]);
+  if (flag_gravity != 1 && flag_gravity != 0) error->all(FLERR,"Please check flag for gravitational forces - should be 0 or 1"); 
+
+  //~ check whether gravity is active [MO - 28 December 2017]
+  if (flag_gravity == 0) {
+    int gravity_active = 0;
+    for (int i = 0; i < modify->nfix; i++) {
+      if (strcmp(modify->fix[i]->style,"gravity") == 0) {
+        ifix = i;
+        gravity_active = 1;
+        break;
+      }
+    }
+    if (gravity_active == 0) error->all(FLERR,"Please activate fix/gravity for this option"); 
+  }
 
   //~ Initialise the energy dissipated by damping [KH - 9 April 2014]
   energy_dissip = 0.0;
@@ -123,13 +150,27 @@ void FixDampLocal::post_force(int vflag)
       oldtorque[1] = torque[i][1];
       oldtorque[2] = torque[i][2];
 
-      f[i][0] -= alpha*fabs(f[i][0])*signofnum(v[i][0]);
-      f[i][1] -= alpha*fabs(f[i][1])*signofnum(v[i][1]);
-      f[i][2] -= alpha*fabs(f[i][2])*signofnum(v[i][2]);
-
       torque[i][0] -= alpha*fabs(torque[i][0])*signofnum(omega[i][0]);
       torque[i][1] -= alpha*fabs(torque[i][1])*signofnum(omega[i][1]);
       torque[i][2] -= alpha*fabs(torque[i][2])*signofnum(omega[i][2]);
+
+      if (flag_gravity == 1) {
+      f[i][0] -= alpha*fabs(f[i][0])*signofnum(v[i][0]);
+      f[i][1] -= alpha*fabs(f[i][1])*signofnum(v[i][1]);
+      f[i][2] -= alpha*fabs(f[i][2])*signofnum(v[i][2]);     
+      
+      } else{
+ 
+      // added to remove damp/local from gravitational forces [MO - 28 December 2017]
+      double *rmass = atom->rmass;
+      double xacc = ((FixGravity *) modify->fix[ifix])->xacc;
+      double yacc = ((FixGravity *) modify->fix[ifix])->yacc;
+      double zacc = ((FixGravity *) modify->fix[ifix])->zacc;
+      
+      f[i][0] -= alpha*fabs(f[i][0] - rmass[i]*xacc)*signofnum(v[i][0]);
+      f[i][1] -= alpha*fabs(f[i][1] - rmass[i]*yacc)*signofnum(v[i][1]);
+      f[i][2] -= alpha*fabs(f[i][2] - rmass[i]*zacc)*signofnum(v[i][2]);
+      }
 
       //~ Calculate the energy dissipated by damping
       if (energy_calc) energy_dissip += dissipated_energy(alpha,i,oldforce,oldtorque);
@@ -197,11 +238,27 @@ double FixDampLocal::dissipated_energy(double alpha, int i, double *of, double *
   double alphadt = alpha*update->dt;
   double **v = atom->v;
   double **omega = atom->omega;
+  
+  // added to remove damp/local from gravitational forces [MO - 28 December 2017]
+  if (flag_gravity == 1) {
 
-  for (int j = 0; j < 3; j++) {
-    incenergy += fabs(of[j]*v[i][j]*signofnum(v[i][j]))*alphadt;
-    incenergy += fabs(ot[j]*omega[i][j]*signofnum(omega[i][j]))*alphadt;
+    for (int j = 0; j < 3; j++)
+      incenergy += fabs(of[j]*v[i][j]*signofnum(v[i][j]))*alphadt;
+      
+  } else {
+
+    double *rmass = atom->rmass;
+    double xacc = ((FixGravity *) modify->fix[ifix])->xacc;
+    double yacc = ((FixGravity *) modify->fix[ifix])->yacc;
+    double zacc = ((FixGravity *) modify->fix[ifix])->zacc;     
+
+    incenergy += fabs((of[0] - rmass[i]*xacc)*v[i][0]*signofnum(v[i][0]))*alphadt;
+    incenergy += fabs((of[1] - rmass[i]*yacc)*v[i][1]*signofnum(v[i][1]))*alphadt;
+    incenergy += fabs((of[2] - rmass[i]*zacc)*v[i][2]*signofnum(v[i][2]))*alphadt;
   }
+
+  for (int j = 0; j < 3; j++) 
+    incenergy += fabs(ot[j]*omega[i][j]*signofnum(omega[i][j]))*alphadt;
 
   return incenergy;
 }

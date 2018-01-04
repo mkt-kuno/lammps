@@ -41,6 +41,8 @@ class FixDampLocal : public Fix {
  protected:
   double alpha;
   int ilevel_respa;
+  int flag_gravity; //~ To include/exclude gravitational forces [MO - 28 December 2017]
+  int ifix; //~ To store fix id for fix/gravity [MO - 28 December 2017]
 
   double signofnum(double);
 

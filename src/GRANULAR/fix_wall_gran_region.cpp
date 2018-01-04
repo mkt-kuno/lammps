@@ -135,7 +135,8 @@ void FixWallGranRegion::post_force(int vflag)
 {
   //~ Mirror from FixWallGran [KH - 29 May 2017]
   // virial setup
-  if (vflag) v_setup(vflag);
+  //if (vflag) v_setup(vflag);  
+  if (vflag > 0) v_setup(vflag);   // modified [MO - 28 December 2017] 
   else evflag = 0;
 
   int i,m,nc,iwall;

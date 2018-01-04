@@ -26,6 +26,7 @@ namespace LAMMPS_NS {
 
 class FixGravity : public Fix {
   friend class FixPour;
+  friend class FixDampLocal;   // added to be considered in damp/local [MO - 28 December 2017]
 
  public:
   FixGravity(class LAMMPS *, int, char **);

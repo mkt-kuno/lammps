@@ -511,6 +511,12 @@ void FixWallGran::init()
 
 void FixWallGran::setup(int vflag)
 {
+  /*~ Force pair::ev_setup to be run with a vflag value of 4 so that
+    vflag_atom will be set equal to 1  [MO - 28 December 2017] */
+
+  if (update->integrate->vflag <= 2) vflag += 4;
+  force->pair->ev_setup(update->integrate->eflag, vflag);
+
   // [MO - 13 AUGUST 2015] /////////////////////////////////////
   if (wscontrol) {
     //~ Firstly check whether a stress/atom compute already exists
@@ -562,7 +568,9 @@ void FixWallGran::setup(int vflag)
 void FixWallGran::post_force(int vflag)
 {
   // virial setup
-  if (vflag) v_setup(vflag);
+
+  //if (vflag) v_setup(vflag);  
+  if (vflag > 0) v_setup(vflag);   // modified [MO - 28 December 2017] 
   else evflag = 0;
   
   int i,j;
