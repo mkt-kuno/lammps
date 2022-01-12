@@ -285,6 +285,9 @@ void no_squish_rotate(int k, double *p, double *q, double *inertia,
    wspace = P wbody
    set wbody component to 0.0 if inertia component is 0.0
      otherwise body can spin easily around that axis
+
+  ->TM ; this function can be used for calculation angular accel from torque
+  T = Ia -> substitute M, w for T, a (dw/dt)
 ------------------------------------------------------------------------- */
 
 void angmom_to_omega(double *m, double *ex, double *ey, double *ez,
@@ -616,7 +619,7 @@ void BuildRxMatrix(double R[3][3], const double angle)
   const double angleSq = angle * angle;
   const double cosAngle = (1.0 - angleSq * 0.25) / (1.0 + angleSq * 0.25);
   const double sinAngle = angle / (1.0 + angleSq * 0.25);
-  
+
   R[0][0] = 1.0;  R[0][1] = 0.0;       R[0][2] = 0.0;
   R[1][0] = 0.0;  R[1][1] = cosAngle;  R[1][2] = -sinAngle;
   R[2][0] = 0.0;  R[2][1] = sinAngle;  R[2][2] = cosAngle;
@@ -631,7 +634,7 @@ void BuildRyMatrix(double R[3][3], const double angle)
   const double angleSq = angle * angle;
   const double cosAngle = (1.0 - angleSq * 0.25) / (1.0 + angleSq * 0.25);
   const double sinAngle = angle / (1.0 + angleSq * 0.25);
-  
+
   R[0][0] = cosAngle;   R[0][1] = 0.0;  R[0][2] = sinAngle;
   R[1][0] = 0.0;        R[1][1] = 1.0;  R[1][2] = 0.0;
   R[2][0] = -sinAngle;  R[2][1] = 0.0;  R[2][2] = cosAngle;
@@ -646,7 +649,7 @@ void BuildRzMatrix(double R[3][3], const double angle)
   const double angleSq = angle * angle;
   const double cosAngle = (1.0 - angleSq * 0.25) / (1.0 + angleSq * 0.25);
   const double sinAngle = angle / (1.0 + angleSq * 0.25);
-  
+
   R[0][0] = cosAngle;  R[0][1] = -sinAngle;  R[0][2] = 0.0;
   R[1][0] = sinAngle;  R[1][1] = cosAngle;   R[1][2] = 0.0;
   R[2][0] = 0.0;       R[2][1] = 0.0;        R[2][2] = 1.0;

@@ -1,0 +1,5 @@
+clang: warning: treating 'c' input as 'c++' when in C++ mode, this behavior is deprecated [-Wdeprecated]
+ar: creating archive libmpi_stubs.a
+LAMMPS_Build_Script_mpi_rigid.sh: line 12: fg: no job control
+mv: rename lmp_mpi to lmp_mpi_rigid: No such file or directory
+mv: rename lmp_mpi_rigid to ../lmp_mpi_rigid: No such file or directory

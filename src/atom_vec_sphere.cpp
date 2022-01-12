@@ -823,7 +823,6 @@ int AtomVecSphere::unpack_exchange(double *buf)
     for (int iextra = 0; iextra < atom->nextra_grow; iextra++)
       m += modify->fix[atom->extra_grow[iextra]]->
         unpack_exchange(nlocal,&buf[m]);
-
   atom->nlocal++;
   return m;
 }

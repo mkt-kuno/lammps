@@ -121,7 +121,7 @@ void ComputeStressAtom::init()
 {
   // set temperature compute, must be done in init()
   // fixes could have changed or compute_modify could have changed it
-
+  int i;
   if (id_temp) {
     int icompute = modify->find_compute(id_temp);
     if (icompute < 0)
@@ -130,6 +130,7 @@ void ComputeStressAtom::init()
     if (temperature->tempbias) biasflag = BIAS;
     else biasflag = NOBIAS;
   } else biasflag = NOBIAS;
+  
 }
 
 /* ---------------------------------------------------------------------- */
@@ -331,8 +332,8 @@ void ComputeStressAtom::compute_peratom()
 	    temperature->restore_bias(i,v[i]);
 	  }
       }
-    }
-  }
+    } // the end of BIAS
+  } // the end of ke
 
   // convert to stress*volume units = -pressure*volume
   /*~ The minus sign enforces a 'compression positive' sign
@@ -416,19 +417,19 @@ double *ComputeStressAtom::array_export()
   int *mask = atom->mask;
   double *radius = atom->radius;
   int nlocal = atom->nlocal;
- 
+
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
       if (domain->dimension == 3) {
 	pvolume = (4.0*PI/3.0)*radius[i]*radius[i]*radius[i];
-      } else pvolume = PI*radius[i]*radius[i];
-      
+} else pvolume = PI*radius[i]*radius[i];
+
       for (int j = 0; j < 6; j++)
  	means[j] += stress[i][j]*pvolume;
-    }
-  
+}
+
   double totalvolume = 1.0; //~ Total volume enclosed by bounding box
-  
+
   // modified to include presence of wall boundary [MO - 19 Aug 2015]
   for (int i = 0; i < domain->dimension; i++) {
     if (domain->periodicity[i] == 0 ) {
@@ -436,7 +437,7 @@ double *ComputeStressAtom::array_export()
     }
     else totalvolume *= (domain->boxhi[i] - domain->boxlo[i]);
   }
-  
+
   for (int i = 0; i < 6; i++)
     means[i] /= totalvolume;
 

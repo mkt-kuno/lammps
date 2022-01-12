@@ -21,6 +21,8 @@ ComputeStyle(stress/atom,ComputeStressAtom)
 #define LMP_COMPUTE_STRESS_ATOM_H
 
 #include "compute.h"
+//added TM
+#include "fix.h"
 
 namespace LAMMPS_NS {
 

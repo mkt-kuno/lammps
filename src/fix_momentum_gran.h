@@ -5,14 +5,14 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
 ------------------------------------------------------------------------- */
 
 /*~ Added this fix to LAMMPS as fix_momentum does something strange
-  for zeroing rotations with granular materials. This fix zeroes the 
+  for zeroing rotations with granular materials. This fix zeroes the
   angular velocities immediately before the force computation and
   zeroes the torques immediately after the force computation, but
   before final_integrate is run [KH - 2 July 2012]*/
@@ -34,8 +34,12 @@ class FixMomentumGran : public Fix {
  public:
   FixMomentumGran(class LAMMPS *, int, char **);
   int setmask();
+  void init(); //TM
   void pre_force(int);
   void post_force(int);
+
+ protected: //TM
+  class Fix *fix_rigid; //TM
 };
 
 }

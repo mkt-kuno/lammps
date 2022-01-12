@@ -59,13 +59,13 @@ using namespace MathConst;
 
 enum{NONE,XYZ,XY,YZ,XZ};        // same as in FixRigid
 enum{ISO,ANISO,TRICLINIC};      // same as in FixRigid
-
-enum{FULL_BODY,INITIAL,FINAL,FORCE_TORQUE,VCM_ANGMOM,XCM_MASS,ITENSOR,DOF};
+//TM
+enum{FULL_BODY,INITIAL,FINAL,FORCE_TORQUE,VCM_ANGMOM,XCM_MASS,ITENSOR,DOF,BODYTAG};
 
 /* ---------------------------------------------------------------------- */
 
 FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), step_respa(NULL), 
+  Fix(lmp, narg, arg), step_respa(NULL),
   infile(NULL), body(NULL), bodyown(NULL), bodytag(NULL), atom2body(NULL),
   xcmimage(NULL), displace(NULL), eflags(NULL), orient(NULL), dorient(NULL),
   avec_ellipsoid(NULL), avec_line(NULL), avec_tri(NULL), counts(NULL),
@@ -96,6 +96,8 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
   bodyown = NULL;
   bodytag = NULL;
   atom2body = NULL;
+  // Added TM
+  //tag2body = NULL;
   xcmimage = NULL;
   displace = NULL;
   eflags = NULL;
@@ -138,7 +140,7 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
         MPI_Allreduce(&vmin,&minval,1,MPI_INT,MPI_MIN,world);
 
         for (i = 0; i < nlocal; i++)
-          if (mask[i] & groupbit) 
+          if (mask[i] & groupbit)
             bodyid[i] = (tagint)(value[i] - minval + 1);
           else bodyid[i] = 0;
 
@@ -516,6 +518,8 @@ FixRigidSmall::~FixRigidSmall()
   memory->destroy(bodyown);
   memory->destroy(bodytag);
   memory->destroy(atom2body);
+  // added TM
+  //memory->destroy(tag2body);
   memory->destroy(xcmimage);
   memory->destroy(displace);
   memory->destroy(eflags);
@@ -801,15 +805,19 @@ void FixRigidSmall::post_force(int vflag)
     vcm = body[ibody].vcm;
     omega = body[ibody].omega;
     inertia = body[ibody].inertia;
-    
+
     gamma1 = -body[ibody].mass / t_period / ftm2v;
+    //if (t_start==0.0&&t_stop==0.0) gamma1 = - t_period / ftm2v;
+    //else gamma1 = -body[ibody].mass / t_period / ftm2v;
     gamma2 = sqrt(body[ibody].mass) * tsqrt *
       sqrt(24.0*boltz/t_period/dt/mvv2e) / ftm2v;
     langextra[ibody][0] = gamma1*vcm[0] + gamma2*(random->uniform()-0.5);
     langextra[ibody][1] = gamma1*vcm[1] + gamma2*(random->uniform()-0.5);
     langextra[ibody][2] = gamma1*vcm[2] + gamma2*(random->uniform()-0.5);
-    
+
     gamma1 = -1.0 / t_period / ftm2v;
+    //if (t_start==0.0&&t_stop==0.0) gamma1 = - t_period / ftm2v;
+    //else gamma1 = -1.0 / t_period / ftm2v;
     gamma2 = tsqrt * sqrt(24.0*boltz/t_period/dt/mvv2e) / ftm2v;
     langextra[ibody][3] = inertia[0]*gamma1*omega[0] +
       sqrt(inertia[0])*gamma2*(random->uniform()-0.5);
@@ -1018,6 +1026,9 @@ void FixRigidSmall::pre_neighbor()
   nghost_body = 0;
   commflag = FULL_BODY;
   comm->forward_comm_fix(this);
+  //TM -> update bodytag info -> reset atom2body for local+ghost atoms
+  commflag = BODYTAG;
+  comm->forward_comm_fix(this,1);
   reset_atom2body();
   //check(4);
 
@@ -1272,7 +1283,7 @@ void FixRigidSmall::set_xv()
       vr[4] = 0.5*x0*fc2;
       vr[5] = 0.5*x1*fc2;
 
-      v_tally(1,&i,1.0,vr);
+      //v_tally(1,&i,1.0,vr); //TM > This has to be excluded to calculate stress correctly
     }
   }
 
@@ -1422,7 +1433,7 @@ void FixRigidSmall::set_v()
       vr[4] = 0.5*x0*fc2;
       vr[5] = 0.5*x1*fc2;
 
-      v_tally(1,&i,1.0,vr);
+      //v_tally(1,&i,1.0,vr); //TM > This has to be excluded to calculate stress correctly
     }
   }
 
@@ -1893,6 +1904,9 @@ void FixRigidSmall::setup_bodies_static()
   nghost_body = 0;
   commflag = FULL_BODY;
   comm->forward_comm_fix(this);
+  //TM -> update bodytag info -> reset atom2body for local+ghost atoms
+  commflag = BODYTAG;
+  comm->forward_comm_fix(this,1);
   reset_atom2body();
 
   // compute mass & center-of-mass of each rigid body
@@ -2674,6 +2688,9 @@ void FixRigidSmall::grow_arrays(int nmax)
   memory->grow(bodyown,nmax,"rigid/small:bodyown");
   memory->grow(bodytag,nmax,"rigid/small:bodytag");
   memory->grow(atom2body,nmax,"rigid/small:atom2body");
+  // added TM ----------
+  //memory->grow(tag2body,nmax,"rigid/small:tag2body");
+  // -------------------
   memory->grow(xcmimage,nmax,"rigid/small:xcmimage");
   memory->grow(displace,nmax,3,"rigid/small:displace");
   if (extended) {
@@ -2747,6 +2764,9 @@ void FixRigidSmall::set_arrays(int i)
   bodyown[i] = -1;
   bodytag[i] = 0;
   atom2body[i] = -1;
+  // Added TM -----------
+  //tag2body[atom->tag[i]] = -1;
+  // --------------------
   xcmimage[i] = 0;
   displace[i][0] = 0.0;
   displace[i][1] = 0.0;
@@ -3038,6 +3058,11 @@ int FixRigidSmall::pack_forward_comm(int n, int *list, double *buf,
         m += bodysize;
       }
     }
+  } else if (commflag == BODYTAG) {
+    for (i = 0; i < n; i++) {
+      j = list[i];
+      buf[m++] = ubuf(bodytag[j]).d;
+    }
   }
 
   return m;
@@ -3127,6 +3152,10 @@ void FixRigidSmall::unpack_forward_comm(int n, int first, double *buf)
         bodyown[i] = j;
         nghost_body++;
       }
+    }
+  } else if (commflag == BODYTAG) {
+    for (i = first; i < last; i++) {
+      bodytag[i] = (tagint) ubuf(buf[m++]).i;
     }
   }
 }
@@ -3304,12 +3333,18 @@ void FixRigidSmall::reset_atom2body()
   // iowner = index of atom that owns the body that atom I is in
 
   int nlocal = atom->nlocal;
-
-  for (int i = 0; i < nlocal; i++) {
+  int nall = nlocal + atom->nghost;
+  //for (int i = 0; i < nlocal; i++) {
+  for (int i = 0; i < nall ; i++) { //TM ... set atom2body also for ghost atoms
     atom2body[i] = -1;
+    // Added TM -------------
+    //tag2body[atom->tag[i]] = -1;
+    // ----------------------
     if (bodytag[i]) {
       iowner = atom->map(bodytag[i]);
       if (iowner == -1) {
+        if (i >= nlocal) continue;
+        // continue; //TM
         char str[128];
         sprintf(str,
                 "Rigid body atoms " TAGINT_FORMAT " " TAGINT_FORMAT
@@ -3319,10 +3354,22 @@ void FixRigidSmall::reset_atom2body()
 
       }
       atom2body[i] = bodyown[iowner];
+      // Added TM -----------------------------
+      //tag2body[atom->tag[i]] = bodyown[iowner];
     }
   }
-}
+  // ------------------------------------------------
+  // Modified tag2body update for MPI [TM 16 May 2019]
 
+  /*for (int i=0; i < nall; i++){
+    tag2body[atom->tag[i]] = -1;
+    if (bodytag[i]) {
+      iowner = atom->map(bodytag[i]);
+      tag2body[atom->tag[i]] = bodyown[iowner];
+    }
+  }*/
+  // -----------------------------------------------
+}
 /* ---------------------------------------------------------------------- */
 
 void FixRigidSmall::reset_dt()
@@ -3381,6 +3428,21 @@ void FixRigidSmall::zero_rotation()
   evflag = 0;
   set_v();
 }
+/* ---------------------------------------------------------------------- */
+//TM < body torque is protected: set 0 by public method
+void FixRigidSmall::zero_torque()
+{
+  double *torque;
+  for (int ibody = 0; ibody < nlocal_body+nghost_body; ibody++) {
+    torque = body[ibody].torque;
+    torque[0] = torque[1] = torque[2] = 0.0;
+  }
+
+  // forward communicate of omega to all ghost copies
+
+  commflag = FORCE_TORQUE;
+  comm->forward_comm_fix(this,6);
+}
 
 /* ---------------------------------------------------------------------- */
 
@@ -3390,6 +3452,28 @@ void *FixRigidSmall::extract(const char *str, int &dim)
     dim = 1;
     return atom2body;
   }
+
+  // added TM ------------------------
+  /*if (strcmp(str,"bodyown") == 0) {
+    dim = 1;
+    return bodyown;
+  }*/
+
+  if (strcmp(str,"bodytag") == 0) {
+    dim = 1;
+    return bodytag;
+  }
+
+  if (strcmp(str,"xcmimage") == 0) {
+    dim = 1;
+    return xcmimage;
+  }
+  /*if (strcmp(str,"tagbody") == 0) {
+    dim = 1;
+    return tag2body;
+  }*/
+
+  // ----------------------------------
 
   if (strcmp(str,"onemol") == 0) {
     dim = 0;
@@ -3536,6 +3620,107 @@ double FixRigidSmall::memory_usage()
   }
   bytes += nmax_body * sizeof(Body);
   return bytes;
+}
+
+/* ----------------------------------------------------------------------
+   Added for grobal stress tensor calculation of rigid bodies [TM 11 April 2019]
+   return attributes of a rigid body;
+   This i indicates the index for a single atom (not a rigid body)
+   18 values per body (can add more)
+   xcm = 0,1,2; vcm = 3,4,5; fcm = 6,7,8; torque = 9,10,11; omega = 12,13,14;
+   imagebody = 15,16,17;
+------------------------------------------------------------------------- */
+
+double FixRigidSmall::compute_array(int i, int j)
+{
+  /*int ibody;
+  if (atom2body[i]>0) ibody = atom2body[i];
+  // if skin is too small, this can happen:
+  // body information is not known by this proc
+  // skin should be more than long axis length of the longest particle
+  else if (bodytag[i]) error->all(FLERR,"body information could not be extracted! check cutoff distance!");
+  // return atom->x here to avoid calculating wrong stress and
+  // confliction with fix_rigid.cpp (it doesnt have "bodytag")
+  else if (j<3) return atom->x[i][j];
+  else error->all(FLERR,"j should be <3 for single atoms");
+
+  //ibody = tag2body[atom->tag[i]]; //avoid segmentation fault
+  Body *b = &body[ibody];*/
+  Body *b = &body[i];
+  double *xcm;
+  xcm = b->xcm;
+  // Added TM for periodic
+  double xprd = domain->xprd;
+  double yprd = domain->yprd;
+  double zprd = domain->zprd;
+
+  if (j < 3) return xcm[j];
+  if (j < 6) return b->vcm[j-3];
+  if (j < 9) return b->fcm[j-6];
+  if (j < 12) return b->torque[j-9];
+  if (j < 15) return b->omega[j-12];
+  // image x (periodic)
+  if (j==15) return b->xcm[0] +
+    ((b->image & IMGMASK) - IMGMAX) * xprd;
+  // image y (periodic)
+  if (j==16) return b->xcm[1] +
+    ((b->image >> IMGBITS & IMGMASK) - IMGMAX) * yprd;
+  // image z (periodic)
+  if (j==17) return b->xcm[2] +
+    ((b->image >> IMG2BITS) - IMGMAX) * zprd;
+
+  return 0.0; // if any other
+}
+
+/* ----------------------------------------------------------------------
+   Added for grobal stress tensor calculation of rigid bodies [TM 20 April 2019]
+   return attributes of a rigid body in an array; however, currently this is not used
+   This i indicates the index for a single atom (not a rigid body)
+------------------------------------------------------------------------- */
+
+
+void *FixRigidSmall::extract_array(const char *str,int i, int &dim)
+{
+  //int ibody = tag2body[atom->tag[i]];
+  int ibody;
+  if (atom2body[i]>0) ibody = atom2body[i];
+  Body *b = &body[ibody];
+  if (strcmp(str,"xcm") == 0) {
+    dim = 1;
+    return b->xcm;
+  }
+  if (strcmp(str,"vcm") == 0) {
+    dim = 1;
+    return b->vcm;
+  }
+  if (strcmp(str,"fcm") == 0) {
+    dim = 1;
+    return b->fcm;
+  }
+  if (strcmp(str,"torque") == 0) {
+    dim = 1;
+    return b->torque;
+  }
+  if (strcmp(str,"inertia") == 0) {
+    dim = 1;
+    return b->inertia;
+  }
+  if (strcmp(str,"omega") == 0) {
+    dim = 1;
+    return b->omega;
+  }
+  if (strcmp(str,"ex_space") == 0) {
+    dim = 1;
+    return b->ex_space;
+  }
+  if (strcmp(str,"ey_space") == 0) {
+    dim = 1;
+    return b->ey_space;
+  }
+  if (strcmp(str,"ez_space") == 0) {
+    dim = 1;
+    return b->ez_space;
+  }
 }
 
 /* ----------------------------------------------------------------------

@@ -16,6 +16,8 @@
 
 #include "pointers.h"
 #include "accelerator_kokkos.h"
+// Added [TM 7 April 2019]
+#include "fix.h"
 
 namespace LAMMPS_NS {
 
@@ -35,6 +37,8 @@ class Pair : protected Pointers {
   friend class FixWallGran; //~ Added [KH - 26 May 2017]
 
  public:
+   //debug TM
+   FILE *fp1;
   static int instance_total;     // # of Pair classes ever instantiated
 
   double eng_vdwl,eng_coul;      // accumulated energies
@@ -176,8 +180,8 @@ class Pair : protected Pointers {
 
   virtual int pack_forward_comm(int, int *, double *, int, int *) {return 0;}
   virtual void unpack_forward_comm(int, int, double *) {}
-  virtual int pack_forward_comm_kokkos(int, DAT::tdual_int_2d, 
-                                       int, DAT::tdual_xfloat_1d &, 
+  virtual int pack_forward_comm_kokkos(int, DAT::tdual_int_2d,
+                                       int, DAT::tdual_xfloat_1d &,
                                        int, int *) {return 0;};
   virtual void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d &) {}
   virtual int pack_reverse_comm(int, int, double *) {return 0;}
@@ -247,6 +251,9 @@ class Pair : protected Pointers {
   /*~ Added flag which indicates whether per-contact energy tracing is
     active or not [KH - 6 March 2014]*/
   int trace_energy;
+
+  // Added to check whether rigid is active or not [TM - 07 April 2019]
+  class Fix *fix_rigid;    // ptr to rigid body fix, NULL if none
 
   int copymode;   // if set, do not deallocate during destruction
                   // required when classes are used as functors by Kokkos

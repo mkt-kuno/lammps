@@ -39,6 +39,8 @@
 #include "memory.h"
 #include "math_const.h"
 #include "error.h"
+// Added [TM 7 April 2019]
+#include "fix.h"
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -157,7 +159,7 @@ void Pair::modify_params(int narg, char **arg)
       else error->all(FLERR,"Illegal pair_modify command");
       iarg += 2;
       //~~ This was added for Deresiewicz1954_spin [MO - 05 November 2014]
-    } else if (strcmp(arg[iarg],"D_spin") == 0) { 
+    } else if (strcmp(arg[iarg],"D_spin") == 0) {
       //~ Comparing with the text in the input script
       D_spin = 1;
       D_switch = atoi(arg[iarg+1]);
@@ -275,6 +277,13 @@ void Pair::init()
 
   for (i = 1; i <= atom->ntypes; i++)
     if (setflag[i][i] == 0) error->all(FLERR,"All pair coeffs are not set");
+
+  // Added to check whether rigid is active or not [TM 07 April]
+  fix_rigid = NULL;
+  for (i = 0; i < modify->nfix; i++){
+    if (modify->fix[i]->rigid_flag) break;
+  }
+  if (i < modify->nfix) fix_rigid = modify->fix[i];
 
   // style-specific initialization
 
@@ -1189,7 +1198,7 @@ void Pair::ev_tally_xyz_full(int i, double evdwl, double ecoul,
   }
 }
 /* ----------------------------------------------------------------------
-   Calculates the stress tensor for each grain - see Potyondy and 
+  Calculates the stress tensor for each grain - see Potyondy and 
    Cundall (2004) for details of the formula used. Called by granular pairs
 ------------------------------------------------------------------------- */
 void Pair::ev_tally_gran(int i, int j, int nlocal,
@@ -1214,6 +1223,154 @@ void Pair::ev_tally_gran(int i, int j, int nlocal,
     cy = yi + (radi- 0.5 * (radi + radj - dist)) * ny;
     cz = zi + (radi- 0.5 * (radi + radj - dist)) * nz;
 
+    // -----------------------------------
+    // added for rigid [TM 07 April 2019]
+    // and modified current version [TM 05 July 2019]
+    // Note that contact point coords can be determined only with single particles
+    // information
+    // coords of CM of rigid including particle i or j
+    double xgi, xgj, ygi, ygj, zgi, zgj;
+
+    //double xbranch, ybranch, zbranch;
+    double cxgi, cygi, czgi; // vector to the contact from CM of the rigid includes partilce i
+    double cxgj, cygj, czgj; // vector to the contact from CM of the rigid includes partilce i
+    //double threshold_bv;
+    //double *xcm;
+    //TM < For PBC
+    int xbox,ybox,zbox;
+    double xprd = domain->xprd;
+    double yprd = domain->yprd;
+    double zprd = domain->zprd;
+    double xy = domain->xy;
+    double xz = domain->xz;
+    double yz = domain->yz;
+    double cximage, cyimage, czimage;
+
+    if (fix_rigid){
+      // extract body which associates single particle ID with rigid particle ID
+      int tmp;
+      int *body = (int *) fix_rigid->extract("body",tmp);
+      // bodytag will be NULL for fix_rigid, but it's considered later
+      tagint *bodytag = (tagint *) fix_rigid->extract("bodytag",tmp);
+      imageint *xcmimage = (imageint *) fix_rigid->extract("xcmimage",tmp);
+
+      // calculation for atom i ------------------------------------------------
+      if (body[i]>-1){
+        xgi = fix_rigid->compute_array(body[i],0);
+        ygi = fix_rigid->compute_array(body[i],1);
+        zgi = fix_rigid->compute_array(body[i],2);
+
+        // Unlike xi-zi, there is no insurance that xgi-zgi are unwrapped
+        // (may be very far)
+
+        // cx-cz are not far from xi-zi
+        // xcmimage saves image relationship between xi-zi and xgi-zgi
+        // this code intends to unmap the contact point to calculate
+        // the branch vector correctly
+        // be careful currently xcmimage[j>=nlocal] is not defined;
+        if (i < nlocal) {
+          xbox = (xcmimage[i] & IMGMASK) - IMGMAX;
+          ybox = (xcmimage[i] >> IMGBITS & IMGMASK) - IMGMAX;
+          zbox = (xcmimage[i] >> IMG2BITS) - IMGMAX;
+          if (domain->triclinic == 0) {
+            // xi --x-- xgi (the problem here)
+            // xi --o-- cx
+            // xi can be remapped near xgi with xcmimage[i]
+            // so cx can also be
+            cximage = cx + xbox*xprd;
+            cyimage = cy + ybox*yprd;
+            czimage = cz + zbox*zprd;
+          } else {
+            cximage = cx + xbox*xprd + ybox*xy + zbox*xz;
+            cyimage = cy + ybox*yprd + zbox*yz;
+            czimage = cz + zbox*zprd;
+          }
+          // finally obtain cxgi ... vector from xgi to the contact
+          cxgi = cximage - xgi;
+          cygi = cyimage - ygi;
+          czgi = czimage - zgi;
+        } else { // these cxgi, cygi, czgi won't be used but defined anyway
+          cxgi = cx - xgi;
+          cygi = cy - ygi;
+          czgi = cz - zgi;
+        }
+      } else{ // if atom i is not in any body, cm is its center
+        // check bodytag
+        if (bodytag){ // bodytag == !NULL -> fix_rigid_small
+
+          if (bodytag[i]) error->one(FLERR,"body information could not be extracted! check cutoff distance!");
+          // this means atom i is the part of a certain rigid particle
+          // however, this processor doesn't have information of the rigid particle
+          // this leads to segmation fault or (xgi, ygi, zgi)=[0 0 0]
+          // that's why this case should be excluded
+          xgi = xi;
+          ygi = yi;
+          zgi = zi;
+        } else { // bodytag == NULL -> fix_rigid
+          // no need to check bodytag because with fix_rigid, all processors
+          // have all information of all rigid particles
+          xgi = xi;
+          ygi = yi;
+          zgi = zi;
+        }
+        // xgi = xi ... above has actually no meaning..
+        // i.e. you can do same calc by cx - xi
+        // however, I think it's more comprihensive because
+        // xi, yi, zi are coords of gravity center for non-rigid clump particles
+        cxgi = cx - xgi;
+        cygi = cy - ygi;
+        czgi = cz - zgi;
+        // For single particle, no need to consider mapping
+      }
+      // the same is done for j ------------------------------------------------
+      if (body[j]>-1){
+        xgj = fix_rigid->compute_array(body[j],0);
+        ygj = fix_rigid->compute_array(body[j],1);
+        zgj = fix_rigid->compute_array(body[j],2);
+        if (j < nlocal) { // cxgj,cygj,czgj are not used if j is ghost
+          xbox = (xcmimage[j] & IMGMASK) - IMGMAX;
+          ybox = (xcmimage[j] >> IMGBITS & IMGMASK) - IMGMAX;
+          zbox = (xcmimage[j] >> IMG2BITS) - IMGMAX;
+          if (domain->triclinic == 0) {
+            cximage = cx + xbox*xprd;
+            cyimage = cy + ybox*yprd;
+            czimage = cz + zbox*zprd;
+          } else {
+            cximage = cx + xbox*xprd + ybox*xy + zbox*xz;
+            cyimage = cy + ybox*yprd + zbox*yz;
+            czimage = cz + zbox*zprd;
+          }
+          cxgj = cximage - xgj;
+          cygj = cyimage - ygj;
+          czgj = czimage - zgj;
+        } else {
+          cxgj = cx - xgj;
+          cygj = cy - ygj;
+          czgj = cz - zgj;
+        }
+
+      } else{ // if atom i is not in any body, xi,yi,zi is its center of mass
+        // check bodytag
+        if (bodytag){ // bodytag == !NULL -> fix_rigid_small
+          if (bodytag[j]) error->one(FLERR,"body information could not be extracted! check cutoff distance!");
+          xgj = xj;
+          ygj = yj;
+          zgj = zj;
+        } else { // bodytag == NULL -> fix_rigid
+          xgj = xj;
+          ygj = yj;
+          zgj = zj;
+        }
+        cxgj = cx - xgj;
+        cygj = cy - ygj;
+        czgj = cz - zgj;
+      }
+
+    }
+    // -----------------------------------
+
+
+
     //calculate stresses and assign it to vatom array
 
     if (vflag_either)
@@ -1228,12 +1385,27 @@ void Pair::ev_tally_gran(int i, int j, int nlocal,
                 volume = PI * radi*radi; //disk
             else
                 error->all(FLERR,"Cannot read correct dimension");
-            vatom[i][0] += (cx-xi) * fx / volume;
-            vatom[i][1] += (cy-yi) * fy / volume;
-            vatom[i][2] += (cz-zi) * fz / volume;
-            vatom[i][3] += (cx-xi) * fy / volume;
-            vatom[i][4] += (cx-xi) * fz / volume;
-            vatom[i][5] += (cy-yi) * fz / volume;
+            // -----------------------------------------------------------------
+            // modified to calculate correct stresses for rigid particles [TM 07 April 2019]
+            // volume term is also eliminated to consider non-pair stress contributes properly [TM 20 April 2019]
+            if (fix_rigid){
+              // dividing by 2.0: this is not true for per-atom
+              // But summation is still true
+              vatom[i][0] += cxgi * fx / volume;
+              vatom[i][1] += cygi * fy / volume;
+              vatom[i][2] += czgi * fz / volume;
+              vatom[i][3] += cxgi * fy / volume;
+              vatom[i][4] += cxgi * fz / volume;
+              vatom[i][5] += cygi * fz / volume;
+            } else{
+              vatom[i][0] += (cx-xi) * fx / volume;
+              vatom[i][1] += (cy-yi) * fy / volume;
+              vatom[i][2] += (cz-zi) * fz / volume;
+              vatom[i][3] += (cx-xi) * fy / volume;
+              vatom[i][4] += (cx-xi) * fz / volume;
+              vatom[i][5] += (cy-yi) * fz / volume;
+            }
+            // -----------------------------------------------------------------
           }
           if (j < nlocal)
            {
@@ -1244,14 +1416,28 @@ void Pair::ev_tally_gran(int i, int j, int nlocal,
                 volume = PI * radj*radj; //disk
             else
                 error->all(FLERR,"Cannot read correct dimension");
+            // -----------------------------------------------------------------
+            // modified to calculate correct stresses for rigid particles [TM 07 April 2019]
 
-            vatom[j][0] -= (cx-xj) * fx / volume;
-            vatom[j][1] -= (cy-yj) * fy / volume;
-            vatom[j][2] -= (cz-zj) * fz / volume;
-            vatom[j][3] -= (cx-xj) * fy / volume;
-            vatom[j][4] -= (cx-xj) * fz / volume;
-            vatom[j][5] -= (cy-yj) * fz / volume;
+            if (fix_rigid){
+              // -x,y,zbranch gives similar direction as cx-xi(or yi,zi)
+              vatom[j][0] -= cxgj * fx / volume;
+              vatom[j][1] -= cygj * fy / volume;
+              vatom[j][2] -= czgj * fz / volume;
+              vatom[j][3] -= cxgj * fy / volume;
+              vatom[j][4] -= cxgj * fz / volume;
+              vatom[j][5] -= cygj * fz / volume;
+            } else{
+              vatom[j][0] -= (cx-xj) * fx / volume;
+              vatom[j][1] -= (cy-yj) * fy / volume;
+              vatom[j][2] -= (cz-zj) * fz / volume;
+              vatom[j][3] -= (cx-xj) * fy / volume;
+              vatom[j][4] -= (cx-xj) * fz / volume;
+              vatom[j][5] -= (cy-yj) * fz / volume;
+            }
+            // -----------------------------------------------------------------
           }
+
         }
     }
 }
@@ -1845,4 +2031,3 @@ double Pair::memory_usage()
   bytes += comm->nthreads*maxvatom*6 * sizeof(double);
   return bytes;
 }
-

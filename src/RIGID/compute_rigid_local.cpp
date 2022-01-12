@@ -21,6 +21,8 @@
 #include "fix_rigid_small.h"
 #include "memory.h"
 #include "error.h"
+// ~~~~~~~~~
+#include "comm.h"
 
 using namespace LAMMPS_NS;
 
@@ -28,12 +30,13 @@ using namespace LAMMPS_NS;
 
 enum{ID,MOL,MASS,X,Y,Z,XU,YU,ZU,VX,VY,VZ,FX,FY,FZ,IX,IY,IZ,
      TQX,TQY,TQZ,OMEGAX,OMEGAY,OMEGAZ,ANGMOMX,ANGMOMY,ANGMOMZ,
-     QUATW,QUATI,QUATJ,QUATK,INERTIAX,INERTIAY,INERTIAZ};
+     QUATW,QUATI,QUATJ,QUATK,INERTIAX,INERTIAY,INERTIAZ,IDRONE,
+     IDRTWO,IDRTHREE,RAWI,TAGI,NLOCAL,COMM}; //added temp TM
 
 /* ---------------------------------------------------------------------- */
 
 ComputeRigidLocal::ComputeRigidLocal(LAMMPS *lmp, int narg, char **arg) :
-  Compute(lmp, narg, arg), 
+  Compute(lmp, narg, arg),
   rstyle(NULL), idrigid(NULL), fixrigid(NULL), vlocal(NULL), alocal(NULL)
 {
   if (narg < 5) error->all(FLERR,"Illegal compute rigid/local command");
@@ -85,6 +88,14 @@ ComputeRigidLocal::ComputeRigidLocal(LAMMPS *lmp, int narg, char **arg) :
     else if (strcmp(arg[iarg],"inertiax") == 0) rstyle[nvalues++] = INERTIAX;
     else if (strcmp(arg[iarg],"inertiay") == 0) rstyle[nvalues++] = INERTIAY;
     else if (strcmp(arg[iarg],"inertiaz") == 0) rstyle[nvalues++] = INERTIAZ;
+    // added temp TM
+    else if (strcmp(arg[iarg],"idrone") == 0) rstyle[nvalues++] = IDRONE;
+    else if (strcmp(arg[iarg],"idrtwo") == 0) rstyle[nvalues++] = IDRTWO;
+    else if (strcmp(arg[iarg],"idrthree") == 0) rstyle[nvalues++] = IDRTHREE;
+    else if (strcmp(arg[iarg],"rawi") == 0) rstyle[nvalues++] = RAWI;
+    else if (strcmp(arg[iarg],"tagi") == 0) rstyle[nvalues++] = TAGI;
+    else if (strcmp(arg[iarg],"nlocal") == 0) rstyle[nvalues++] = NLOCAL;
+    else if (strcmp(arg[iarg],"comm") == 0) rstyle[nvalues++] = COMM;
     else error->all(FLERR,"Invalid keyword in compute rigid/local command");
   }
 
@@ -149,9 +160,11 @@ void ComputeRigidLocal::compute_local()
 
 int ComputeRigidLocal::compute_rigid(int flag)
 {
-  int i,m,n,ibody;
+  int i,m,n,ibody,ibody_tag;
   double *ptr;
   FixRigidSmall::Body *body;
+  // ~~~~~~~~~~~~~~~~~~~~~~~~
+  // FixRigidSmall::Body *body_tag;
 
   double xprd = domain->xprd;
   double yprd = domain->yprd;
@@ -163,11 +176,17 @@ int ComputeRigidLocal::compute_rigid(int flag)
   int nlocal = atom->nlocal;
 
   m = 0;
-  for (i = 0; i < nlocal; i++) {
+  //for (i = 0; i < nlocal; i++) {
+  int nall = atom->nlocal + atom->nghost;
+  for (i = 0; i < nall; i++) {
     if (!(mask[i] & groupbit)) continue;
-    ibody = fixrigid->bodyown[i];
-    if (ibody < 0) continue;
+    //ibody = fixrigid->bodyown[i];
+    ibody = fixrigid->atom2body[i];
+    //if (ibody < 0) continue;
     body = &fixrigid->body[ibody];
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ibody_tag = fixrigid->tag2body[tag[i]];
+    // body_tag = &fixrigid->body[ibody_tag];
 
     if (flag) {
       if (nvalues == 1) ptr = &vlocal[m];
@@ -194,11 +213,11 @@ int ComputeRigidLocal::compute_rigid(int flag)
           ptr[n] = body->xcm[2];
           break;
         case XU:
-          ptr[n] = body->xcm[0] + 
+          ptr[n] = body->xcm[0] +
             ((body->image & IMGMASK) - IMGMAX) * xprd;
           break;
         case YU:
-          ptr[n] = body->xcm[1] + 
+          ptr[n] = body->xcm[1] +
             ((body->image >> IMGBITS & IMGMASK) - IMGMAX) * yprd;
           break;
         case ZU:
@@ -280,6 +299,27 @@ int ComputeRigidLocal::compute_rigid(int flag)
         case INERTIAZ:
           ptr[n] = body->inertia[2];
           break;
+        // added temp TM
+        case IDRONE:
+          ptr[n] = ibody;
+          break;
+        case IDRTWO:
+          ptr[n] = fixrigid->atom2body[i];
+          break;
+        case IDRTHREE:
+          ptr[n] = fixrigid->bodytag[i];
+          break;
+        case RAWI:
+          ptr[n] = i;
+          break;
+        case TAGI:
+          ptr[n] = tag[i];
+          break;
+        case NLOCAL:
+          ptr[n] = atom->nlocal;
+          break;
+        case COMM:
+          ptr[n] = comm->me;
         }
       }
     }

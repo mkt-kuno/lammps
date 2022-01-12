@@ -63,11 +63,15 @@ class FixRigidSmall : public Fix {
   void reset_dt();
   void zero_momentum();
   void zero_rotation();
+  void zero_torque();
   void *extract(const char*, int &);
   double extract_ke();
   double extract_erotational();
   double compute_scalar();
   double memory_usage();
+  //added TM
+  double compute_array(int, int);
+  void *extract_array(const char*,int, int &);
 
  protected:
   int me,nprocs;
@@ -118,6 +122,10 @@ class FixRigidSmall : public Fix {
                         // ID = tag of atom that owns body
   int *atom2body;       // index of owned/ghost body this atom is in, -1 if not
                         // can point to original or any image of the body
+  // Added TM ---------
+  //int *tag2body;        // index of owned/ghost body the atom with this tag is in
+                        // -1 if not
+  // ------------------
   imageint *xcmimage;   // internal image flags for atoms in rigid bodies
                         // set relative to in-box xcm of each body
   double **displace;    // displacement of each atom in body coords

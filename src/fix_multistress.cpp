@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -45,7 +45,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 {
   /*~ The syntax for the fix multistress command is as follows, where
     those keywords in brackets are optional:
- 
+
     fix ID group-ID multistress %_tolerance extra_steps {max_rate}
     {{x/xx}/{y/yy}/{z/zz}/xy/xz/yz (one or more)}
     {{stress target_stress}/
@@ -61,7 +61,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
     {constantp {x y}/{y x}/{x z}/{z x}/{y z}/{z y}}
     {constantq {x y}/{y x}/{x z}/{z x}/{y z}/{z y}}
     {units lattice/box}
-    
+
     If the final or delta options are used, your specifications
     may be modified. The lower boundaries do not move regardless of
     the user input. The strain rate will be correct though, e.g., if
@@ -71,8 +71,8 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 
     Lattice units are the default, as for fix_deform, but note that
     these are not fully tested (hence a warning is issued if lattice
-    units are selected). 
-    
+    units are selected).
+
     Variable (i.e., uncontrolled) volume is the default.
 
     Beware if strain control is required on a dimension and this fix is
@@ -107,7 +107,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 
   if (narg < 8 || narg > 36)
     error->all(FLERR,"Illegal fix multistress command");
-  
+
   if (!atom->sphere_flag)
     error->all(FLERR,"Fix multistress requires atom style sphere");
 
@@ -199,7 +199,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
   map[0] = xscale; map[1] = yscale; map[2] = zscale;
   map[3] = xscale; map[4] = xscale; map[5] = yscale;
 
-  /*~ addextra is an integer which is used to increase iarg by 1 due to 
+  /*~ addextra is an integer which is used to increase iarg by 1 due to
     the additional argument for both final and delta with orthogonal boxes,
     and increase it by 2 if cyclicstress or constantb is used on a boundary*/
   int addextra = 0;
@@ -265,11 +265,11 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 	  deltflag[0] = 1;
 	  addextra = 1;
 	} else error->all(FLERR,"Illegal fix multistress command");
-	
+
 	defflag[0] += 1;
       }
     } else if (strcmp(arg[iarg],"y") == 0 || strcmp(arg[iarg],"yy") == 0) {
-      
+
       double ylostart = domain->boxlo[1];
       double yhistart = domain->boxhi[1];
 
@@ -312,16 +312,16 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 	} else if (strcmp(arg[iarg+1],"final") == 0) {
 	  if (force->numeric(FLERR,arg[iarg+2]) >= force->numeric(FLERR,arg[iarg+3]))
 	    error->all(FLERR,"Correct the order of the fix multistress arguments");
-	  
+
 	  erates[1] = (ylostart-yhistart+map[1]*(force->numeric(FLERR,arg[iarg+3])-force->numeric(FLERR,arg[iarg+2])))/(delt*(yhistart-ylostart));
 	  deltflag[1] = 1;
 	  addextra = 1;
 	} else error->all(FLERR,"Illegal fix multistress command");
-	
+
 	defflag[1] += 1;
       }
     } else if (strcmp(arg[iarg],"z") == 0 || strcmp(arg[iarg],"zz") == 0) {
-      
+
       double zlostart = domain->boxlo[2];
       double zhistart = domain->boxhi[2];
 
@@ -369,11 +369,11 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 	  deltflag[2] = 1;
 	  addextra = 1;
 	} else error->all(FLERR,"Illegal fix multistress command");
-	
+
 	defflag[2] += 1;
       }
     } else if (strcmp(arg[iarg],"xy") == 0 || strcmp(arg[iarg],"yx") == 0) {
-      
+
       double xytiltstart = domain->xy;
       double ylostart = domain->boxlo[1];
       double yhistart = domain->boxhi[1];
@@ -402,11 +402,11 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 	  erates[3] = (map[3]*force->numeric(FLERR,arg[iarg+2])-xytiltstart)/(delt*(yhistart-ylostart));
 	  deltflag[3] = 1;
 	} else error->all(FLERR,"Illegal fix multistress command");
-	
+
 	defflag[3] += 1;
       }
     } else if (strcmp(arg[iarg],"xz") == 0 || strcmp(arg[iarg],"zx") == 0) {
-      
+
       double xztiltstart = domain->xz;
       double zlostart = domain->boxlo[2];
       double zhistart = domain->boxhi[2];
@@ -435,11 +435,11 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 	  erates[4] = (map[4]*force->numeric(FLERR,arg[iarg+2])-xztiltstart)/(delt*(zhistart-zlostart));
 	  deltflag[4] = 1;
 	} else error->all(FLERR,"Illegal fix multistress command");
-	
+
 	defflag[4] += 1;
       }
     } else if (strcmp(arg[iarg],"yz") == 0 || strcmp(arg[iarg],"yz") == 0) {
-      
+
       double yztiltstart = domain->yz;
       double zlostart = domain->boxlo[2];
       double zhistart = domain->boxhi[2];
@@ -468,7 +468,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
 	  erates[5] = (map[5]*force->numeric(FLERR,arg[iarg+2])-yztiltstart)/(delt*(zhistart-zlostart));
 	  deltflag[5] = 1;
 	} else error->all(FLERR,"Illegal fix multistress command");
-	
+
 	defflag[5] += 1;
       }
     } else if (strcmp(arg[iarg],"units") == 0) {
@@ -507,7 +507,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
   //~ Set constbctrl to indicate that the b value is being controlled
   if ((constbflag[0] != 0 && (constbflag[1] + constbflag[2] > 0)) ||
       (constbflag[1] != 0 && (constbflag[0] + constbflag[2] > 0)) ||
-      (constbflag[2] != 0 && (constbflag[0] + constbflag[1] > 0))) 
+      (constbflag[2] != 0 && (constbflag[0] + constbflag[1] > 0)))
     error->all(FLERR,"Cannot use constantb on more than one boundary simultaneously");
   else if (constbflag[0] + constbflag[1] + constbflag[2] > 0) constbctrl = 1;
   else constbctrl = 0;
@@ -515,7 +515,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
   for (int i = 0; i < 6; i++) {
     if ((strflag[i] + defflag[i]) > 1)
       error->all(FLERR,"Cannot repeat dimension specifiers in fix multistress");
-      
+
     //~ Test for negative target stresses
     //~ Note the convention used here is compressive stresses are positive
     if (starget[i] < 0.0)
@@ -528,10 +528,10 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
     if (cyclicflag[i] == 2 && lvstressflag == 0)
       error->warning(FLERR,"Using the cyclicdeviator option without linkvolstress is not generally a good idea");
   }
-  
+
   //~ Check values are sensible if constantb is active
-  if (constbctrl == 1 && ((constbflag[0] > 0 && (cyclicparam[0][0] < 0.0 || cyclicparam[0][0] > 1.0)) || 
-			  (constbflag[1] > 0 && (cyclicparam[0][1] < 0.0 || cyclicparam[0][1] > 1.0)) || 
+  if (constbctrl == 1 && ((constbflag[0] > 0 && (cyclicparam[0][0] < 0.0 || cyclicparam[0][0] > 1.0)) ||
+			  (constbflag[1] > 0 && (cyclicparam[0][1] < 0.0 || cyclicparam[0][1] > 1.0)) ||
 			  (constbflag[2] > 0 && (cyclicparam[0][2] < 0.0 || cyclicparam[0][2] > 1.0))))
     error->all(FLERR,"b value must be <= 1.0 and >= 0.0 in fix multistress");
 
@@ -551,7 +551,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
   if (dimension == 2 && (strflag[2] != 0 || strflag[4] != 0 || strflag[5] != 0 ||
 			 defflag[2] != 0 || defflag[4] != 0 || defflag[5] != 0))
     error->all(FLERR,"No z specifier in fix multistress for 2D simulations");
-       
+
   if (triclinic == 0 && (strflag[3] != 0 || strflag[4] != 0 || strflag[5] != 0 ||
 				 defflag[3] != 0 || defflag[4] != 0 || defflag[5] != 0))
     error->all(FLERR,"Shear stress specifications require triclinic boxes");
@@ -570,8 +570,8 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"Cannot use linkvolstress, constantp, constantq or constantb for 2D simulations");
 
   if (lvstressflag + constpflag + constqflag + constbctrl > 1)
-    error->all(FLERR,"Cannot use more than one of linkvolstress, constantp, constantq and constantb at the same time");    
-    
+    error->all(FLERR,"Cannot use more than one of linkvolstress, constantp, constantq and constantb at the same time");
+
   if (cyclicflag[0] == 2 && (cyclicflag[1] == 2 || cyclicflag[2] == 2) ||
       cyclicflag[1] == 2 && (cyclicflag[0] == 2 || cyclicflag[2] == 2))
     error->all(FLERR,"Cannot simultaneously use the cyclicdeviator option on multiple boundaries");
@@ -581,7 +581,7 @@ FixMultistress::FixMultistress(LAMMPS *lmp, int narg, char **arg) :
   id_stress = new char[n];
   strcpy(id_stress,id);
   strcat(id_stress,"_stress");
-  
+
   char **snewarg = new char*[7];
   snewarg[0] = id_stress;
   snewarg[1] = (char *) "all";
@@ -630,7 +630,7 @@ int FixMultistress::setmask()
 /* ---------------------------------------------------------------------- */
 
 void FixMultistress::init()
-{ 
+{
   //~ Ensure no conflict with another active fix deform
   for (int i = 0; i < modify->nfix; i++)
     if (strcmp(modify->fix[i]->style,"deform") == 0) {
@@ -655,7 +655,7 @@ void FixMultistress::init()
 
   //~ Update the affected rates if the calculations included the delt variable
   double delt = (update->endstep - update->beginstep) * update->dt;
-  
+
   for (int i = 0; i < 6; i++)
     if (deltflag[i] == 1) {
       erates[i] /= delt;
@@ -687,14 +687,49 @@ void FixMultistress::init()
   /*~ Calculate the volume enclosed by the periodic boundries initially. This is
     done only once even if fix multistress is redefined while linkvolstress
     continues to be active*/
+
+  // ---------------------------------------------------------------------------
+  // Modified for wall-periodic mixed boundary [TM April 17 2019]
+
   if (lvstressflag) {
+    int wallgranflag=0; // This flag should be zero or two finally
+    int wallstyle = 100;
+    int activated_wallstyle = 100;
     if (initialvolume == 0.0) initialvolume = domain->initialvolume;
-    if (initialvolume == 0.0) //~ If it is still equal to zero...
-      initialvolume = (domain->boxhi[0]-domain->boxlo[0])*(domain->boxhi[1]-domain->boxlo[1])*(domain->boxhi[2]-domain->boxlo[2]);
+    if (initialvolume == 0.0){
+        for (int i = 0; i < modify->nfix; i++) {
+            if (strcmp(modify->fix[i]->style,"wall/gran") == 0) {
+              int dim=0;
+              wallstyle = *((int *) modify->fix[i]->extract("wallstyle",dim));
+
+              if (wallgranflag>0&&wallstyle!=activated_wallstyle){
+                if (logfile) fprintf(logfile,"wallstyle=%d, while activated_wallstyle=%d",wallstyle,activated_wallstyle);
+                error->all(FLERR,"Linkvolstress expects zero or one wall direction");
+              }
+
+              activated_wallstyle=wallstyle; // firstly rewritten or error or rewritten with the same number
+              wallgranflag++;
+              if (wallgranflag>2) error->all(FLERR,"More than two walls are detected. Linkvolstress expects no wall or two walls with the same direction");
+
+              if (wallstyle==0){
+                  initialvolume = (domain->w_boxhi[0]-domain->w_boxlo[0]) * (domain->boxhi[1]-domain->boxlo[1]) * (domain->boxhi[2]-domain->boxlo[2]);
+              } else if (wallstyle==1){
+                  initialvolume = (domain->boxhi[0]-domain->boxlo[0]) * (domain->w_boxhi[1]-domain->w_boxlo[1]) * (domain->boxhi[2]-domain->boxlo[2]);
+              } else if (wallstyle==2){
+                  initialvolume = (domain->boxhi[0]-domain->boxlo[0]) * (domain->boxhi[1]-domain->boxlo[1]) * (domain->w_boxhi[2]-domain->w_boxlo[2]);
+              } else{
+                  error->all(FLERR,"Unexpected wallstyle");
+              }
+            }
+        }
+        if (wallgranflag==1) error->all(FLERR,"Only one wall is detected. Linkvolstress expects no wall or two walls with the same direction");
+        // if no wall/gran is detected, use periodic box volume
+        if (wallgranflag==0) initialvolume = (domain->boxhi[0]-domain->boxlo[0])*(domain->boxhi[1]-domain->boxlo[1])*(domain->boxhi[2]-domain->boxlo[2]);
+    }
   } else { //~ Reset initialvolume to 0 if linkvolstress is disabled
     initialvolume = 0.0;
   }
-
+  // ---------------------------------------------------------------------------
   //~ Always keep correspondence between these values
   domain->initialvolume = initialvolume;
 
@@ -889,7 +924,7 @@ void FixMultistress::end_of_step()
   for (int i = 0; i < 6; i++) tallymeans[i] = temprates[i] = 0.0;
   MPI_Allreduce(&means[0],&tallymeans[0],6,MPI_DOUBLE,MPI_SUM,world);
 
-  /*~ Calculate the initial values of mean effective and deviator stress. 
+  /*~ Calculate the initial values of mean effective and deviator stress.
     This is done only once even if fix multistress is redefined while
     constantp or constantq continues to be active*/
   if (currstep == 0) {
@@ -961,7 +996,7 @@ void FixMultistress::end_of_step()
 
 	  //~ Next find the approximate strain rates on the other boundaries
 	  updatedvolume = (1+temprates[i]*update->dt)*initialvolume;
-	  
+
 	  if (currstep%2 == 1) {//~ currstep not yet updated, so 1 differs from the 0 used below
 	    denominator = tallymeans[secondboundaryid]-oldmeans[secondboundaryid]+erates[secondboundaryid]*((tallymeans[firstboundaryid]-oldmeans[firstboundaryid])/erates[firstboundaryid]);
 
@@ -1019,7 +1054,7 @@ void FixMultistress::end_of_step()
 	double predstress[3] = {0.0};
 	int firstboundaryid = (i+1)%3;
 	int secondboundaryid = (i+2)%3;
-	
+
 	//~ Boundary 1
 	if ((update->ntimestep - update->beginstep) > 1 && erates[firstboundaryid] != 0.0) {
 	  if (strflag[firstboundaryid] == 1) {//~ If stress control
@@ -1043,7 +1078,7 @@ void FixMultistress::end_of_step()
 	} else predstress[secondboundaryid] = tallymeans[secondboundaryid];
 
 	//~ Now calculate the target stress for boundary i using the user-defined b value
-	//~ constbflag[i] == 1: {y,z}, {x,z} or {x,y}; constbflag[i] == 2: {z,y}, {z,x} or {y,x}; 
+	//~ constbflag[i] == 1: {y,z}, {x,z} or {x,y}; constbflag[i] == 2: {z,y}, {z,x} or {y,x};
 	if (constbflag[i] == 1) {
 	  if (firstboundaryid > secondboundaryid)
 	    starget[i] = cyclicparam[0][i]*predstress[secondboundaryid] + (1-cyclicparam[0][i])*predstress[firstboundaryid];
@@ -1055,7 +1090,7 @@ void FixMultistress::end_of_step()
 	  else
 	    starget[i] = cyclicparam[0][i]*predstress[secondboundaryid] + (1-cyclicparam[0][i])*predstress[firstboundaryid];
 	}
-	
+
 	//~ Reset temprates to 0
 	for (int j = 0; j < 3; j++)
 	  temprates[j] = 0.0;
@@ -1069,8 +1104,8 @@ void FixMultistress::end_of_step()
   currstep++;
   if (lvstressflag == 0 && constpflag == 0 && constqflag == 0) eval_fix_deform_params_basic();
   else eval_fix_deform_params_special();
-  
-  update_fix_deform_params(); //~ Fix_deform must be updated. 
+
+  update_fix_deform_params(); //~ Fix_deform must be updated.
   deffix->init();
   deffix->end_of_step(); //~ Run the fix_deform end_of_step function
 
@@ -1099,16 +1134,16 @@ void FixMultistress::eval_fix_deform_params_basic()
       // double rates[6] = {0.0}; //~ The rates of change over a timestep
       // if (stabtestflag[i] == 1 || fabs(erates[i]) < 1000*Kp[i]) ictrlflag[i] = 1;
       // cumul[i] += (starget[i] - 0.5*(tallymeans[i]+oldmeans[i]))*update->dt*ictrlflag[i];
-      // rates[i] = (oldmeans[i]-tallymeans[i])/update->dt; //~ Careful with signs here	
+      // rates[i] = (oldmeans[i]-tallymeans[i])/update->dt; //~ Careful with signs here
       // temprates[i] = -Kp[i]*(starget[i] - tallymeans[i] + cumul[i]/ti[i] + td[i]*rates[i]);
-      
+
       //~ Check for the stress component crossing the target value
       //	if ((starget[i]- oldmeans[i])*(starget[i] - tallymeans[i]) < 0) stabtestflag[i] = 1;
-      
+
       //~ Run an optional test for instability
       //	if (instabcheck == 1 && stabtestflag[i] == 1) instability_test(i);
       //      } else temprates[i] = -Kp[i]*(starget[i] - tallymeans[i]);
-      
+
       //~ Impose the strain rate limitation, if specified
       if (fabs(temprates[i]) > maxrate[i] && maxrate[i] > 0.0) {
 	if (temprates[i] < 0.0) temprates[i] = -maxrate[i]; //~ maxrate is an absolute value
@@ -1186,14 +1221,48 @@ void FixMultistress::eval_fix_deform_params_linkvolstress()
 	  else temprates[i] = maxrate[i];
 	}
       } else temprates[i] = erates[i];
-  
+
       int firstboundaryid = (i+1)%3;
       int secondboundaryid = (i+2)%3;
 
       //~ At this point, the new volume if the other rates are set to zero is:
       double updatedvolume = (1+temprates[i]*update->dt)*(domain->boxhi[0]-domain->boxlo[0])*(domain->boxhi[1]-domain->boxlo[1])*(domain->boxhi[2]-domain->boxlo[2]);
 
-      /*~ There are 2 unknowns: the two strain rates, temprates[firstboundaryid] and 
+      // -----------------------------------------------------------------------
+      // Modified [TM 17 April 2019]
+
+      int dim = 0;
+      int wallstyle = 100;
+      double ierates;
+      for (int j = 0; j < modify->nfix; j++) {
+          if (strcmp(modify->fix[j]->style,"wall/gran") == 0) {
+              //if (*((int *) modify->fix[j]->extract("wtranslate",dim))==1&&*((int *) modify->fix[j]->extract("wallstyle",dim))==i) temprates[i]=-(*((double *) modify->fix[j]->extract("w_ierates",dim)));
+              if (*((int *) modify->fix[j]->extract("wtranslate",dim))==1||*((int *) modify->fix[j]->extract("wscontrol",dim))==1) {
+                wallstyle = *((int *) modify->fix[j]->extract("wallstyle",dim));
+                ierates = -(*((double *) modify->fix[j]->extract("w_ierates",dim)));
+                if (wallstyle==i&&wallstyle==0){
+                  temprates[i]=ierates;
+                  updatedvolume = (1+temprates[i]*update->dt)*(domain->w_boxhi[0]-domain->w_boxlo[0])*(domain->boxhi[1]-domain->boxlo[1])*(domain->boxhi[2]-domain->boxlo[2]);
+                  if (ierates!=0.0) break; // currently, onle one wall translation is expected
+                } else if (wallstyle==i&&wallstyle==1){
+                  temprates[i]=ierates;
+                  updatedvolume = (1+temprates[i]*update->dt)*(domain->boxhi[0]-domain->boxlo[0])*(domain->w_boxhi[1]-domain->w_boxlo[1])*(domain->boxhi[2]-domain->boxlo[2]);
+                  if (ierates!=0.0) break;
+                } else if (wallstyle==i&&wallstyle==2){
+                  temprates[i]=ierates;
+                  updatedvolume = (1+temprates[i]*update->dt)*(domain->boxhi[0]-domain->boxlo[0])*(domain->boxhi[1]-domain->boxlo[1])*(domain->w_boxhi[2]-domain->w_boxlo[2]);
+                  if (ierates!=0.0) break;
+                } else {
+                  error->all(FLERR,"Wallstyle does not correspond to the independent direction");
+                }
+              }
+            } // if no wall/gran, updated volume is not rewritten
+        }
+      // ---------------------------------------------------------------------
+
+
+
+      /*~ There are 2 unknowns: the two strain rates, temprates[firstboundaryid] and
 	temprates[secondboundaryid]. It is desired to maintain a constant volume
 	and to keep the stresses on both boundaries equal. Therefore two independent
 	equations can be written in the following forms:
@@ -1210,7 +1279,7 @@ void FixMultistress::eval_fix_deform_params_linkvolstress()
 	= initialvolume.
 
 	Though the equations below look awful, all that is being done is these two simple
-	simultaneous equations are being solved for temprates[firstboundaryid] and 
+	simultaneous equations are being solved for temprates[firstboundaryid] and
 	temprates[secondboundaryid].
 
 	A slight complication is that the equations alternate between firstboundaryid
@@ -1305,7 +1374,7 @@ void FixMultistress::eval_fix_deform_params_linkvolstress()
 
 void FixMultistress::eval_fix_deform_params_constantpq()
 {
-  /*~ This version of eval_fix_deform_params is invoked only if either 
+  /*~ This version of eval_fix_deform_params is invoked only if either
     constantp or constantq are active.*/
 
   //~ Note that constantpq will be zero only for one index
@@ -1326,7 +1395,7 @@ void FixMultistress::eval_fix_deform_params_constantpq()
       int firstboundaryid = (i+1)%3;
       int secondboundaryid = (i+2)%3;
 
-      /*~ There are 2 unknowns: the two strain rates, temprates[firstboundaryid] and 
+      /*~ There are 2 unknowns: the two strain rates, temprates[firstboundaryid] and
 	temprates[secondboundaryid]. As suggested by Xin Huang, the stress changes on
 	one timestep should be small so we can simplify the old approach. Firstly, we
 	have the strain rate on boundary i. Estimate the resulting stress on boundary
@@ -1348,7 +1417,7 @@ void FixMultistress::eval_fix_deform_params_constantpq()
       if (update->ntimestep - update->beginstep > 1) {
 	//~ Predict stress on boundary i
 	double predstress[3] = {0.0};
-	
+
 	if (erates[i] != 0.0)
 	  predstress[i] = tallymeans[i] + temprates[i]*(tallymeans[i]-oldmeans[i])/erates[i];
 	else predstress[i] = tallymeans[i];
@@ -1415,7 +1484,7 @@ void FixMultistress::eval_fix_deform_params_constantpq()
 	    }
 	  }
 	} else {
-	  if (fabs(temprates[firstboundaryid]) > maxrate[firstboundaryid])	
+	  if (fabs(temprates[firstboundaryid]) > maxrate[firstboundaryid])
 	    constantpq_loop(temprates,firstboundaryid,secondboundaryid);
    	  else constantpq_loop(temprates,secondboundaryid,firstboundaryid);
    	}
@@ -1432,10 +1501,10 @@ void FixMultistress::linkvolstress_loop(double therates[], int firstid, int seco
   while (iterateflag >= 1) {
     therates[firstid] < 0.0 ? therates[firstid] = -maxrate[firstid]/iterateflag : therates[firstid] = maxrate[firstid]/iterateflag;
     therates[secondid] = (initialvolume-upvol*(1+therates[firstid]*update->dt))/(upvol*(1+therates[firstid]*update->dt)*update->dt);
- 
+
     fabs(therates[secondid]) <= maxrate[secondid] ? iterateflag = 0 : iterateflag++;
     if (iterateflag == 20) {
-      therates[firstid] = 0.0; 
+      therates[firstid] = 0.0;
       therates[secondid] < 0.0 ? therates[secondid] = -maxrate[secondid] : therates[secondid] = maxrate[secondid];
       iterateflag = 0; //~ To guarantee that an infinite loop does not occur
     }
@@ -1448,10 +1517,10 @@ void FixMultistress::constantpq_loop(double therates[], int firstid, int secondi
 {
   if (fabs(therates[firstid]) > maxrate[firstid])
     therates[firstid] < 0.0 ? therates[firstid] = -maxrate[firstid] : therates[firstid] = maxrate[firstid];
-  
+
   if (fabs(therates[secondid]) > maxrate[secondid])
     therates[secondid] < 0.0 ? therates[secondid] = -maxrate[secondid] : therates[secondid] = maxrate[secondid];
-  
+
   iterateflag = 0; //~ Reset this
 }
 
@@ -1464,12 +1533,12 @@ void FixMultistress::update_fix_deform_params()
   for (int i = 0; i < modify->nfix; i++)
     if (strcmp(modify->fix[i]->style,"deform") == 0)
       if (((FixDeform *) modify->fix[i])->flip == 1) flip = 1;
-  
+
   //~ Delete the existing fix_deform
   for (int i = 0; i < modify->nfix; i++)
     if (strcmp(modify->fix[i]->id,id_multistress) == 0)
       modify->delete_fix(id_multistress);
-  
+
   create_fix(); //~ Set up a replacement fix_deform
 }
 
@@ -1496,8 +1565,8 @@ void FixMultistress::instability_test(int i)
     Note that all min_* and max_* elements of the array were initialised
     at the *target values.*/
 
-  int werrflag = 0; //~ A flag used for convenience to indicate instability  
-  int delttarget = 5; //~ The percentage disparity that must exist 
+  int werrflag = 0; //~ A flag used for convenience to indicate instability
+  int delttarget = 5; //~ The percentage disparity that must exist
   double percdiff = 0.0;
 
   if (tallymeans[i] > instability[i][2]) {
@@ -1523,7 +1592,7 @@ double *FixMultistress::param_export()
   /*~ This is necessary to allow the strain rates to be exported to the
     pair styles, which allow the relative velocities between particles to
     be updated because of the applied strain rate field.
-    
+
     The static specifier ensures that the data exists for the duration of
     the program [KH - 9 November 2011]
 
@@ -1559,7 +1628,7 @@ void FixMultistress::lost_atom_check()
   bigint nblocal = atom->nlocal;
   MPI_Allreduce(&nblocal,&ntotal,1,MPI_LMP_BIGINT,MPI_SUM,world);
 
-  if (ntotal != atom->natoms) 
+  if (ntotal != atom->natoms)
     error->all(FLERR,"Atoms have been lost. Check that the simulation conditions are sensible.");
 }
 

@@ -5,7 +5,7 @@
 
    Copyright (2003) Sandia Corporation.  Under the terms of Contract
    DE-AC04-94AL85000 with Sandia Corporation, the U.S. Government retains
-   certain rights in this software.  This software is distributed under 
+   certain rights in this software.  This software is distributed under
    the GNU General Public License.
 
    See the README file in the top-level LAMMPS directory.
@@ -17,6 +17,8 @@
 #include "atom.h"
 #include "group.h"
 #include "error.h"
+//TM
+#include "modify.h"
 
 using namespace LAMMPS_NS;
 using namespace FixConst;
@@ -32,6 +34,17 @@ FixMomentumGran::FixMomentumGran(LAMMPS *lmp, int narg, char **arg) :
     error->all(FLERR,"FixMomentumGran requires that atoms have torque");
 }
 
+/* ---------------------------------------------------------------------- */
+//TM < set fix_rigid
+
+void FixMomentumGran::init()
+{
+  int i;
+  fix_rigid = NULL;
+  for (i = 0; i < modify->nfix; i++)
+    if (modify->fix[i]->rigid_flag) break;
+  if (i < modify->nfix) fix_rigid = modify->fix[i];
+}
 /* ---------------------------------------------------------------------- */
 
 int FixMomentumGran::setmask()
@@ -49,13 +62,15 @@ void FixMomentumGran::pre_force(int vflag)
   double **omega = atom->omega;
   int *mask = atom->mask;
   int nlocal = atom->nlocal;
-  
+
   for (int i = 0; i < nlocal; i++)
     if (mask[i] & groupbit) {
       omega[i][0] = 0.0;
       omega[i][1] = 0.0;
       omega[i][2] = 0.0;
     }
+
+  if (fix_rigid) fix_rigid->zero_rotation(); //TM
 }
 
 /* ---------------------------------------------------------------------- */
@@ -72,4 +87,6 @@ void FixMomentumGran::post_force(int vflag)
       torque[i][1] = 0.0;
       torque[i][2] = 0.0;
     }
+
+  if (fix_rigid) fix_rigid->zero_torque(); //TM
 }

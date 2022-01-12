@@ -58,15 +58,15 @@ enum{ISO,ANISO,TRICLINIC};
 /* ---------------------------------------------------------------------- */
 
 FixRigid::FixRigid(LAMMPS *lmp, int narg, char **arg) :
-  Fix(lmp, narg, arg), step_respa(NULL), 
-  infile(NULL), nrigid(NULL), mol2body(NULL), body2mol(NULL), 
-  body(NULL), displace(NULL), masstotal(NULL), xcm(NULL), 
-  vcm(NULL), fcm(NULL), inertia(NULL), ex_space(NULL), 
-  ey_space(NULL), ez_space(NULL), angmom(NULL), omega(NULL), 
-  torque(NULL), quat(NULL), imagebody(NULL), fflag(NULL), 
-  tflag(NULL), langextra(NULL), sum(NULL), all(NULL), 
-  remapflag(NULL), xcmimage(NULL), eflags(NULL), orient(NULL), 
-  dorient(NULL), id_dilate(NULL), random(NULL), avec_ellipsoid(NULL), 
+  Fix(lmp, narg, arg), step_respa(NULL),
+  infile(NULL), nrigid(NULL), mol2body(NULL), body2mol(NULL),
+  body(NULL), displace(NULL), masstotal(NULL), xcm(NULL),
+  vcm(NULL), fcm(NULL), inertia(NULL), ex_space(NULL),
+  ey_space(NULL), ez_space(NULL), angmom(NULL), omega(NULL),
+  torque(NULL), quat(NULL), imagebody(NULL), fflag(NULL),
+  tflag(NULL), langextra(NULL), sum(NULL), all(NULL),
+  remapflag(NULL), xcmimage(NULL), eflags(NULL), orient(NULL),
+  dorient(NULL), id_dilate(NULL), random(NULL), avec_ellipsoid(NULL),
   avec_line(NULL), avec_tri(NULL)
 {
   int i,ibody;
@@ -960,14 +960,18 @@ void FixRigid::post_force(int vflag)
     double ftm2v = force->ftm2v;
 
     for (int i = 0; i < nbody; i++) {
-      gamma1 = -masstotal[i] / t_period / ftm2v;
+      //gamma1 = -masstotal[i] / t_period / ftm2v;
+      if (t_start==0.0&&t_stop==0.0) gamma1 = - t_period / ftm2v;
+      else gamma1 = -masstotal[i] / t_period / ftm2v;
       gamma2 = sqrt(masstotal[i]) * tsqrt *
         sqrt(24.0*boltz/t_period/dt/mvv2e) / ftm2v;
       langextra[i][0] = gamma1*vcm[i][0] + gamma2*(random->uniform()-0.5);
       langextra[i][1] = gamma1*vcm[i][1] + gamma2*(random->uniform()-0.5);
       langextra[i][2] = gamma1*vcm[i][2] + gamma2*(random->uniform()-0.5);
-      
-      gamma1 = -1.0 / t_period / ftm2v;
+
+      //gamma1 = -1.0 / t_period / ftm2v;
+      if (t_start==0.0&&t_stop==0.0) gamma1 = - t_period / ftm2v;
+      else gamma1 = -1.0 / t_period / ftm2v;
       gamma2 = tsqrt * sqrt(24.0*boltz/t_period/dt/mvv2e) / ftm2v;
       langextra[i][3] = inertia[i][0]*gamma1*omega[i][0] +
         sqrt(inertia[i][0])*gamma2*(random->uniform()-0.5);
@@ -1138,6 +1142,10 @@ void FixRigid::pre_neighbor()
 {
   for (int ibody = 0; ibody < nbody; ibody++)
     domain->remap(xcm[ibody],imagebody[ibody]);
+
+  // TM
+  comm->forward_comm_fix(this,1);
+  //
   image_shift();
 }
 
@@ -1386,7 +1394,7 @@ void FixRigid::set_xv()
       vr[4] = 0.5*x0*fc2;
       vr[5] = 0.5*x1*fc2;
 
-      v_tally(1,&i,1.0,vr);
+      //v_tally(1,&i,1.0,vr);
     }
   }
 
@@ -1544,7 +1552,7 @@ void FixRigid::set_v()
       vr[4] = 0.5*x0*fc2;
       vr[5] = 0.5*x1*fc2;
 
-      v_tally(1,&i,1.0,vr);
+      //v_tally(1,&i,1.0,vr);
     }
   }
 
@@ -2549,6 +2557,28 @@ int FixRigid::unpack_exchange(int nlocal, double *buf)
 }
 
 /* ---------------------------------------------------------------------- */
+// Test for stress calculation
+int FixRigid::pack_forward_comm(int n, int *list, double *buf,
+                                     int pbc_flag, int *pbc)
+{
+  int i,j;
+  int m = 0;
+  for (i = 0; i < n; i++) {
+    j = list[i];
+    buf[m++] = ubuf(body[j]).d;
+  }
+
+  return m;
+}
+
+void FixRigid::unpack_forward_comm(int n, int first, double *buf)
+{
+  int i,last;
+  int m = 0;
+  last = first + n;
+  for (i = first; i < last; i++) body[i] = (tagint) ubuf(buf[m++]).i;
+}
+/* ---------------------------------------------------------------------- */
 
 void FixRigid::reset_dt()
 {
@@ -2637,6 +2667,11 @@ void *FixRigid::extract(const char *str, int &dim)
   if (strcmp(str,"t_target") == 0) {
     dim = 0;
     return &t_target;
+  }
+  //TM Added
+  if (strcmp(str,"xcmimage") == 0) {
+    dim = 1;
+    return xcmimage;
   }
 
   return NULL;

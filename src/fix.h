@@ -200,6 +200,7 @@ class Fix : protected Pointers {
 
   virtual void zero_momentum() {}
   virtual void zero_rotation() {}
+  virtual void zero_torque() {} //TM
 
   virtual void rebuild_special() {}
 

@@ -46,7 +46,10 @@ class FixRigid : public Fix {
   void set_arrays(int);
   int pack_exchange(int, double *);
   int unpack_exchange(int, double *);
-
+  // TM
+  int pack_forward_comm(int, int *, double *, int, int *);
+  void unpack_forward_comm(int, int, double *);
+  //
   void setup_pre_neighbor();
   void pre_neighbor();
   int dof(int);
