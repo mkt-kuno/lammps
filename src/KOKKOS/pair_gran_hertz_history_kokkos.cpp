@@ -79,7 +79,7 @@ void PairGranHertzHistoryKokkos<DeviceType>::init_style()
     fix_historyKK = (FixNeighHistoryKokkos<DeviceType> *)fix_history;
   }
 
-  PairGranHookeHistory::init_style();
+  PairGranHertzHistory::init_style();
 
   // adjust neighbor list request for KOKKOS
 
