@@ -31,6 +31,8 @@ namespace LAMMPS_NS {
 
 template<int WallStyle>
 struct TagFixWallGranHookeHistory{};
+template<int WallStyle>
+struct TagFixWallGranHertzHistory{};
 
 struct TagFixWallGranPackExchange{};
 struct TagFixWallGranUnpackExchange{};
@@ -54,6 +56,10 @@ class FixWallGranKokkos : public FixWallGranOld, public KokkosBase {
   template <int WallStyle>
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixWallGranHookeHistory<WallStyle>, const int&) const;
+
+  template <int WallStyle>
+  KOKKOS_INLINE_FUNCTION
+  void operator()(TagFixWallGranHertzHistory<WallStyle>, const int&) const;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(TagFixWallGranPackExchange, const int&) const;
